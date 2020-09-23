@@ -9,7 +9,7 @@ import { E } from '@agoric/eventual-send';
 
 /**
  * @typedef {Object} DeployPowers The special powers that agoric deploy gives us
- * @property {(path: string) => { moduleFormat: string, source: string }} bundleSource
+ * @property {(path: string) => Promise<{ moduleFormat: string, source: string }>} bundleSource
  * @property {(path: string) => string} pathResolve
  *
  * @typedef {Object} Board

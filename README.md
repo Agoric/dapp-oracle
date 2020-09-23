@@ -1,6 +1,6 @@
-# Chainlink Dapp
+# Oracle Dapp
 
-This Dapp interacts with the [Chainlink](https://chain.link) decentralized oracle network.
+This Dapp is a generic way to interact with oracles such as the [Chainlink](https://chain.link) decentralized oracle network.
 
 # Architecture
 
@@ -13,22 +13,15 @@ There are three basic components to a given Chainlink integration:
 
 ## Planned Implementation
 
-This initial implementation does not use $LINK.
+The "external adapter" is [in
+Javascript](https://github.com/smartcontractkit/external-adapters-js) and
+"external initiator" is [in
+Golang](https://github.com/smartcontractkit/external-initiator).  Both contact
+the `ag-solo` where `agoric deploy api/deploy-oracle.js` has been run to create
+an oracle handler and register it in the board for a UI to pick up.
 
-The "external initiator" is a patch to the [Golang Chainlink External
-Initiator](https://github.com/smartcontractkit/external-initiator) that monitors
-Cosmos SDK events published from the API server.  This Dapp contract uses the
-provided `events` object to publish those events, where `agoric.events` is the
-on-chain capability to publish a Cosmos SDK event.
+## Usage
 
-The "external adapter" is an `ag-solo` where `agoric deploy
-api/deploy-adapter.js` has been run.  Adapters need to be granted an
-`adapterPass` by the Dapp creator with `agoric deploy api/allow-adapter.js` in
-order to be able to invoke `E(publicFacet).adapterReply(adapterPass, replyData)`
-to answer a Chainlink event.
-
-# Deployment
-
-In order to deploy the contract, you will have to use an ag-solo that has been
-provisioned with the `agoric.events` power.  This is done automatically for
-the simulated chain used while testing.
+The `publicFacet.makeQueryInvitation(oracleHandle, jobspec)` call creates a
+queryInvitation, which can be redeemed (by any paying fees) via
+`zoe.offer(invitation)` for an oracle result.
