@@ -15,7 +15,7 @@ import { makeIssuerKit } from '@agoric/ertp';
 
 const contractPath = `${__dirname}/../src/contract`;
 
-test('contract with multiple oracles', async t => {
+test('single oracle', async t => {
   // Outside of tests, we should use the long-lived Zoe on the
   // testnet. In this test, we must create a new Zoe.
   const zoe = makeZoe(makeFakeVatAdmin());
@@ -40,6 +40,7 @@ test('contract with multiple oracles', async t => {
 
   // Create some oracles.
   const { adminFacet, oracle } = await E(publicFacet).makeOracleKit('myOracle');
+  E(adminFacet).addFeeIssuer(link.issuer);
   t.is(await E(oracle).getAllegedName(), 'myOracle');
 
   const feeAmount = link.amountMath.make(1000);
@@ -52,24 +53,36 @@ test('contract with multiple oracles', async t => {
     async onQuery(o, query, oh) {
       t.is(o, oracle);
       t.is(oh, oracleHandler);
+      let replied;
       /** @type {OracleQueryHandler} */
       const oracleQueryHandler = harden({
-        async calculateFee(q, isFinal, oqh) {
+        async calculateFee(q, alreadyReply, oqh) {
           t.is(q, query);
-          t.is(typeof isFinal, 'boolean');
+          if (replied) {
+            // Ensure we are presented with the same reply.
+            t.assert(Array.isArray(alreadyReply));
+            t.is(alreadyReply.length, 1);
+            t.deepEqual(alreadyReply[0], replied);
+          } else {
+            t.is(alreadyReply, undefined);
+          }
           t.is(oqh, oracleQueryHandler);
+
           if (q.kind !== 'Paid') {
             // No fee for an unpaid query.
-            return undefined;
+            return {};
           }
-          return harden({ Fee: feeAmount });
+          return { Fee: feeAmount };
         },
         async getReply(q, oqh) {
+          t.is(replied, undefined);
           t.is(q, query);
           t.is(oqh, oracleQueryHandler);
+          replied = harden({ pong: q });
           return harden({ pong: q });
         },
         async receiveFee(q, collected, oqh) {
+          t.not(replied, undefined);
           t.is(q, query);
           t.is(oqh, oracleQueryHandler);
           if (q.kind === 'Paid') {
@@ -89,10 +102,7 @@ test('contract with multiple oracles', async t => {
     },
   });
 
-  t.deepEqual(await E(publicFacet).query(oracle, { hello: 'World' }), {
-    pong: { hello: 'World' },
-  });
-
+  const freeReply = E(publicFacet).query(oracle, { hello: 'World' });
   const invitation = E(publicFacet).makeQueryInvitation(oracle, {
     kind: 'Free',
     data: 'foo',
@@ -105,6 +115,10 @@ test('contract with multiple oracles', async t => {
     kind: 'Paid',
     data: 'baz',
   });
+  const invitation4 = E(publicFacet).makeQueryInvitation(oracle, {
+    kind: 'Paid',
+    data: 'bot',
+  });
 
   // Ensure all three are real Zoe invitations.
   t.truthy(await E(invitationIssuer).isLive(invitation));
@@ -112,17 +126,21 @@ test('contract with multiple oracles', async t => {
   t.truthy(await E(invitationIssuer).isLive(invitation3));
 
   const offer = E(zoe).offer(invitation);
-  const overAmount = link.amountMath.make(1500);
+  const overAmount = link.amountMath.add(feeAmount, link.amountMath.make(799));
   const offer3 = E(zoe).offer(
     invitation3,
-    { give: { Fee: overAmount } },
-    {
+    harden({ give: { Fee: overAmount } }),
+    harden({
       Fee: link.mint.mintPayment(overAmount),
-    },
+    }),
   );
 
   // We only just now initialize the oracleHandler.
   E(adminFacet).setHandler(oracleHandler);
+
+  t.deepEqual(await freeReply, {
+    pong: { hello: 'World' },
+  });
 
   // Check the free result.
   t.deepEqual(await E(offer).getOfferResult(), {
@@ -133,7 +151,7 @@ test('contract with multiple oracles', async t => {
   t.deepEqual(await E(offer3).getOfferResult(), {
     pong: { kind: 'Paid', data: 'baz' },
   });
-  t.is(
+  t.deepEqual(
     await link.issuer.getAmountOf(E(offer3).getPayout('Fee')),
     link.amountMath.subtract(overAmount, feeAmount),
   );
@@ -144,24 +162,30 @@ test('contract with multiple oracles', async t => {
   // Check the underpaid result.
   const underAmount = link.amountMath.make(500);
   const offer4 = E(zoe).offer(
-    invitation2,
-    { give: { Fee: underAmount } },
-    {
+    invitation4,
+    harden({ give: { Fee: underAmount } }),
+    harden({
       Fee: link.mint.mintPayment(underAmount),
-    },
+    }),
   );
 
   await t.throwsAsync(() => E(offer2).getOfferResult(), { instanceOf: Error });
   await t.throwsAsync(() => E(offer4).getOfferResult(), { instanceOf: Error });
-  t.is(await link.issuer.getAmountOf(E(offer4).getPayout('Fee')), underAmount);
+  t.deepEqual(
+    await link.issuer.getAmountOf(E(offer4).getPayout('Fee')),
+    underAmount,
+  );
 
+  const badInvitation = E(publicFacet).makeQueryInvitation(oracle, {
+    hello: 'nomore',
+  });
   await E(adminFacet).revoke();
+  const badOffer = E(zoe).offer(badInvitation);
 
   // Ensure the oracle no longer functions after revocation.
-  await t.throwsAsync(
-    () => E(publicFacet).makeQueryInvitation(oracle, { hello: 'nomore' }),
-    { instanceOf: Error },
-  );
+  await t.throwsAsync(() => E(badOffer).getOfferResult(), {
+    message: /^Oracle .* revoked$/,
+  });
   await t.throwsAsync(
     () => E(publicFacet).query(oracle, { hello: 'not again' }),
     { instanceOf: Error },
