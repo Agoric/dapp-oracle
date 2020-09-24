@@ -8,7 +8,6 @@ import bundleSource from '@agoric/bundle-source';
 import { E } from '@agoric/eventual-send';
 import { makeFakeVatAdmin } from '@agoric/zoe/test/unitTests/contracts/fakeVatAdmin';
 import { makeZoe } from '@agoric/zoe';
-import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
 
 import '../src/types';
 import '@agoric/zoe/exported';
@@ -44,44 +43,73 @@ test('contract with multiple oracles', async t => {
   t.is(await E(oracle).getAllegedName(), 'myOracle');
 
   const feeAmount = link.amountMath.make(1000);
-  const oracleProcess = async notifierP => {
-    for await (const queries of makeAsyncIterableFromNotifier(notifierP)) {
-      for (const [queryId, query] of queries) {
-        if (query.kind === 'Paid') {
-          E(adminFacet).wantPayment({ Fee: feeAmount });
-        }
-        const collected = E(adminFacet).reply(queryId, { pong: query });
+  /** @type {OracleHandler} */
+  const oracleHandler = harden({
+    async onCreate(o, oh) {
+      t.is(o, oracle);
+      t.is(oh, oracleHandler);
+    },
+    async onQuery(o, query, oh) {
+      t.is(o, oracle);
+      t.is(oh, oracleHandler);
+      /** @type {OracleQueryHandler} */
+      const oracleQueryHandler = harden({
+        async calculateFee(q, isFinal, oqh) {
+          t.is(q, query);
+          t.is(typeof isFinal, 'boolean');
+          t.is(oqh, oracleQueryHandler);
+          if (q.kind !== 'Paid') {
+            // No fee for an unpaid query.
+            return undefined;
+          }
+          return harden({ Fee: feeAmount });
+        },
+        async getReply(q, oqh) {
+          t.is(q, query);
+          t.is(oqh, oracleQueryHandler);
+          return harden({ pong: q });
+        },
+        async receiveFee(q, collected, oqh) {
+          t.is(q, query);
+          t.is(oqh, oracleQueryHandler);
+          if (q.kind === 'Paid') {
+            // eslint-disable-next-line no-await-in-loop
+            t.is(await link.issuer.getAmountOf(E.G(collected).Fee), feeAmount);
+          } else {
+            // eslint-disable-next-line no-await-in-loop
+            t.deepEqual(await collected, {});
+          }
+        },
+      });
+      return oracleQueryHandler;
+    },
+    async onRevoke(o, oh) {
+      t.is(o, oracle);
+      t.is(oh, oracleHandler);
+    },
+  });
 
-        if (query.kind === 'Paid') {
-          // eslint-disable-next-line no-await-in-loop
-          t.is(await link.issuer.getAmountOf(E.G(collected).Fee), feeAmount);
-        } else {
-          // eslint-disable-next-line no-await-in-loop
-          t.deepEqual(await collected, {});
-        }
-      }
-    }
-    return true;
-  };
-
-  const processedP = oracleProcess(E(adminFacet).getQueryNotifier());
-
-  t.deepEqual(await E(oracle).query({ hello: 'World' }), {
+  t.deepEqual(await E(publicFacet).query(oracle, { hello: 'World' }), {
     pong: { hello: 'World' },
   });
 
-  const invitation = E(oracle).makeQueryInvitation({
+  const invitation = E(publicFacet).makeQueryInvitation(oracle, {
     kind: 'Free',
     data: 'foo',
   });
-  const invitation2 = E(oracle).makeQueryInvitation({
+  const invitation2 = E(publicFacet).makeQueryInvitation(oracle, {
     kind: 'Paid',
     data: 'bar',
   });
-  const invitation3 = E(oracle).makeQueryInvitation({
+  const invitation3 = E(publicFacet).makeQueryInvitation(oracle, {
     kind: 'Paid',
     data: 'baz',
   });
+
+  // Ensure all three are real Zoe invitations.
+  t.truthy(await E(invitationIssuer).isLive(invitation));
+  t.truthy(await E(invitationIssuer).isLive(invitation2));
+  t.truthy(await E(invitationIssuer).isLive(invitation3));
 
   const offer = E(zoe).offer(invitation);
   const overAmount = link.amountMath.make(1500);
@@ -92,6 +120,9 @@ test('contract with multiple oracles', async t => {
       Fee: link.mint.mintPayment(overAmount),
     },
   );
+
+  // We only just now initialize the oracleHandler.
+  E(adminFacet).setHandler(oracleHandler);
 
   // Check the free result.
   t.deepEqual(await E(offer).getOfferResult(), {
@@ -126,6 +157,13 @@ test('contract with multiple oracles', async t => {
 
   await E(adminFacet).revoke();
 
-  // Ensure the processed promise resolves as true.
-  t.is(await processedP, true);
+  // Ensure the oracle no longer functions after revocation.
+  await t.throwsAsync(
+    () => E(publicFacet).makeQueryInvitation(oracle, { hello: 'nomore' }),
+    { instanceOf: Error },
+  );
+  await t.throwsAsync(
+    () => E(publicFacet).query(oracle, { hello: 'not again' }),
+    { instanceOf: Error },
+  );
 });
