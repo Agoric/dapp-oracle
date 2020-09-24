@@ -45,38 +45,43 @@ const start = async zcf => {
    * Actually perform the query, handling fees, and returning a result.
    * @param {Oracle} oracle
    * @param {any} query
-   * @param {(fee: Record<Keyword, Amount>, receive?: (collected: PaymentPKeywordRecord) => Promise<void>) => Promise<void>} manageFee
+   * @param {(fee: Record<Keyword, Amount>) => Promise<void>} assertDeposit
+   * @param {(fee: Record<Keyword, Amount>, collect: (collected:
+   * PaymentPKeywordRecord) => Promise<void>) => Promise<void>} collectFee
    * @returns {Promise<any>}
    */
-  const performQuery = async (oracle, query, manageFee) => {
+  const performQuery = async (oracle, query, assertDeposit, collectFee) => {
     const handler = await oracleToHandlerP.get(oracle);
     const queryHandler = await E(handler).onQuery(oracle, query, handler);
-    const predictedFee = await E(queryHandler).calculateFee(
-      query,
-      false,
-      undefined,
-      queryHandler,
-    );
+    const deposit = await E(queryHandler).calculateDeposit(query, queryHandler);
     // Assert that they can cover the predicted fee.
-    await manageFee(predictedFee);
+    await assertDeposit(deposit);
     const reply = await E(queryHandler).getReply(query, queryHandler);
     const finalFee = await E(queryHandler).calculateFee(
       query,
-      true,
       reply,
       queryHandler,
     );
     // Last chance to abort if the oracle is revoked.
     await oracleToHandlerP.get(oracle);
+
     // Collect the described fee.
-    await manageFee(finalFee, async collected => {
+    const collect = async collected => {
       // Don't return this promise... we want it to happen asynchronously so that
       // the oracle cannot block the receipt of the reply once the funds have
       // been collected from the caller.
       E(queryHandler).receiveFee(query, reply, collected, queryHandler);
-    });
-    // Only now can we release the reply to the caller.
-    return reply;
+    };
+
+    // Try to collect the final fee.
+    return collectFee(finalFee, collect).then(
+      _ => reply,
+      async e => {
+        // We had an error, so collect the deposit and rethrow the error.
+        await collectFee(deposit, collect);
+        throw e;
+      },
+    );
   };
 
   /** @type {OraclePublicFacet} */
@@ -141,33 +146,42 @@ const start = async zcf => {
       });
     },
     async query(oracle, query) {
-      return performQuery(oracle, query, async (fee, receive) => {
-        const failureDetails = receive
-          ? details`Unpaid query did not cover the final fee of ${fee}`
-          : details`Unpaid query did not cover the predicted fee of ${fee}`;
+      const makeAssertFee = isDeposit => async fee => {
+        const failureDetails = isDeposit
+          ? details`Unpaid query did not cover the deposit of ${fee}`
+          : details`Unpaid query did not cover the final fee of ${fee}`;
         assert.equal(Object.keys(fee).length, 0, failureDetails);
-      });
+      };
+      return performQuery(
+        oracle,
+        query,
+        makeAssertFee(true),
+        makeAssertFee(false),
+      );
     },
     async makeQueryInvitation(oracle, query) {
       /** @type {OfferHandler} */
       const offerHandler = async seat => {
-        return performQuery(oracle, query, async (fee, receive) => {
-          // Assert that seat has at least the fee.
-          const failureDetails = receive
-            ? details`Paid query did not cover the final fee of ${fee}`
-            : details`Paid query did not cover the predicted fee of ${fee}`;
+        const makeAssertFee = isDeposit => async fee => {
+          const failureDetails = isDeposit
+            ? details`Paid query did not cover the deposit of ${fee}`
+            : details`Paid query did not cover the final fee of ${fee}`;
           assert(seatHasAtLeast(zcf, seat, fee), failureDetails);
+        };
+        return performQuery(
+          oracle,
+          query,
+          makeAssertFee(true),
+          async (fee, receive) => {
+            // Assert that seat has at least the fee.
+            await makeAssertFee(false)(fee);
 
-          if (!receive || Object.keys(fee).length === 0) {
-            // Don't collect the fee right now, just return.
-            return undefined;
-          }
-
-          // Actually collect the fee.  The reply will be released when we return.
-          const collected = await withdrawFromSeat(zcf, seat, fee);
-          seat.exit();
-          return receive(collected);
-        });
+            // Actually collect the fee.  The reply will be released when we return.
+            const collected = await withdrawFromSeat(zcf, seat, fee);
+            seat.exit();
+            return receive(collected);
+          },
+        );
       };
       return zcf.makeInvitation(offerHandler, 'oracle query invitation');
     },

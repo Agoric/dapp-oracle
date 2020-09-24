@@ -73,10 +73,19 @@ test.before(
           let replied;
           /** @type {OracleQueryHandler} */
           const oracleQueryHandler = {
-            async calculateFee(q, isFinal, finalReply, oqh) {
+            async calculateDeposit(q, oqh) {
               t.is(q, query);
-              t.is(isFinal, replied !== undefined);
-              t.is(finalReply, replied);
+              t.is(replied, undefined);
+              t.is(oqh, oracleQueryHandler);
+              if (q.kind !== 'Paid') {
+                // No deposit.
+                return {};
+              }
+              return { Fee: feeAmount };
+            },
+            async calculateFee(q, reply, oqh) {
+              t.is(q, query);
+              t.is(reply, replied);
               t.is(oqh, oracleQueryHandler);
 
               if (q.kind !== 'Paid') {
