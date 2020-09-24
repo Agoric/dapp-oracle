@@ -92,36 +92,45 @@ const start = async zcf => {
       };
 
       oracleToHandlerP.init(oracle, firstHandlerPK.promise);
+
+      /** @type {OracleAdminFacet} */
+      const adminFacet = {
+        async addFeeIssuer(issuerP) {
+          lastIssuerNonce += 1;
+          const keyword = `Oracle${oracleNonce}Fee${lastIssuerNonce}`;
+          await zcf.saveIssuer(issuerP, keyword);
+        },
+        replaceHandler(oh) {
+          if (revoked) {
+            throw revoked;
+          }
+          // Resolve the first promise if it wasn't.
+          firstHandlerPK.resolve(oh);
+          oracleToHandlerP.set(
+            oracle,
+            E(oh)
+              .onCreate(oracle, adminFacet, oh)
+              .then(_ => oh),
+          );
+        },
+        revoke() {
+          if (revoked) {
+            throw revoked;
+          }
+          revoked = Error(`Oracle ${allegedName} revoked`);
+          const rejected = Promise.reject(revoked);
+          // Silence unhandled rejection.
+          rejected.catch(_ => {});
+
+          // Reject the first promise if it wasn't.
+          firstHandlerPK.reject(rejected);
+          oracleToHandlerP.set(oracle, rejected);
+        },
+      };
+
       return harden({
         oracle,
-        adminFacet: {
-          async addFeeIssuer(issuerP) {
-            lastIssuerNonce += 1;
-            const keyword = `Oracle${oracleNonce}Fee${lastIssuerNonce}`;
-            await zcf.saveIssuer(issuerP, keyword);
-          },
-          setHandler(oh) {
-            if (revoked) {
-              throw revoked;
-            }
-            // Resolve the first promise if it wasn't.
-            firstHandlerPK.resolve(oh);
-            oracleToHandlerP.set(oracle, Promise.resolve(oh));
-          },
-          revoke() {
-            if (revoked) {
-              throw revoked;
-            }
-            revoked = Error(`Oracle ${allegedName} revoked`);
-            const rejected = Promise.reject(revoked);
-            // Silence unhandled rejection.
-            rejected.catch(_ => {});
-
-            // Reject the first promise if it wasn't.
-            firstHandlerPK.reject(rejected);
-            oracleToHandlerP.set(oracle, rejected);
-          },
-        },
+        adminFacet,
       });
     },
     async query(oracle, query) {
