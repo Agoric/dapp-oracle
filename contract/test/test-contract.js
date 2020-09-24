@@ -95,6 +95,7 @@ test.before(
             async receiveFee(q, reply, collected, oqh) {
               t.not(replied, undefined);
               t.is(q, query);
+              t.is(reply, replied);
               t.is(oqh, oracleQueryHandler);
               if (q.kind === 'Paid') {
                 // eslint-disable-next-line no-await-in-loop

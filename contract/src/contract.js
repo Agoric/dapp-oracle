@@ -69,9 +69,12 @@ const start = async zcf => {
     // Last chance to abort if the oracle is revoked.
     await oracleToHandlerP.get(oracle);
     // Collect the described fee.
-    await manageFee(finalFee, collected =>
-      E(queryHandler).receiveFee(query, reply, collected, queryHandler),
-    );
+    await manageFee(finalFee, async collected => {
+      // Don't return this promise... we want it to happen asynchronously so that
+      // the oracle cannot block the receipt of the reply once the funds have
+      // been collected from the caller.
+      E(queryHandler).receiveFee(query, reply, collected, queryHandler);
+    });
     // Only now can we release the reply to the caller.
     return reply;
   };
@@ -160,7 +163,7 @@ const start = async zcf => {
             return undefined;
           }
 
-          // Actually collect the fee now that the query has been replied.
+          // Actually collect the fee.  The reply will be released when we return.
           const collected = await withdrawFromSeat(zcf, seat, fee);
           seat.exit();
           return receive(collected);
