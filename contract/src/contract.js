@@ -53,6 +53,7 @@ const start = async zcf => {
     const queryHandler = await E(handler).onQuery(oracle, query, handler);
     const predictedFee = await E(queryHandler).calculateFee(
       query,
+      false,
       undefined,
       queryHandler,
     );
@@ -61,12 +62,15 @@ const start = async zcf => {
     const reply = await E(queryHandler).getReply(query, queryHandler);
     const finalFee = await E(queryHandler).calculateFee(
       query,
-      [reply],
+      true,
+      reply,
       queryHandler,
     );
+    // Last chance to abort if the oracle is revoked.
+    await oracleToHandlerP.get(oracle);
     // Collect the described fee.
     await manageFee(finalFee, collected =>
-      E(queryHandler).receiveFee(query, collected, queryHandler),
+      E(queryHandler).receiveFee(query, reply, collected, queryHandler),
     );
     // Only now can we release the reply to the caller.
     return reply;

@@ -16,9 +16,8 @@ import { makeIssuerKit } from '@agoric/ertp';
 /**
  * @typedef {Object} TestContext
  * @property {ZoeService} zoe
- * @property {OracleHandler} pingHandler
- * @property {OracleAdminFacet} pingAdmin
- * @property {Oracle} pingOracle
+ * @property {(t: ExecutionContext) => Promise<OracleKit & { oracleHandler:
+ * OracleHandler }>} makePingHandler
  * @property {OraclePublicFacet} publicFacet
  * @property {Amount} feeAmount
  * @property {IssuerKit} link
@@ -30,7 +29,7 @@ const contractPath = `${__dirname}/../src/contract`;
 
 test.before(
   'setup oracle',
-  /** @param {ExecutionContext} t */ async t => {
+  /** @param {ExecutionContext} ot */ async ot => {
     // Outside of tests, we should use the long-lived Zoe on the
     // testnet. In this test, we must create a new Zoe.
     const zoe = makeZoe(makeFakeVatAdmin());
@@ -50,100 +49,94 @@ test.before(
     /** @type {{ publicFacet: OraclePublicFacet }} */
     const { publicFacet } = await E(zoe).startInstance(installation);
 
-    // Create an oracle.
-    const { adminFacet, oracle } = await E(publicFacet).makeOracleKit(
-      'myOracle',
-    );
-    t.is(await E(oracle).getAllegedName(), 'myOracle');
-
     const feeAmount = link.amountMath.make(1000);
-    /** @type {OracleHandler} */
-    const oracleHandler = harden({
-      async onCreate(o, af, oh) {
-        t.is(o, oracle);
-        t.is(oh, oracleHandler);
-        t.is(af, adminFacet);
-        await E(af).addFeeIssuer(link.issuer);
-      },
-      async onQuery(o, query, oh) {
-        t.is(o, oracle);
-        t.is(oh, oracleHandler);
-        let replied;
-        /** @type {OracleQueryHandler} */
-        const oracleQueryHandler = {
-          async calculateFee(q, alreadyReply, oqh) {
-            t.is(q, query);
-            if (replied) {
-              // Ensure we are presented with the same reply.
-              t.assert(Array.isArray(alreadyReply));
-              t.is(alreadyReply.length, 1);
-              t.is(alreadyReply[0], replied);
-            } else {
-              t.is(alreadyReply, undefined);
-            }
-            t.is(oqh, oracleQueryHandler);
+    /**
+     * @returns {Promise<OracleKit & { oracleHandler: OracleHandler }>}
+     */
+    const makePingHandler = async t => {
+      // Create an oracle.
+      const { adminFacet, oracle } = await E(publicFacet).makeOracleKit(
+        'myOracle',
+      );
+      t.is(await E(oracle).getAllegedName(), 'myOracle');
 
-            if (q.kind !== 'Paid') {
-              // No fee for an unpaid query.
-              return {};
-            }
-            return { Fee: feeAmount };
-          },
-          async getReply(q, oqh) {
-            t.is(replied, undefined);
-            t.is(q, query);
-            t.is(oqh, oracleQueryHandler);
-            replied = harden({ pong: q });
-            return replied;
-          },
-          async receiveFee(q, collected, oqh) {
-            t.not(replied, undefined);
-            t.is(q, query);
-            t.is(oqh, oracleQueryHandler);
-            if (q.kind === 'Paid') {
-              // eslint-disable-next-line no-await-in-loop
-              t.is(
-                await link.issuer.getAmountOf(E.G(collected).Fee),
-                feeAmount,
-              );
-            } else {
-              // eslint-disable-next-line no-await-in-loop
-              t.deepEqual(await collected, {});
-            }
-          },
-        };
-        return harden(oracleQueryHandler);
-      },
-      async onRevoke(o, oh) {
-        t.is(o, oracle);
-        t.is(oh, oracleHandler);
-      },
-    });
+      const oracleHandler = harden({
+        async onCreate(o, af, oh) {
+          t.is(o, oracle);
+          t.is(oh, oracleHandler);
+          t.is(af, adminFacet);
+          await E(af).addFeeIssuer(link.issuer);
+        },
+        async onQuery(o, query, oh) {
+          t.is(o, oracle);
+          t.is(oh, oracleHandler);
+          let replied;
+          /** @type {OracleQueryHandler} */
+          const oracleQueryHandler = {
+            async calculateFee(q, isFinal, finalReply, oqh) {
+              t.is(q, query);
+              t.is(isFinal, replied !== undefined);
+              t.is(finalReply, replied);
+              t.is(oqh, oracleQueryHandler);
 
-    t.context.zoe = zoe;
-    t.context.pingAdmin = adminFacet;
-    t.context.pingOracle = oracle;
-    t.context.pingHandler = oracleHandler;
-    t.context.feeAmount = feeAmount;
-    t.context.link = link;
-    t.context.publicFacet = publicFacet;
+              if (q.kind !== 'Paid') {
+                // No fee for an unpaid query.
+                return {};
+              }
+              return { Fee: feeAmount };
+            },
+            async getReply(q, oqh) {
+              t.is(replied, undefined);
+              t.is(q, query);
+              t.is(oqh, oracleQueryHandler);
+              replied = harden({ pong: q });
+              return replied;
+            },
+            async receiveFee(q, reply, collected, oqh) {
+              t.not(replied, undefined);
+              t.is(q, query);
+              t.is(oqh, oracleQueryHandler);
+              if (q.kind === 'Paid') {
+                // eslint-disable-next-line no-await-in-loop
+                t.is(
+                  await link.issuer.getAmountOf(E.G(collected).Fee),
+                  feeAmount,
+                );
+              } else {
+                // eslint-disable-next-line no-await-in-loop
+                t.deepEqual(await collected, {});
+              }
+            },
+          };
+          return harden(oracleQueryHandler);
+        },
+        async onRevoke(o, oh) {
+          t.is(o, oracle);
+          t.is(oh, oracleHandler);
+        },
+      });
+      return { adminFacet, oracle, oracleHandler };
+    };
+
+    ot.context.zoe = zoe;
+    ot.context.makePingHandler = makePingHandler;
+    ot.context.feeAmount = feeAmount;
+    ot.context.link = link;
+    ot.context.publicFacet = publicFacet;
   },
 );
 
 test('single oracle', /** @param {ExecutionContext} t */ async t => {
-  const {
-    zoe,
-    publicFacet,
-    link,
-    pingOracle,
-    pingAdmin,
-    pingHandler,
-    feeAmount,
-  } = t.context;
+  const { zoe, publicFacet, link, makePingHandler, feeAmount } = t.context;
 
   // Get the Zoe invitation issuer from Zoe.
   const invitationIssuer = E(zoe).getInvitationIssuer();
 
+  const {
+    oracle: pingOracle,
+    adminFacet: pingAdmin,
+    oracleHandler: pingHandler,
+  } = await makePingHandler(t);
   const freeReply = E(publicFacet).query(pingOracle, { hello: 'World' });
   const invitation = E(publicFacet).makeQueryInvitation(pingOracle, {
     kind: 'Free',
