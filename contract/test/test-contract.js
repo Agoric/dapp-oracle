@@ -60,23 +60,24 @@ test.before(
       );
       t.is(await E(oracle).getAllegedName(), 'myOracle');
 
+      /** @type {OracleHandler} */
       const oracleHandler = harden({
         async onCreate(o, af, oh) {
           t.is(o, oracle);
-          t.is(oh, oracleHandler);
-          t.is(af, adminFacet);
+          t.is(await oh, oracleHandler);
+          t.is(await af, adminFacet);
           await E(af).addFeeIssuer(link.issuer);
         },
         async onQuery(o, query, oh) {
           t.is(o, oracle);
-          t.is(oh, oracleHandler);
+          t.is(await oh, oracleHandler);
           let replied;
           /** @type {OracleQueryHandler} */
           const oracleQueryHandler = {
             async calculateDeposit(q, oqh) {
               t.is(q, query);
               t.is(replied, undefined);
-              t.is(oqh, oracleQueryHandler);
+              t.is(await oqh, oracleQueryHandler);
               if (q.kind !== 'Paid') {
                 // No deposit.
                 return {};
@@ -85,8 +86,8 @@ test.before(
             },
             async calculateFee(q, reply, oqh) {
               t.is(q, query);
-              t.is(reply, replied);
-              t.is(oqh, oracleQueryHandler);
+              t.is(await reply, replied);
+              t.is(await oqh, oracleQueryHandler);
 
               if (q.kind !== 'Paid') {
                 // No fee for an unpaid query.
@@ -97,15 +98,15 @@ test.before(
             async getReply(q, oqh) {
               t.is(replied, undefined);
               t.is(q, query);
-              t.is(oqh, oracleQueryHandler);
+              t.is(await oqh, oracleQueryHandler);
               replied = harden({ pong: q });
               return replied;
             },
             async receiveFee(q, reply, collected, oqh) {
               t.not(replied, undefined);
-              t.is(q, query);
-              t.is(reply, replied);
-              t.is(oqh, oracleQueryHandler);
+              t.is(await q, query);
+              t.is(await reply, replied);
+              t.is(await oqh, oracleQueryHandler);
               if (q.kind === 'Paid') {
                 // eslint-disable-next-line no-await-in-loop
                 t.is(
@@ -147,30 +148,41 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
     adminFacet: pingAdmin,
     oracleHandler: pingHandler,
   } = await makePingHandler(t);
+  const query1 = { kind: 'Free', data: 'foo' };
+  const query2 = { kind: 'Paid', data: 'bar' };
+  const query3 = { kind: 'Paid', data: 'baz' };
+  const query4 = { kind: 'Paid', data: 'bot' };
+
   const freeReply = E(publicFacet).query(pingOracle, { hello: 'World' });
-  const invitation = E(publicFacet).makeQueryInvitation(pingOracle, {
-    kind: 'Free',
-    data: 'foo',
-  });
-  const invitation2 = E(publicFacet).makeQueryInvitation(pingOracle, {
-    kind: 'Paid',
-    data: 'bar',
-  });
-  const invitation3 = E(publicFacet).makeQueryInvitation(pingOracle, {
-    kind: 'Paid',
-    data: 'baz',
-  });
-  const invitation4 = E(publicFacet).makeQueryInvitation(pingOracle, {
-    kind: 'Paid',
-    data: 'bot',
-  });
+  const invitation1 = E(publicFacet).makeQueryInvitation(pingOracle, query1);
+  const invitation2 = E(publicFacet).makeQueryInvitation(pingOracle, query2);
+  const invitation3 = E(publicFacet).makeQueryInvitation(pingOracle, query3);
+  const invitation4 = E(publicFacet).makeQueryInvitation(pingOracle, query4);
 
   // Ensure all three are real Zoe invitations.
-  t.truthy(await E(invitationIssuer).isLive(invitation));
+  t.truthy(await E(invitationIssuer).isLive(invitation1));
   t.truthy(await E(invitationIssuer).isLive(invitation2));
   t.truthy(await E(invitationIssuer).isLive(invitation3));
+  t.truthy(await E(invitationIssuer).isLive(invitation4));
 
-  const offer = E(zoe).offer(invitation);
+  t.deepEqual(
+    (await E(invitationIssuer).getAmountOf(invitation1)).value[0].query,
+    query1,
+  );
+  t.deepEqual(
+    (await E(invitationIssuer).getAmountOf(invitation2)).value[0].query,
+    query2,
+  );
+  t.deepEqual(
+    (await E(invitationIssuer).getAmountOf(invitation3)).value[0].query,
+    query3,
+  );
+  t.deepEqual(
+    (await E(invitationIssuer).getAmountOf(invitation4)).value[0].query,
+    query4,
+  );
+
+  const offer = E(zoe).offer(invitation1);
 
   // Ensure our oracle handles $LINK.
   await E(pingAdmin).addFeeIssuer(link.issuer);

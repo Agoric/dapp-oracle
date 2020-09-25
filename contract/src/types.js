@@ -2,9 +2,9 @@
  * @typedef {Object} OraclePublicFacet the public methods accessible from the
  * contract instance
  * @property {(allegedName: string) => ERef<OracleKit>} makeOracleKit create an oracle
- * @property {(oracle: Oracle, query: any) => ERef<Invitation>}
+ * @property {(oracle: ERef<Oracle>, query: any) => ERef<Invitation>}
  * makeQueryInvitation create an invitation for a paid oracle query
- * @property {(oracle: Oracle, query: any) => ERef<any>} query make an unpaid query
+ * @property {(oracle: ERef<Oracle>, query: any) => ERef<any>} query make an unpaid query
  */
 
 /**
@@ -28,7 +28,7 @@
  * @property {(query: any, oqh: ERef<OracleQueryHandler>) =>
  * ERef<AmountKeywordRecord>} calculateDeposit determine the deposit before we
  * will actually try to perform a query
- * @property {(query: any, reply: any, oqh: ERef<OracleQueryHandler>) =>
+ * @property {(query: any, reply: ERef<any>, oqh: ERef<OracleQueryHandler>) =>
  * ERef<AmountKeywordRecord>} calculateFee determine the fee for the query and result
  * @property {(query: any, oqh: ERef<OracleQueryHandler>) => any} getReply
  * actually do the work of the query.  Note that the deposit (calculateFee where
@@ -41,11 +41,11 @@
 
 /**
  * @typedef {Object} OracleAdminFacet
- * @property {(oh: ERef<OracleHandler>) => void} replaceHandler use a different
+ * @property {(oh: ERef<OracleHandler>) => Promise<void>} replaceHandler use a different
  * handler for the oracle
  * @property {(issuerP: ERef<Issuer>) => Promise<void>} addFeeIssuer add an
  * issuer to collect fees for the oracle
- * @property {() => void} revoke prevent the oracle from receiving new requests
+ * @property {() => Promise<void>} revoke prevent the oracle from receiving new requests
  * or exchanging any more replies for fees
  */
 

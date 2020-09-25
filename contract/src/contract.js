@@ -22,11 +22,37 @@ const seatHasAtLeast = (zcf, seat, amountKeywordRecord) => {
   for (const [keyword, amount] of Object.entries(amountKeywordRecord)) {
     const alloced = seat.getAmountAllocated(keyword, amount.brand);
     const amountMath = zcf.getAmountMath(amount.brand);
-    if (!amountMath.isGTE(alloced, amount)) {
+    if (alloced.brand !== amount.brand || !amountMath.isGTE(alloced, amount)) {
       return false;
     }
   }
   return true;
+};
+
+/**
+ *
+ * @param {ContractFacet} zcf
+ * @param {ZCFSeat} seat
+ * @param {AmountKeywordRecord} amountKeywordRecord
+ * @returns {Promise<PaymentPKeywordRecord>}
+ */
+const withdrawAtMostFromSeat = (zcf, seat, amountKeywordRecord) => {
+  /** @type {AmountKeywordRecord} */
+  const maximumAmount = {};
+  for (const [keyword, amount] of Object.entries(amountKeywordRecord)) {
+    const alloced = seat.getAmountAllocated(keyword, amount.brand);
+    const amountMath = zcf.getAmountMath(amount.brand);
+    if (alloced.brand === amount.brand) {
+      if (amountMath.isGTE(alloced, amount)) {
+        // Take only what we asked for.
+        maximumAmount[keyword] = amount;
+      } else {
+        // Take everything they have.
+        maximumAmount[keyword] = alloced;
+      }
+    }
+  }
+  return withdrawFromSeat(zcf, seat, maximumAmount);
 };
 
 /**
@@ -43,26 +69,26 @@ const start = async zcf => {
 
   /**
    * Actually perform the query, handling fees, and returning a result.
-   * @param {Oracle} oracle
+   * @param {ERef<Oracle>} oracleP
    * @param {any} query
-   * @param {(fee: Record<Keyword, Amount>) => Promise<void>} assertDeposit
-   * @param {(fee: Record<Keyword, Amount>, collect: (collected:
+   * @param {(fee: Promise<Record<Keyword, Amount>>) => Promise<void>} assertDeposit
+   * @param {(fee: Promise<Record<Keyword, Amount>>, collect: (collected:
    * PaymentPKeywordRecord) => Promise<void>) => Promise<void>} collectFee
    * @returns {Promise<any>}
    */
-  const performQuery = async (oracle, query, assertDeposit, collectFee) => {
-    const handler = await oracleToHandlerP.get(oracle);
-    const queryHandler = await E(handler).onQuery(oracle, query, handler);
-    const deposit = await E(queryHandler).calculateDeposit(query, queryHandler);
-    // Assert that they can cover the predicted fee.
+  const performQuery = async (oracleP, query, assertDeposit, collectFee) => {
+    const oracle = await oracleP;
+    const handler = oracleToHandlerP.get(oracle);
+    const queryHandler = E(handler).onQuery(oracle, query, handler);
+    const deposit = E(queryHandler).calculateDeposit(query, queryHandler);
+
+    // Assert that they can cover the deposit before continuing.
     await assertDeposit(deposit);
-    const reply = await E(queryHandler).getReply(query, queryHandler);
-    const finalFee = await E(queryHandler).calculateFee(
-      query,
-      reply,
-      queryHandler,
-    );
+    const replyP = E(queryHandler).getReply(query, queryHandler);
+    const finalFee = E(queryHandler).calculateFee(query, replyP, queryHandler);
+
     // Last chance to abort if the oracle is revoked.
+    const reply = await replyP;
     await oracleToHandlerP.get(oracle);
 
     // Collect the described fee.
@@ -90,11 +116,11 @@ const start = async zcf => {
       let lastIssuerNonce = 0;
       lastOracleNonce += 1;
       const oracleNonce = lastOracleNonce;
-      /** @type {Error} */
+      /** @type {Promise<never>} */
       let revoked;
       const firstHandlerPK = makePromiseKit();
       // Silence unhandled rejection.
-      firstHandlerPK.promise.catch(_ => {});
+      // firstHandlerPK.promise.catch(_ => {});
 
       /** @type {Oracle} */
       const oracle = {
@@ -125,18 +151,17 @@ const start = async zcf => {
               .then(_ => oh),
           );
         },
-        revoke() {
+        async revoke() {
           if (revoked) {
-            throw revoked;
+            return revoked;
           }
-          revoked = Error(`Oracle ${allegedName} revoked`);
-          const rejected = Promise.reject(revoked);
-          // Silence unhandled rejection.
-          rejected.catch(_ => {});
+
+          revoked = Promise.reject(Error(`Oracle ${allegedName} revoked`));
 
           // Reject the first promise if it wasn't.
-          firstHandlerPK.reject(rejected);
-          oracleToHandlerP.set(oracle, rejected);
+          firstHandlerPK.reject(revoked);
+          oracleToHandlerP.set(oracle, revoked);
+          return undefined;
         },
       };
 
@@ -162,28 +187,28 @@ const start = async zcf => {
     async makeQueryInvitation(oracle, query) {
       /** @type {OfferHandler} */
       const offerHandler = async seat => {
-        const makeAssertFee = isDeposit => async fee => {
-          const failureDetails = isDeposit
-            ? details`Paid query did not cover the deposit of ${fee}`
-            : details`Paid query did not cover the final fee of ${fee}`;
-          assert(seatHasAtLeast(zcf, seat, fee), failureDetails);
-        };
         return performQuery(
           oracle,
           query,
-          makeAssertFee(true),
-          async (fee, receive) => {
-            // Assert that seat has at least the fee.
-            await makeAssertFee(false)(fee);
-
+          async depositP => {
+            const deposit = await depositP;
+            assert(
+              seatHasAtLeast(zcf, seat, deposit),
+              details`Paid query did not cover the deposit of ${deposit}`,
+            );
+          },
+          async (feeP, receive) => {
+            const fee = await feeP;
             // Actually collect the fee.  The reply will be released when we return.
-            const collected = await withdrawFromSeat(zcf, seat, fee);
+            const collected = await withdrawAtMostFromSeat(zcf, seat, fee);
             seat.exit();
             return receive(collected);
           },
         );
       };
-      return zcf.makeInvitation(offerHandler, 'oracle query invitation');
+      return zcf.makeInvitation(offerHandler, 'oracle query invitation', {
+        query,
+      });
     },
   });
   return { publicFacet };
