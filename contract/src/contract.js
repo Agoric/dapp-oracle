@@ -97,14 +97,12 @@ const start = async zcf => {
     };
 
     // Try to collect the final fee.
-    return collectFee(finalFee, collect).then(
-      _ => reply,
-      async e => {
-        // We had an error, so collect the deposit and rethrow the error.
-        await collectFee(deposit, collect);
-        throw e;
-      },
+    await collectFee(finalFee, collect).catch(_ =>
+      // We had an error, so collect the (guaranteed) deposit and return the reply.
+      collectFee(deposit, collect),
     );
+
+    return reply;
   };
 
   /** @type {OraclePublicFacet} */
