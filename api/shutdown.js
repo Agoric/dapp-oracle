@@ -12,26 +12,15 @@ import { E } from '@agoric/eventual-send';
  * @param {DeployPowers} powers
  */
 export default async function deployShutdown(referencesPromise) {
-  // TODO: ensure this works
-
   const { uploads: scratch, wallet } = await referencesPromise;
   const adminPayoutP = E(scratch).get('adminPayoutP');
   const completeObj = E(scratch).get('completeObj');
 
-  const moolaPurse = await E(wallet).getPurse('Fun budget');
-  adminPayoutP.then(async payout => {
-    const moolaPayment = await payout.Tip;
-    console.log('tip payment in moola received. Depositing now.');
-    try {
-      await E(moolaPurse).deposit(moolaPayment);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      console.log('deposit successful.');
-    }
-  });
-
   await E(completeObj).complete();
-
   console.log('Contract is shut down.');
+  const payout = await adminPayoutP;
+  await Promise.all(
+    Object.values(payout).map(payment => E(wallet).addPayment(payment)),
+  );
+  console.log('Payments deposited');
 }

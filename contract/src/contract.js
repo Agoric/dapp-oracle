@@ -175,17 +175,23 @@ const start = async zcf => {
     },
   });
 
-  const creatorInvitation = zcf.makeInvitation(async seat => {
-    trade(
-      zcf,
-      { seat: feeSeat, gains: {} },
-      { seat, gains: feeSeat.getCurrentAllocation() },
-    );
-    seat.exit();
-    feeSeat.exit();
-    revoked = `Oracle ${description} revoked`;
-    return 'liquidated';
-  }, 'oracle total liquidation');
+  const creatorInvitation = zcf.makeInvitation(
+    async seat =>
+      harden({
+        exit() {
+          trade(
+            zcf,
+            { seat: feeSeat, gains: {} },
+            { seat, gains: feeSeat.getCurrentAllocation() },
+          );
+          seat.exit();
+          feeSeat.exit();
+          revoked = `Oracle ${description} revoked`;
+          return 'liquidated';
+        },
+      }),
+    'oracle total liquidation',
+  );
 
   return { creatorFacet, publicFacet, creatorInvitation };
 };

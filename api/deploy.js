@@ -13,11 +13,11 @@ import installationConstants from '../ui/public/conf/installationConstants';
 // script ends, connections to any of its objects are severed.
 
 // The deployer's wallet's petname for the tip issuer.
-const TIP_ISSUER_PETNAME = process.env.TIP_ISSUER_PETNAME || 'moola';
+const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'moola';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
- * @property {(path: string) => { moduleFormat: string, source: string }} bundleSource
+ * @property {(path: string) => Promise<{ moduleFormat: string, source: string }>} bundleSource
  * @property {(path: string) => string} pathResolve
  * @property {(path: string, opts?: any) => Promise<any>} installUnsafePlugin
  *
@@ -28,7 +28,7 @@ const TIP_ISSUER_PETNAME = process.env.TIP_ISSUER_PETNAME || 'moola';
  * @property {() => [string]} ids
  */
 
-const API_HOST = process.env.API_HOST || '127.0.0.1';
+// const API_HOST = process.env.API_HOST || '127.0.0.1';
 const API_PORT = process.env.API_PORT || '8000';
 
 /**
@@ -39,7 +39,7 @@ const API_PORT = process.env.API_PORT || '8000';
  */
 export default async function deployApi(
   homePromise,
-  { bundleSource, pathResolve, installUnsafePlugin },
+  { bundleSource, pathResolve },
 ) {
   // Let's wait for the promise to resolve.
   const home = await homePromise;
@@ -112,24 +112,48 @@ export default async function deployApi(
   // though. https://github.com/Agoric/agoric-sdk/issues/838
   const issuersArray = await E(wallet).getIssuers();
   const issuers = new Map(issuersArray);
-  const tipIssuer = issuers.get(TIP_ISSUER_PETNAME);
+  const feeIssuer = issuers.get(FEE_ISSUER_PETNAME);
 
-  if (tipIssuer === undefined) {
+  if (feeIssuer === undefined) {
     console.error(
-      'Cannot find TIP_ISSUER_PETNAME',
-      TIP_ISSUER_PETNAME,
+      'Cannot find FEE_ISSUER_PETNAME',
+      FEE_ISSUER_PETNAME,
       'in home.wallet',
     );
     console.error('Have issuers:', [...issuers.keys()].join(', '));
     process.exit(1);
   }
 
-  console.log('Installing contract');
-  const issuerKeywordRecord = harden({ Tip: tipIssuer });
-  const { creatorInvitation: adminInvitation, instance, publicFacet } = await E(
-    zoe,
-  ).startInstance(contractInstallation, issuerKeywordRecord);
+  const invitationIssuer = await E(zoe).getInvitationIssuer();
 
+  // Bundle up the handler code
+  const bundle = await bundleSource(pathResolve('./src/handler.js'));
+
+  // Install it on the spawner
+  const handlerInstall = E(spawner).install(bundle);
+
+  // Spawn the running code
+  const { registerContract, oracleHandler } = await E(handlerInstall).spawn({
+    http,
+    board,
+    feeIssuer,
+    invitationIssuer,
+  });
+
+  console.log('Installing contract');
+  const issuerKeywordRecord = harden({ Fee: feeIssuer });
+  const { creatorInvitation, creatorFacet, instance, publicFacet } = await E(
+    zoe,
+  ).startInstance(contractInstallation, issuerKeywordRecord, {
+    oracleHandler,
+    oracleDescription: 'My Oracle',
+  });
+
+  const handler = E(registerContract).register({
+    creatorFacet,
+    publicFacet,
+  });
+  await E(http).registerAPIHandler(handler);
   console.log('- SUCCESS! contract instance is running on Zoe');
 
   // Let's use the adminInvitation to make an offer. Note that we aren't
@@ -138,103 +162,39 @@ export default async function deployApi(
   // give us a payout of all of the tips. We can trigger this payout
   // by calling the `complete` function on the `completeObj`.
   console.log('Retrieving admin');
-  const adminSeat = E(zoe).offer(adminInvitation);
-  const outcomeP = E(adminSeat).getOfferResult();
+  const adminSeat = E(zoe).offer(creatorInvitation);
+  const completeObj = E(adminSeat).getOfferResult();
 
   // When the promise for a payout resolves, we want to deposit the
   // payments in our purses. We will put the adminPayoutP and
   // completeObj in our scratch location so that we can share the
   // live objects with the shutdown.js script.
   E(scratch).set('adminPayoutP', E(adminSeat).getPayouts());
-  E(scratch).set('adminSeat', adminSeat);
-
-  const outcome = await outcomeP;
-  console.log(`-- ${outcome}`);
+  E(scratch).set('completeObj', completeObj);
 
   console.log('Retrieving Board IDs for issuers and brands');
-  const invitationIssuerP = E(zoe).getInvitationIssuer();
-  const invitationBrandP = E(invitationIssuerP).getBrand();
+  const invitationBrandP = E(invitationIssuer).getBrand();
 
-  const assuranceIssuerP = E(publicFacet).getAssuranceIssuer();
-  const asurranceBrandP = E(assuranceIssuerP).getBrand();
-  const tipBrandP = E(tipIssuer).getBrand();
+  const feeBrandP = E(feeIssuer).getBrand();
 
   // Now that we've done all the admin work, let's share this
   // instanceHandle by adding it to the board. Any users of our
   // contract will use this instanceHandle to get invitations to the
   // contract in order to make an offer.
-  const invitationIssuer = await invitationIssuerP;
-  const tipBrand = await tipBrandP;
-  const assuranceIssuer = await assuranceIssuerP;
-  const assuranceBrand = await asurranceBrandP;
+  const feeBrand = await feeBrandP;
 
-  const [
-    TIP_BRAND_BOARD_ID,
-    INSTANCE_HANDLE_BOARD_ID,
-    ASSURANCE_BRAND_BOARD_ID,
-    ASSURANCE_ISSUER_BOARD_ID,
-  ] = await Promise.all([
-    E(board).getId(tipBrand),
+  const [FEE_BRAND_BOARD_ID, INSTANCE_HANDLE_BOARD_ID] = await Promise.all([
+    E(board).getId(feeBrand),
     E(board).getId(instance),
-    E(board).getId(assuranceBrand),
-    E(board).getId(assuranceIssuer),
   ]);
 
   console.log(`-- Contract Name: ${CONTRACT_NAME}`);
   console.log(`-- INSTANCE_HANDLE_BOARD_ID: ${INSTANCE_HANDLE_BOARD_ID}`);
-  console.log(`-- ASSURANCE_ISSUER_BOARD_ID: ${ASSURANCE_ISSUER_BOARD_ID}`);
-  console.log(`-- ASSURANCE_BRAND_BOARD_ID: ${ASSURANCE_BRAND_BOARD_ID}`);
-  console.log(`-- TIP_BRAND_BOARD_ID: ${TIP_BRAND_BOARD_ID}`);
-
-  // We want the handler to run persistently. (Scripts such as this
-  // deploy.js script are ephemeral and all connections to objects
-  // within this script are severed when the script is done running.)
-
-  const installLegacyHandler = async () => {
-    // To run the handler persistently, we must use the spawner to run
-    // the code on this machine even when the script is done running.
-
-    // Bundle up the handler code
-    const bundle = await bundleSource(pathResolve('./src/handler.js'));
-
-    // Install it on the spawner
-    const handlerInstall = E(spawner).install(bundle);
-
-    // Spawn the running code
-    const handler = E(handlerInstall).spawn({
-      publicFacet,
-      http,
-      board,
-      invitationIssuer,
-    });
-    await E(http).registerAPIHandler(handler);
-  };
-
-  const installPluginServer = async () => {
-    // To run the API persistently, we ask the agoric deploy command to install an
-    // HTTP server plugin into the running ag-solo, and give it access to the
-    // publicFacet and other capabilities.
-    //
-    // The function is named installUnsafePlugin because, unlike any vat or
-    // contract, the plugin will get full access to the OS-level account in which
-    // the ag-solo is running.
-
-    await installUnsafePlugin('./src/server.js', {
-      port: API_PORT,
-      host: API_HOST,
-      CONTRACT_NAME,
-      publicFacet,
-      board,
-      invitationIssuer,
-    });
-  };
-
-  const installer =
-    API_PORT === '8000' ? installLegacyHandler : installPluginServer;
-  await installer();
+  console.log(`-- FEE_BRAND_BOARD_ID: ${FEE_BRAND_BOARD_ID}`);
 
   const invitationBrand = await invitationBrandP;
   const INVITE_BRAND_BOARD_ID = await E(board).getId(invitationBrand);
+  const FEE_ISSUER_BOARD_ID = await E(board).getId(feeIssuer);
 
   const API_URL = process.env.API_URL || `http://127.0.0.1:${API_PORT || 8000}`;
 
@@ -244,11 +204,8 @@ export default async function deployApi(
     INSTALLATION_HANDLE_BOARD_ID,
     INVITE_BRAND_BOARD_ID,
     // BRIDGE_URL: 'agoric-lookup:https://local.agoric.com?append=/bridge',
-    brandBoardIds: {
-      Tip: TIP_BRAND_BOARD_ID,
-      Assurance: ASSURANCE_BRAND_BOARD_ID,
-    },
-    issuerBoardIds: { Assurance: ASSURANCE_ISSUER_BOARD_ID },
+    brandBoardIds: { Fee: FEE_BRAND_BOARD_ID },
+    issuerBoardIds: { Fee: FEE_ISSUER_BOARD_ID },
     BRIDGE_URL: 'http://127.0.0.1:8000',
     API_URL,
   };

@@ -20,10 +20,9 @@ For every single query, the contract:
    refunds the payment and aborts the query.
 3. Has the oracle service the query and return a reply to the contract.
 4. Asks the oracle to calculate the desired payment for the query and reply.
-5. Unescrows the lesser of the actual payment or calculated desired payment (if
+5. Collects the lesser of the actual payment or calculated desired payment (if
    any).
-6. Simultaneously sends the unescrowed payment to the oracle and releases the
-   reply to the caller.
+6. Releases the reply to the caller.
 
 ## Streaming Usage
 
@@ -44,5 +43,7 @@ The "external adapter" is [in
 Javascript](https://github.com/smartcontractkit/external-adapters-js) and
 "external initiator" is [in
 Golang](https://github.com/smartcontractkit/external-initiator).  Both contact
-the `ag-solo` where `agoric deploy api/deploy-oracle.js` has been run to create
-an oracle handler and register it in the board for a UI to pick up.
+the `ag-solo` where `agoric deploy api/deploy.js` has been run to create an
+oracle and register it in the board for a UI to pick up.
+
+The oracle query-only UI is deployed with `agoric deploy api/deploy-client.js`.

@@ -126,6 +126,25 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
     creatorFacet: pingCreator,
     creatorInvitation: pingRevoke,
   } = await makePingOracle(t);
+
+  const revokeOffer = E(zoe).offer(pingRevoke);
+
+  E(revokeOffer)
+    .getPayouts()
+    .then(payouts =>
+      Promise.all(
+        Object.entries(payouts).map(async ([keyword, payment]) => {
+          const amount = await link.issuer.getAmountOf(payment);
+          return [keyword, amount];
+        }),
+      ),
+    )
+    .then(kvals => {
+      t.deepEqual(kvals, [['Fee', link.amountMath.make(799)]]);
+    });
+
+  const completeObj = E(revokeOffer).getOfferResult();
+
   const query1 = { kind: 'Free', data: 'foo' };
   const query2 = { kind: 'Paid', data: 'bar' };
   const query3 = { kind: 'Paid', data: 'baz' };
@@ -223,8 +242,7 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
   const badInvitation = E(publicFacet).makeQueryInvitation({
     hello: 'nomore',
   });
-  const revokeOffer = E(zoe).offer(pingRevoke);
-  t.is(await E(revokeOffer).getOfferResult(), 'liquidated');
+  t.is(await E(completeObj).exit(), 'liquidated');
   const badOffer = E(zoe).offer(badInvitation);
 
   // Ensure the oracle no longer functions after revocation.
@@ -237,14 +255,6 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
     message: /^Oracle .* revoked$/,
   });
 
-  const payouts = await E(revokeOffer).getPayouts();
-  const kvals = await Promise.all(
-    Object.entries(payouts).map(async ([keyword, payment]) => {
-      const amount = await link.issuer.getAmountOf(payment);
-      return [keyword, amount];
-    }),
-  );
-  t.deepEqual(kvals, [['Fee', link.amountMath.make(799)]]);
   t.deepEqual(
     await link.issuer.getAmountOf(E(withdrawOffer).getPayout('Fee')),
     link.amountMath.make(201),

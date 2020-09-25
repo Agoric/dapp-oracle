@@ -68,7 +68,7 @@ export default async function deployContract(
   // To share the installationHandle, we're going to put it in the
   // board. The board is a shared, on-chain object that maps
   // strings to objects.
-  const CONTRACT_NAME = 'encouragement';
+  const CONTRACT_NAME = 'oracle';
   const INSTALLATION_HANDLE_BOARD_ID = await E(board).getId(installationHandle);
   console.log('- SUCCESS! contract code installed on Zoe');
   console.log(`-- Contract Name: ${CONTRACT_NAME}`);
