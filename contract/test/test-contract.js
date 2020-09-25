@@ -16,9 +16,7 @@ import { makeIssuerKit } from '@agoric/ertp';
 /**
  * @typedef {Object} TestContext
  * @property {ZoeService} zoe
- * @property {(t: ExecutionContext) => Promise<OracleKit & { oracleHandler:
- * OracleHandler }>} makePingHandler
- * @property {OraclePublicFacet} publicFacet
+ * @property {(t: ExecutionContext) => Promise<OracleStartFnResult>} makePingOracle
  * @property {Amount} feeAmount
  * @property {IssuerKit} link
  *
@@ -46,48 +44,29 @@ test.before(
     // using the same code.
     const installation = await E(zoe).install(contractBundle);
 
-    /** @type {{ publicFacet: OraclePublicFacet }} */
-    const { publicFacet } = await E(zoe).startInstance(installation);
-
     const feeAmount = link.amountMath.make(1000);
     /**
-     * @returns {Promise<OracleKit & { oracleHandler: OracleHandler }>}
+     * @returns {Promise<OracleStartFnResult>}
      */
-    const makePingHandler = async t => {
-      // Create an oracle.
-      const { adminFacet, oracle } = await E(publicFacet).makeOracleKit(
-        'myOracle',
-      );
-      t.is(await E(oracle).getAllegedName(), 'myOracle');
-
+    const makePingOracle = async t => {
       /** @type {OracleHandler} */
       const oracleHandler = harden({
-        async onCreate(o, af, oh) {
-          t.is(o, oracle);
-          t.is(await oh, oracleHandler);
-          t.is(await af, adminFacet);
-          await E(af).addFeeIssuer(link.issuer);
-        },
-        async onQuery(o, query, oh) {
-          t.is(o, oracle);
-          t.is(await oh, oracleHandler);
+        async onQuery(query) {
           let replied;
           /** @type {OracleQueryHandler} */
           const oracleQueryHandler = {
-            async calculateDeposit(q, oqh) {
+            async calculateDeposit(q) {
               t.is(q, query);
               t.is(replied, undefined);
-              t.is(await oqh, oracleQueryHandler);
               if (q.kind !== 'Paid') {
                 // No deposit.
                 return {};
               }
               return { Fee: feeAmount };
             },
-            async calculateFee(q, reply, oqh) {
+            async calculateFee(q, reply) {
               t.is(q, query);
               t.is(await reply, replied);
-              t.is(await oqh, oracleQueryHandler);
 
               if (q.kind !== 'Paid') {
                 // No fee for an unpaid query.
@@ -95,24 +74,19 @@ test.before(
               }
               return { Fee: feeAmount };
             },
-            async getReply(q, oqh) {
+            async getReply(q) {
               t.is(replied, undefined);
               t.is(q, query);
-              t.is(await oqh, oracleQueryHandler);
               replied = harden({ pong: q });
               return replied;
             },
-            async receiveFee(q, reply, collected, oqh) {
+            async completed(q, reply, collected) {
               t.not(replied, undefined);
               t.is(await q, query);
               t.is(await reply, replied);
-              t.is(await oqh, oracleQueryHandler);
               if (q.kind === 'Paid') {
                 // eslint-disable-next-line no-await-in-loop
-                t.is(
-                  await link.issuer.getAmountOf(E.G(collected).Fee),
-                  feeAmount,
-                );
+                t.deepEqual(collected.Fee, feeAmount);
               } else {
                 // eslint-disable-next-line no-await-in-loop
                 t.deepEqual(await collected, {});
@@ -121,43 +95,47 @@ test.before(
           };
           return harden(oracleQueryHandler);
         },
-        async onRevoke(o, oh) {
-          t.is(o, oracle);
-          t.is(oh, oracleHandler);
-        },
       });
-      return { adminFacet, oracle, oracleHandler };
+
+      /** @type {OracleStartFnResult} */
+      const startResult = await E(zoe).startInstance(
+        installation,
+        { Link: link.issuer },
+        { oracleHandler, oracleDescription: 'myOracle' },
+      );
+
+      t.is(await E(startResult.publicFacet).getDescription(), 'myOracle');
+      return startResult;
     };
 
     ot.context.zoe = zoe;
-    ot.context.makePingHandler = makePingHandler;
+    ot.context.makePingOracle = makePingOracle;
     ot.context.feeAmount = feeAmount;
     ot.context.link = link;
-    ot.context.publicFacet = publicFacet;
   },
 );
 
 test('single oracle', /** @param {ExecutionContext} t */ async t => {
-  const { zoe, publicFacet, link, makePingHandler, feeAmount } = t.context;
+  const { zoe, link, makePingOracle, feeAmount } = t.context;
 
   // Get the Zoe invitation issuer from Zoe.
   const invitationIssuer = E(zoe).getInvitationIssuer();
 
   const {
-    oracle: pingOracle,
-    adminFacet: pingAdmin,
-    oracleHandler: pingHandler,
-  } = await makePingHandler(t);
+    publicFacet,
+    creatorFacet: pingCreator,
+    creatorInvitation: pingRevoke,
+  } = await makePingOracle(t);
   const query1 = { kind: 'Free', data: 'foo' };
   const query2 = { kind: 'Paid', data: 'bar' };
   const query3 = { kind: 'Paid', data: 'baz' };
   const query4 = { kind: 'Paid', data: 'bot' };
 
-  const freeReply = E(publicFacet).query(pingOracle, { hello: 'World' });
-  const invitation1 = E(publicFacet).makeQueryInvitation(pingOracle, query1);
-  const invitation2 = E(publicFacet).makeQueryInvitation(pingOracle, query2);
-  const invitation3 = E(publicFacet).makeQueryInvitation(pingOracle, query3);
-  const invitation4 = E(publicFacet).makeQueryInvitation(pingOracle, query4);
+  const freeReply = E(publicFacet).query({ hello: 'World' });
+  const invitation1 = E(publicFacet).makeQueryInvitation(query1);
+  const invitation2 = E(publicFacet).makeQueryInvitation(query2);
+  const invitation3 = E(publicFacet).makeQueryInvitation(query3);
+  const invitation4 = E(publicFacet).makeQueryInvitation(query4);
 
   // Ensure all three are real Zoe invitations.
   t.truthy(await E(invitationIssuer).isLive(invitation1));
@@ -185,7 +163,7 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
   const offer = E(zoe).offer(invitation1);
 
   // Ensure our oracle handles $LINK.
-  await E(pingAdmin).addFeeIssuer(link.issuer);
+  await E(pingCreator).addFeeIssuer(link.issuer);
   const overAmount = link.amountMath.add(feeAmount, link.amountMath.make(799));
   const offer3 = E(zoe).offer(
     invitation3,
@@ -194,9 +172,6 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
       Fee: link.mint.mintPayment(overAmount),
     }),
   );
-
-  // We only just now initialize the oracleHandler.
-  E(pingAdmin).replaceHandler(pingHandler);
 
   t.deepEqual(await freeReply, {
     pong: { hello: 'World' },
@@ -236,10 +211,20 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
     underAmount,
   );
 
-  const badInvitation = E(publicFacet).makeQueryInvitation(pingOracle, {
+  const withdrawSome = E(pingCreator).makeWithdrawInvitation();
+  const withdrawOffer = E(zoe).offer(
+    withdrawSome,
+    harden({
+      want: { Fee: link.amountMath.make(201) },
+    }),
+  );
+  t.is(await E(withdrawOffer).getOfferResult(), 'liquidated');
+
+  const badInvitation = E(publicFacet).makeQueryInvitation({
     hello: 'nomore',
   });
-  await E(pingAdmin).revoke();
+  const revokeOffer = E(zoe).offer(pingRevoke);
+  t.is(await E(revokeOffer).getOfferResult(), 'liquidated');
   const badOffer = E(zoe).offer(badInvitation);
 
   // Ensure the oracle no longer functions after revocation.
@@ -247,8 +232,21 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
     instanceOf: Error,
     message: /^Oracle .* revoked$/,
   });
-  await t.throwsAsync(
-    () => E(publicFacet).query(pingOracle, { hello: 'not again' }),
-    { instanceOf: Error, message: /^Oracle .* revoked$/ },
+  await t.throwsAsync(() => E(publicFacet).query({ hello: 'not again' }), {
+    instanceOf: Error,
+    message: /^Oracle .* revoked$/,
+  });
+
+  const payouts = await E(revokeOffer).getPayouts();
+  const kvals = await Promise.all(
+    Object.entries(payouts).map(async ([keyword, payment]) => {
+      const amount = await link.issuer.getAmountOf(payment);
+      return [keyword, amount];
+    }),
+  );
+  t.deepEqual(kvals, [['Fee', link.amountMath.make(799)]]);
+  t.deepEqual(
+    await link.issuer.getAmountOf(E(withdrawOffer).getPayout('Fee')),
+    link.amountMath.make(201),
   );
 });

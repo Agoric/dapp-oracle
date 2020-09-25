@@ -2,16 +2,16 @@
 
 This Dapp is a generic way to interact with oracles such as the [Chainlink](https://chain.link) decentralized oracle network.
 
-The oracle contract allows anybody to create an oracle kit, and publish the
-resulting oracle for people to query in conjunction with the contract.
+The oracle contract represents a single oracle, whose publicFacet can be
+published for people to query.
 
 ## Single-query Usage
 
-The `publicFacet.makeQueryInvitation(oracle, query)` call creates a
-query invitation, which can be redeemed (by paying any fees) via
-`zoe.offer(invitation)` for an oracle result.
+The `publicFacet.makeQueryInvitation(query)` call creates a query invitation,
+which can be redeemed (by paying any fees) via `zoe.offer(invitation)` for an
+oracle result.
 
-The `publicFacet.query(oracle, query)` call creates an unpaid query.
+The `publicFacet.query(query)` call creates an unpaid query.
 
 For every single query, the contract:
 
