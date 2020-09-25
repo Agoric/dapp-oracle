@@ -3,14 +3,11 @@ import '@agoric/zoe/exported';
 import { makePromiseKit } from '@agoric/promise-kit';
 import makeWeakStore from '@agoric/weak-store';
 
+import { assert, details } from '@agoric/assert';
 import { E } from '@agoric/eventual-send';
 import { withdrawFromSeat } from '@agoric/zoe/src/contractSupport';
 
 import './types';
-import {
-  assert,
-  details,
-} from '../../../agoric-sdk/node_modules/@agoric/assert/src/assert';
 
 /**
  * @param {ContractFacet} zcf
