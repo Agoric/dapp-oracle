@@ -112,11 +112,22 @@ with ${JSON.stringify(reply)}`);
           el.appendChild(actions);
         }
         actions.innerHTML = `\
+<input value="0" type="number"/> <button class="take">Set Fee</button><br />
 <textarea></textarea>
-<button>Reply</button>
+<button class="reply">Reply</button>
 `;
+        const inp = actions.querySelector('input');
+        actions.querySelector('button.take').addEventListener('click', function (ev) {
+          apiSend({
+            type: 'oracleServer/collectFee',
+            data: {
+              queryId,
+              value: inp.valueAsNumber,
+            },
+          });
+        });
         const txt = actions.querySelector('textarea');
-        actions.querySelector('button').addEventListener('click', _ev => {
+        actions.querySelector('button.reply').addEventListener('click', _ev => {
           let reply;
           try {
             reply = JSON.parse(txt.value);

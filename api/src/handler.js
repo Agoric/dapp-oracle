@@ -13,16 +13,18 @@ const startSpawn = async (
 ) => {
   /** @type {OracleHandler} */
   let oracleHandler;
+  /** @type {AmountMath} */
+  let feeAmountMath;
   const subChannelHandles = new Set();
   const queryIdToObj = new Map();
+  const queryIdToActions = new Map();
   const queryIdToDoReply = new Map();
 
   if (installOracle) {
     const feeAmountMathKind = await E(feeIssuer).getAmountMathKind();
     const feeBrand = await E(feeIssuer).getBrand();
 
-    const feeAmountMath = makeAmountMath(feeBrand, feeAmountMathKind);
-    +feeAmountMath;
+    feeAmountMath = makeAmountMath(feeBrand, feeAmountMathKind);
 
     const sendToSubscribers = obj => {
       E(http)
@@ -33,7 +35,7 @@ const startSpawn = async (
     let lastQueryId = 0;
 
     oracleHandler = {
-      async onQuery(query) {
+      async onQuery(query, actions) {
         lastQueryId += 1;
         const queryId = lastQueryId;
         const obj = {
@@ -43,6 +45,7 @@ const startSpawn = async (
             query,
           },
         };
+        queryIdToActions.set(queryId, actions);
         queryIdToObj.set(queryId, obj);
         sendToSubscribers(obj);
         return new Promise(resolve => {
@@ -50,6 +53,7 @@ const startSpawn = async (
             resolve(reply);
             queryIdToDoReply.delete(queryId);
             queryIdToObj.delete(queryId);
+            queryIdToActions.delete(queryId);
             sendToSubscribers({
               type: 'oracleServer/onReply',
               data: {
@@ -88,6 +92,28 @@ const startSpawn = async (
         async onMessage(obj, { _channelHandle }) {
           // These are messages we receive from either POST or WebSocket.
           switch (obj.type) {
+            case 'oracleServer/assertDeposit': {
+              const { queryId, value } = obj.data;
+              const actions = queryIdToActions.get(queryId);
+              if (actions) {
+                await E(actions).assertDeposit({
+                  Fee: feeAmountMath.make(value),
+                });
+              }
+              return true;
+            }
+
+            case 'oracleServer/collectFee': {
+              const { queryId, value } = obj.data;
+              const actions = queryIdToActions.get(queryId);
+              if (actions) {
+                await E(actions).collectFee({
+                  Fee: feeAmountMath.make(value),
+                });
+              }
+              return true;
+            }
+
             case 'oracleServer/reply': {
               const { queryId, reply } = obj.data;
               const doReply = queryIdToDoReply.get(queryId);
