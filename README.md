@@ -39,11 +39,12 @@ There are three basic components to a given Chainlink integration:
 
 ## Planned Implementation
 
+The oracle query-only UI is deployed with `agoric deploy api/deploy.js`.
+
 The "external adapter" is [in
 Javascript](https://github.com/smartcontractkit/external-adapters-js) and
 "external initiator" is [in
 Golang](https://github.com/smartcontractkit/external-initiator).  Both contact
-the `ag-solo` where `agoric deploy api/deploy.js` has been run to create an
-oracle and register it in the board for a UI to pick up.
+the `ag-solo` where `SERVE_ORACLE='myOracle' agoric deploy api/deploy.js` has
+been run to create an oracle and register it in the board for a UI to pick up.
 
-The oracle query-only UI is deployed with `agoric deploy api/deploy-client.js`.

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Encouragement</title>
+    <title>Oracle</title>
 
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link href="index.css" rel="stylesheet" type="text/css" />
@@ -12,48 +12,42 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
 
-    <div id="instructions">
-      <h2>Do you know you're great?</h2>
-
-      <p>Everybody could use a little encouragement now and then. Click
-      "Encourage Me!" to get a new message. Tips are optional, but
-      requests with tips get a little more encouraging.
-      </p> Note: To give a
-      tip, first select the "for a tip..." item below, then click the
-      "Encourage Me!" button. After selecting to
-      give a tip, your wallet will pop up.  Look under
-      "Transactions" for the proposed offers that are awaiting approval (or
-      rejection). Click on the check mark in a green circle to approve
-      giving a tip, or on the x in a red circle to disapprove.</p>
-    </div>
-
-    <form id="encourageForm" onsubmit="return false">
+    <h2>Query Oracle</h2>
+    <form id="oracleForm" onsubmit="return false">
     <p>
-        Request encouragement...
+        Query oracle ID <input type="text" id="oracleInstanceId"
+        placeholder="board:..." /> with <input
+        type="text" id="oracleQuery" value="&quot;hello&quot;" />
         <br/>
         <br/>
-        <label for="forFree"><input type="radio" id="forFree" value="free" checked="checked" name="tipKind" />
+        <label for="forFree"><input type="radio" id="forFree" value="free" checked="checked" name="feeKind" />
           for free</label><br />
-        <label for="forTip"><input type="radio" id="forTip" value="tip" name="tipKind" />
-          for a tip of
+        <label for="forFee"><input type="radio" id="forFee" value="tip" name="feeKind" />
+          for a payment of
         <input type="number" min="0" size="6" length="4" id="inputAmount" value="1" disabled="disabled" />
         <select id="brands" disabled="disabled">
           <option value="remove()"><i>no issuers</i></option>
-        </select> from <select id="tipPurse" disabled="disabled">
+        </select> from <select id="feePurse" disabled="disabled">
           <option value="remove()"><i>no purse</i></option>
         </select>
-          into
-        <select id="intoPurse" disabled="disabled">
-          <option value=""><i>no purse</i></option>
-        </select></label>
+        </label>
       </p>
 
-      <input type="submit" value="Encourage Me!" id="encourageMe" disabled="disabled" />
+      <input type="submit" value="Query Oracle!" id="queryOracle" disabled="disabled" />
       <span><iframe id="walletBridgeIFrame" width="100" height="21"></iframe></span>
-
-      <p><i>I've encouraged <span id="numEncouragements">0</span> times since I was born.</i></p>
     </form>
+
+    <div class="visibleOnlyToOracleService">
+    <h2>Serve as Oracle</h2>
+
+    <p>This oracle can be reached at: <span
+    id="myOracleInstanceId">loading...</span></p>
  
+    <ul id="oracleRequests">
+    </ul>
+
+    </div>
+
     <hr />
     <div class="horizontal">
       <div class="status">

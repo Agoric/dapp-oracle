@@ -55,36 +55,32 @@ test.before(
           let replied;
           /** @type {OracleQueryHandler} */
           const oracleQueryHandler = {
-            async calculateDeposit(q) {
-              t.is(q, query);
+            async calculateDeposit() {
               t.is(replied, undefined);
-              if (q.kind !== 'Paid') {
+              if (query.kind !== 'Paid') {
                 // No deposit.
                 return {};
               }
               return { Fee: feeAmount };
             },
-            async calculateFee(q, reply) {
-              t.is(q, query);
+            async calculateFee(reply) {
               t.is(await reply, replied);
 
-              if (q.kind !== 'Paid') {
+              if (query.kind !== 'Paid') {
                 // No fee for an unpaid query.
                 return {};
               }
               return { Fee: feeAmount };
             },
-            async getReply(q) {
+            async getReply() {
               t.is(replied, undefined);
-              t.is(q, query);
-              replied = harden({ pong: q });
+              replied = harden({ pong: query });
               return replied;
             },
-            async completed(q, reply, collected) {
+            async completed(reply, collected) {
               t.not(replied, undefined);
-              t.is(await q, query);
               t.is(await reply, replied);
-              if (q.kind === 'Paid') {
+              if (query.kind === 'Paid') {
                 // eslint-disable-next-line no-await-in-loop
                 t.deepEqual(collected.Fee, feeAmount);
               } else {

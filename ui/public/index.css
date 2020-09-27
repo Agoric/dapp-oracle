@@ -11,6 +11,10 @@ body {
   padding: 20px;
 }
 
+.visibleOnlyToOracleService {
+  display: none;
+}
+
 #walletBridgeIFrame {
   padding: 0;
   margin: 0;

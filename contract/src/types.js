@@ -33,14 +33,13 @@
 
 /**
  * @typedef {Object} OracleQueryHandler
- * @property {(query: any) => ERef<AmountKeywordRecord>} calculateDeposit
- * determine the deposit before we will actually try to perform a query
- * @property {(query: any, reply: ERef<any>) => ERef<AmountKeywordRecord>}
- * calculateFee determine the fee for the query and result
- * @property {(query: any) => any} getReply actually do the work of the query.
- * Note that the deposit (calculateFee where isFinal is false) has been
- * guaranteed by the contract, so we will get at least that much if they fail to
- * pay the final fee
- * @property {(query: any, reply: any, collected: AmountKeywordRecord) =>
- * ERef<void>} completed mark a query as completed
+ * @property {() => ERef<AmountKeywordRecord>} calculateDeposit determine the
+ * deposit before we will actually try to perform a query
+ * @property {(reply: ERef<any>) => ERef<AmountKeywordRecord>} calculateFee
+ * determine the fee for the query and result
+ * @property {() => any} getReply actually do the work of the query.  Note that
+ * the deposit (calculateFee where isFinal is false) has been guaranteed by the
+ * contract, so we will get at least that much if they fail to pay the final fee
+ * @property {(reply: any, collected: AmountKeywordRecord) => ERef<void>}
+ * completed mark a query as completed
  */

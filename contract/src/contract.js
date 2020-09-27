@@ -83,14 +83,14 @@ const start = async zcf => {
       throw Error(revoked);
     }
     const queryHandler = E(handler).onQuery(query);
-    const deposit = await E(queryHandler).calculateDeposit(query);
+    const deposit = await E(queryHandler).calculateDeposit();
 
     // Assert that they can cover the deposit before continuing.
     if (Object.keys(deposit).length > 0) {
       assertDeposit(deposit);
     }
-    const replyP = E(queryHandler).getReply(query);
-    const desiredFee = await E(queryHandler).calculateFee(query, replyP);
+    const replyP = E(queryHandler).getReply();
+    const desiredFee = await E(queryHandler).calculateFee(replyP);
 
     // Wait until we have the reply.
     const reply = await replyP;
@@ -105,7 +105,7 @@ const start = async zcf => {
 
     // Tell the oracle that the query is complete, but don't block so that the
     // oracle cannot prevent delivery of the reply.
-    E(queryHandler).completed(query, reply, actualFee);
+    E(queryHandler).completed(reply, actualFee);
 
     return reply;
   };

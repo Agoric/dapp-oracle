@@ -4,8 +4,8 @@ import dappConstants from '../lib/constants.js';
 import { implode } from '../lib/implode.js';
 
 // TODO: Allow multiple brands for tipping.
-const { Tip: tipBrandBoardId, Assurance: assuranceBrandBoardId } = dappConstants.brandBoardIds;
-const allowedBrandBoardIds = [tipBrandBoardId];
+// const { Tip: tipBrandBoardId, Assurance: assuranceBrandBoardId } = dappConstants.brandBoardIds;
+const allowedBrandBoardIds = undefined;
 
 /**
  * @typedef {Object.<string, HTMLOptionElement>} Purse
@@ -18,7 +18,7 @@ const allowedBrandBoardIds = [tipBrandBoardId];
 /**
  * @type {Purse[]}
  */
-const tipPurses = [];
+const feePurses = [];
 
 /**
  * @type {Purse[]}
@@ -163,9 +163,7 @@ export function walletUpdatePurses(purses, selects) {
     ({ brandBoardId }) => !allowedBrandBoardIds|| allowedBrandBoardIds.includes(brandBoardId)
   ).sort(({ pursePetname: a }, { pursePetname: b }) => cmp(a, b));
 
-  intoPurses = purses.filter(
-    ({ brandBoardId }) => brandBoardId === assuranceBrandBoardId,
-  ).sort(({ pursePetname: a }, { pursePetname: b }) => cmp(a, b));
+  intoPurses = [];
 
   const newPurses = intoPurses.sort(({ pursePetname: a }, { pursePetname: b}) =>
     cmp(a, b));
@@ -182,7 +180,7 @@ export function walletUpdatePurses(purses, selects) {
     'pursePetname',
     existingIntoPurses,
     newPurses,
-    ['$intoPurse'],
+    [],
     selects,
     false,
   );
@@ -194,13 +192,13 @@ export function walletUpdatePurses(purses, selects) {
 export function flipSelectedBrands(selects) {
   let i = 0;
   const selectedPetname = selects.$brands.value;
-  while (i < tipPurses.length) {
-    const purse = tipPurses[i];
+  while (i < feePurses.length) {
+    const purse = feePurses[i];
     if (implode(purse.brandPetname) !== selectedPetname) {
       // Remove the purse.
-      selects.$tipPurse.removeChild(purse.$tipPurse);
-      delete purse.$tipPurse;
-      tipPurses.splice(i, 1);
+      selects.$feePurse.removeChild(purse.$feePurse);
+      delete purse.$feePurse;
+      feePurses.splice(i, 1);
     } else {
       i += 1;
     }
@@ -208,9 +206,9 @@ export function flipSelectedBrands(selects) {
 
   updateOptions(
     'pursePetname',
-    tipPurses,
+    feePurses,
     allPurses.filter(({ brandPetname }) => implode(brandPetname) === selectedPetname),
-    ['$tipPurse'],
+    ['$feePurse'],
     selects,
   );
 }
