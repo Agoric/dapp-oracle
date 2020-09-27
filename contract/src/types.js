@@ -27,19 +27,14 @@
 
 /**
  * @typedef {Object} OracleHandler
- * @property {(query: any) => Promise<OracleQueryHandler>} onQuery callback for
- * associating a query handler with a given query
+ * @property {(query: any, actions: ERef<OracleQueryActions>) => Promise<any>} onQuery
+ * callback to reply to a query
  */
 
 /**
- * @typedef {Object} OracleQueryHandler
- * @property {() => ERef<AmountKeywordRecord>} calculateDeposit determine the
- * deposit before we will actually try to perform a query
- * @property {(reply: ERef<any>) => ERef<AmountKeywordRecord>} calculateFee
+ * @typedef {Object} OracleQueryActions
+ * @property {(deposit: AmountKeywordRecord) => void} assertDeposit ensure that
+ * the caller has deposited this much, failing the query if they haven't
+ * @property {(desiredFee: AmountKeywordRecord) => ERef<AmountKeywordRecord>} collectFee
  * determine the fee for the query and result
- * @property {() => any} getReply actually do the work of the query.  Note that
- * the deposit (calculateFee where isFinal is false) has been guaranteed by the
- * contract, so we will get at least that much if they fail to pay the final fee
- * @property {(reply: any, collected: AmountKeywordRecord) => ERef<void>}
- * completed mark a query as completed
  */

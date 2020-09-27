@@ -4,6 +4,7 @@ import '@agoric/zoe/exported';
 import { assert, details } from '@agoric/assert';
 import { E } from '@agoric/eventual-send';
 import { trade } from '@agoric/zoe/src/contractSupport';
+import { makePromiseKit } from '@agoric/promise-kit';
 
 import './types';
 
@@ -73,41 +74,52 @@ const start = async zcf => {
   /**
    * Actually perform the query, handling fees, and returning a result.
    * @param {any} query
-   * @param {(fee: AmountKeywordRecord) => void} assertDeposit
-   * @param {(fee: AmountKeywordRecord) => AmountKeywordRecord} [collectFee=_ =>
-   * ({})]
+   * @param {(deposit: AmountKeywordRecord) => void} assertDeposit
+   * @param {(fee?: AmountKeywordRecord) => AmountKeywordRecord} [collectFee=_=>({})]
    * @returns {Promise<any>}
    */
   const performQuery = async (query, assertDeposit, collectFee = _ => ({})) => {
     if (revoked) {
       throw Error(revoked);
     }
-    const queryHandler = E(handler).onQuery(query);
-    const deposit = await E(queryHandler).calculateDeposit();
 
-    // Assert that they can cover the deposit before continuing.
-    if (Object.keys(deposit).length > 0) {
-      assertDeposit(deposit);
+    let failedAssert;
+    let fee;
+
+    const collectedPK = makePromiseKit();
+
+    /** @type {OracleQueryActions} */
+    const actions = {
+      assertDeposit(deposit) {
+        try {
+          if (revoked) {
+            throw Error(revoked);
+          }
+          assertDeposit(deposit);
+        } catch (e) {
+          failedAssert = e;
+          throw e;
+        }
+      },
+      async collectFee(desiredFee) {
+        // We can only collect when we have replied.
+        if (revoked) {
+          throw Error(revoked);
+        }
+        fee = desiredFee;
+        return collectedPK.promise;
+      },
+    };
+
+    const replyP = E(handler).onQuery(query, harden(actions));
+    // Ensure the promise resolves.
+    await replyP.catch(e => (failedAssert = e));
+    if (failedAssert) {
+      collectedPK.resolve(collectFee());
+      throw failedAssert;
     }
-    const replyP = E(queryHandler).getReply();
-    const desiredFee = await E(queryHandler).calculateFee(replyP);
-
-    // Wait until we have the reply.
-    const reply = await replyP;
-
-    // Last chance to abort before payment.
-    if (revoked) {
-      throw Error(revoked);
-    }
-
-    // Collect the lesser of desiredFee and deposit.
-    const actualFee = collectFee(desiredFee);
-
-    // Tell the oracle that the query is complete, but don't block so that the
-    // oracle cannot prevent delivery of the reply.
-    E(queryHandler).completed(reply, actualFee);
-
-    return reply;
+    collectedPK.resolve(collectFee(fee));
+    return replyP;
   };
 
   /** @type {OracleCreatorFacet} */
@@ -146,8 +158,8 @@ const start = async zcf => {
     },
     async makeQueryInvitation(query) {
       /** @type {OfferHandler} */
-      const offerHandler = async seat => {
-        return performQuery(
+      const offerHandler = async seat =>
+        performQuery(
           query,
           deposit => {
             assert(
@@ -156,6 +168,11 @@ const start = async zcf => {
             );
           },
           fee => {
+            if (!fee) {
+              seat.exit();
+              return {};
+            }
+
             const actualAmounts = fromSeatUpToMaximum(zcf, seat, fee);
 
             // Put the actual amounts on our feeSeat.
@@ -168,7 +185,6 @@ const start = async zcf => {
             return actualAmounts;
           },
         );
-      };
       return zcf.makeInvitation(offerHandler, 'oracle query', {
         query,
       });

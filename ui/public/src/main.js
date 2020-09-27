@@ -82,16 +82,16 @@ export default async function main() {
         const { instanceId, query, reply } = obj.data;
         alert(`\
 Oracle ${instanceId}
-says ${JSON.stringify(query)}
-is ${JSON.stringify(reply)}`);
+answers ${JSON.stringify(query)}
+with ${JSON.stringify(reply)}`);
         break;
       }
       case 'oracle/queryError': {
         alert(`Oracle failed: ${obj.data}`);
         break;
       }
-      case 'oracle/request': {
-        const { method, query, queryId, requestId } = obj.data;
+      case 'oracleServer/onQuery': {
+        const { queryId, query } = obj.data;
         const id = `query-${queryId}`;
         let el = document.getElementById(id);
         if (!el) {
@@ -111,55 +111,31 @@ is ${JSON.stringify(reply)}`);
           actions.setAttribute('class', 'actions');
           el.appendChild(actions);
         }
-        switch (method) {
-          case 'calculateDeposit': {
-            actions.innerHTML = `\
-Required deposit: <input type="number" value="0"/> <button>Continue</button>
-`;
-            const dep = actions.querySelector('input');
-            actions.querySelector('button').addEventListener('click', _ev => {
-              const deposit = dep.valueAsNumber;
-              queryIdToDeposit.set(queryId, deposit);
-              doAnswer(requestId, deposit);
-              actions.innerHTML = `Waiting for deposit ${deposit}`;
-            });
-            break;
-          }
-          case 'getReply': {
-            actions.innerHTML = `\
+        actions.innerHTML = `\
 <textarea></textarea>
 <button>Reply</button>
 `;
-            const txt = actions.querySelector('textarea');
-            actions.querySelector('button').addEventListener('click', _ev => {
-              let reply;
-              try {
-                reply = JSON.parse(txt.value);
-              } catch (e) {
-                alert(`Cannot parse reply: ${e && e.stack || e}`);
-                return;
-              }
-              doAnswer(requestId, reply);
-              actions.innerHTML = `Waiting for confirmation`;
-            });
-            break;
+        const txt = actions.querySelector('textarea');
+        actions.querySelector('button').addEventListener('click', _ev => {
+          let reply;
+          try {
+            reply = JSON.parse(txt.value);
+          } catch (e) {
+            alert(`Cannot parse reply: ${e && e.stack || e}`);
+            return;
           }
-          case 'calculateFee': {
-            // FIXME: Allow specification.
-            const fee = queryIdToDeposit.get(queryId);
-            doAnswer(requestId, fee);
-            queryIdToDeposit.delete(queryId);
-            actions.innerHTML = `Waiting for fee ${fee}`;
-            break;
-          }
-          default: {
-            actions.innerHTML = `Unknown method ${method}`;
-            break;
-          }
-        }
+          apiSend({
+            type: 'oracleServer/reply',
+            data: {
+              queryId,
+              reply,
+            },
+          });
+          actions.innerHTML = `Waiting for confirmation`;
+        });
         break;
       }
-      case 'oracle/completed': {
+      case 'oracleServer/onReply': {
         const { queryId } = obj.data;
         const id = `query-${queryId}`;
         const el = document.getElementById(id);

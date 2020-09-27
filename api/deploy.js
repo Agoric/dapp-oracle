@@ -180,7 +180,7 @@ export default async function deployApi(
     // payments in our purses. We will put the adminPayoutP and
     // completeObj in our scratch location so that we can share the
     // live objects with the shutdown.js script.
-    E(scratch).set('adminPayoutP', E(adminSeat).getPayouts());
+    E(scratch).set('adminSeat', adminSeat);
     E(scratch).set('completeObj', completeObj);
 
     INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);

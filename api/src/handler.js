@@ -3,7 +3,6 @@ import harden from '@agoric/harden';
 import { E } from '@agoric/eventual-send';
 
 import { makeAmountMath } from '@agoric/ertp';
-import { makePromiseKit } from '@agoric/promise-kit';
 
 /**
  * @param {{ zoe: any, http: any, board: any, installOracle?: string, feeIssuer: Issuer, invitationIssuer: Issuer }} param0
@@ -15,15 +14,15 @@ const startSpawn = async (
   /** @type {OracleHandler} */
   let oracleHandler;
   const subChannelHandles = new Set();
-  const requestIdToObj = new Map();
-  const requestIdToWaitingPK = new Map();
+  const queryIdToObj = new Map();
+  const queryIdToDoReply = new Map();
 
   if (installOracle) {
-    // Actually create our own oracle.
     const feeAmountMathKind = await E(feeIssuer).getAmountMathKind();
     const feeBrand = await E(feeIssuer).getBrand();
 
     const feeAmountMath = makeAmountMath(feeBrand, feeAmountMathKind);
+    +feeAmountMath;
 
     const sendToSubscribers = obj => {
       E(http)
@@ -32,64 +31,35 @@ const startSpawn = async (
     };
 
     let lastQueryId = 0;
-    let lastRequestId = 0;
 
     oracleHandler = {
       async onQuery(query) {
         lastQueryId += 1;
         const queryId = lastQueryId;
-
-        const doRequest = (method, data = {}) => {
-          lastRequestId += 1;
-          const requestId = lastRequestId;
-          const obj = {
-            type: 'oracle/request',
-            data: {
-              ...data,
-              method,
-              queryId,
-              query,
-              requestId,
-            },
-          };
-          sendToSubscribers(obj);
-          requestIdToObj.set(requestId, obj);
-          const waitingPK = makePromiseKit();
-          requestIdToWaitingPK.set(requestId, waitingPK);
-          return waitingPK.promise;
+        const obj = {
+          type: 'oracleServer/onQuery',
+          data: {
+            queryId,
+            query,
+          },
         };
-
-        return {
-          async calculateDeposit() {
-            const value = await doRequest('calculateDeposit');
-            if (!value) {
-              return {};
-            }
-            return {
-              Fee: feeAmountMath.make(value),
-            };
-          },
-          async calculateFee(replyP) {
-            const reply = await replyP;
-            const value = await doRequest('calculateFee', { reply });
-            if (!value) {
-              return {};
-            }
-            return {
-              Fee: feeAmountMath.make(value),
-            };
-          },
-          getReply() {
-            return doRequest('getReply');
-          },
-          completed(reply, collected) {
-            const value = collected.Fee && collected.Fee.value;
+        queryIdToObj.set(queryId, obj);
+        sendToSubscribers(obj);
+        return new Promise(resolve => {
+          queryIdToDoReply.set(queryId, reply => {
+            resolve(reply);
+            queryIdToDoReply.delete(queryId);
+            queryIdToObj.delete(queryId);
             sendToSubscribers({
-              type: 'oracle/completed',
-              data: { queryId, query, reply, collected: value },
+              type: 'oracleServer/onReply',
+              data: {
+                queryId,
+                query,
+                reply,
+              },
             });
-          },
-        };
+          });
+        });
       },
     };
   }
@@ -103,7 +73,7 @@ const startSpawn = async (
 
         onOpen(_obj, { channelHandle }) {
           // Send all the pending requests to the new channel.
-          for (const obj of requestIdToObj.values()) {
+          for (const obj of queryIdToObj.values()) {
             E(http)
               .send(obj, [channelHandle])
               .catch(e => console.error('cannot send', e));
@@ -118,6 +88,15 @@ const startSpawn = async (
         async onMessage(obj, { _channelHandle }) {
           // These are messages we receive from either POST or WebSocket.
           switch (obj.type) {
+            case 'oracleServer/reply': {
+              const { queryId, reply } = obj.data;
+              const doReply = queryIdToDoReply.get(queryId);
+              if (doReply) {
+                doReply(reply);
+              }
+              return true;
+            }
+
             case 'oracle/query': {
               try {
                 const { instanceId, query } = obj.data;
@@ -134,17 +113,6 @@ const startSpawn = async (
                   data: `${(e && e.stack) || e}`,
                 });
               }
-            }
-
-            case 'oracle/requestResponse': {
-              const { requestId, answer } = obj.data;
-              const waitingPK = requestIdToWaitingPK.get(requestId);
-              if (waitingPK) {
-                waitingPK.resolve(answer);
-                requestIdToWaitingPK.delete(requestId);
-                requestIdToObj.delete(requestId);
-              }
-              return true;
             }
 
             case 'oracle/sendInvitation': {

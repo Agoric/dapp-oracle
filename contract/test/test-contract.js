@@ -51,45 +51,17 @@ test.before(
     const makePingOracle = async t => {
       /** @type {OracleHandler} */
       const oracleHandler = harden({
-        async onQuery(query) {
-          let replied;
-          /** @type {OracleQueryHandler} */
-          const oracleQueryHandler = {
-            async calculateDeposit() {
-              t.is(replied, undefined);
-              if (query.kind !== 'Paid') {
-                // No deposit.
-                return {};
-              }
-              return { Fee: feeAmount };
-            },
-            async calculateFee(reply) {
-              t.is(await reply, replied);
-
-              if (query.kind !== 'Paid') {
-                // No fee for an unpaid query.
-                return {};
-              }
-              return { Fee: feeAmount };
-            },
-            async getReply() {
-              t.is(replied, undefined);
-              replied = harden({ pong: query });
-              return replied;
-            },
-            async completed(reply, collected) {
-              t.not(replied, undefined);
-              t.is(await reply, replied);
-              if (query.kind === 'Paid') {
-                // eslint-disable-next-line no-await-in-loop
-                t.deepEqual(collected.Fee, feeAmount);
-              } else {
-                // eslint-disable-next-line no-await-in-loop
-                t.deepEqual(await collected, {});
-              }
-            },
-          };
-          return harden(oracleQueryHandler);
+        async onQuery(query, actions) {
+          if (query.kind === 'Paid') {
+            await E(actions).assertDeposit({ Fee: feeAmount });
+          }
+          const reply = harden({ pong: query });
+          if (query.kind === 'Paid') {
+            E(actions)
+              .collectFee({ Fee: feeAmount })
+              .then(collected => t.deepEqual(collected.Fee, feeAmount));
+          }
+          return reply;
         },
       });
 
