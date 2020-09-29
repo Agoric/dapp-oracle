@@ -12,11 +12,10 @@ import { E } from '@agoric/eventual-send';
  * @param {DeployPowers} powers
  */
 export default async function deployShutdown(referencesPromise) {
-  const { uploads: scratch, wallet } = await referencesPromise;
+  const { scratch, wallet } = await referencesPromise;
   const adminSeat = E(scratch).get('adminSeat');
-  const completeObj = E(scratch).get('completeObj');
 
-  await E(completeObj)
+  await E(E(adminSeat).getOfferResult())
     .exit()
     .catch(e => console.log(e));
   console.log('Contract is shut down.');

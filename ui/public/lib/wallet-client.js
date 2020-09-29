@@ -8,7 +8,7 @@ import { registerSocket, getActiveSocket, closeSocket } from './socket.js';
 /**
  * @typedef {Object} SocketHandler
  * @property {() => void} [onConnect]
- * @property {(msg: string) => void} [onMessage]
+ * @property {(obj: any) => void} [onMessage]
  * @property {() => void} [onDisconnect]
  */
 

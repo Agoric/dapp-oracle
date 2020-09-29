@@ -16,8 +16,7 @@
     <form id="oracleForm" onsubmit="return false">
     <p>
         Query oracle ID <input type="text" id="oracleInstanceId"
-        placeholder="board:..." /> with <input
-        type="text" id="oracleQuery" value="&quot;hello&quot;" />
+        placeholder="board:id" />
         <br/>
         <br/>
         <label for="forFree"><input type="radio" id="forFree" value="free" checked="checked" name="feeKind" />
@@ -33,9 +32,13 @@
         </label>
       </p>
 
+      <textarea id="oracleQuery" placeholder="JSON query"></textarea><br/>
       <input type="submit" value="Query Oracle!" id="queryOracle" disabled="disabled" />
       <span><iframe id="walletBridgeIFrame" width="100" height="21"></iframe></span>
     </form>
+
+    <ul id="oracleReplies">
+    </ul>
 
     <div class="visibleOnlyToOracleService">
     <h2>Serve Oracle</h2>
@@ -55,6 +58,11 @@
       </div>
       <div class="status">
         API server: <span id="api-status">Unknown</span>
+      </div>
+      <div class="visibleOnlyToOracleService">
+        <div class="status">
+          Oracle API server: <span id="api/oracle-status">Unknown</span>
+        </div>
       </div>
     </div>
     <div class="vertical">

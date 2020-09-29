@@ -5,6 +5,28 @@ This Dapp is a generic way to interact with oracles such as the [Chainlink](http
 The oracle contract represents a single oracle, whose publicFacet can be
 published for people to query.
 
+## Demo
+
+```sh
+# Start local chain implementation.
+agoric start local-chain >& chain.log &
+# Start a solo for the oracle client.
+agoric start local-solo 8000 >& 8000.log &
+# Start a solo for the oracle.
+agoric start local-solo 7999 >& 7999.log &
+# Deploy the oracle server contract.
+INSTALL_ORACLE='My Oracle' agoric deploy \
+  --hostport=127.0.0.1:7999 contract/deploy.js api/deploy.js
+# Deploy the oracle query contract.
+agoric deploy api/deploy.js
+# Run the UI server.
+(cd ui && yarn install && yarn start)
+```
+
+Go to the oracle server page at http://localhost:3000?API_PORT=7999
+
+Go to the oracle query page at http://localhost:3000
+
 ## Single-query Usage
 
 The `E(publicFacet).makeQueryInvitation(query)` call creates a query invitation,
@@ -46,7 +68,4 @@ The oracle query-only UI is deployed with `agoric deploy api/deploy.js`.
 The "external adapter" is [in
 Javascript](https://github.com/smartcontractkit/external-adapters-js) and
 "external initiator" is [in
-Golang](https://github.com/smartcontractkit/external-initiator).  Both contact
-the `ag-solo` where `SERVE_ORACLE='myOracle' agoric deploy api/deploy.js` has
-been run to create an oracle and register it in the board for a UI to pick up.
-
+Golang](https://github.com/smartcontractkit/external-initiator).

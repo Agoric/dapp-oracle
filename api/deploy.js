@@ -23,6 +23,8 @@ const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'moola';
  * @property {(path: string) => Promise<{ moduleFormat: string, source: string }>} bundleSource
  * @property {(path: string) => string} pathResolve
  * @property {(path: string, opts?: any) => Promise<any>} installUnsafePlugin
+ * @property {string} host
+ * @property {string} port
  *
  * @typedef {Object} Board
  * @property {(id: string) => any} getValue
@@ -31,18 +33,15 @@ const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'moola';
  * @property {() => [string]} ids
  */
 
-// const API_HOST = process.env.API_HOST || '127.0.0.1';
-const API_PORT = process.env.API_PORT || '8000';
-
 /**
- * @typedef {{ zoe: ZoeService, board: Board, spawner, wallet, uploads, http }} Home
+ * @typedef {{ zoe: ZoeService, board: Board, spawner, wallet, scratch, http }} Home
  * @param {Promise<Home>} homePromise
  * A promise for the references available from REPL home
  * @param {DeployPowers} powers
  */
 export default async function deployApi(
   homePromise,
-  { bundleSource, pathResolve },
+  { bundleSource, pathResolve, host = 'localhost', port = '8000' },
 ) {
   // Let's wait for the promise to resolve.
   const home = await homePromise;
@@ -58,7 +57,7 @@ export default async function deployApi(
     // Scratch is a map only on this machine, and can be used for
     // communication in objects between processes/scripts on this
     // machine.
-    uploads: scratch,
+    scratch,
 
     // The spawner persistently runs scripts within ag-solo, off-chain.
     spawner,
@@ -84,6 +83,9 @@ export default async function deployApi(
   } = home;
 
   const { CONTRACT_NAME } = installationConstants;
+
+  // const API_HOST = process.env.API_HOST || host;
+  const API_PORT = process.env.API_PORT || port;
 
   let INSTALLATION_HANDLE_BOARD_ID;
   let INSTANCE_HANDLE_BOARD_ID;
@@ -133,7 +135,9 @@ export default async function deployApi(
   const handlerInstall = E(spawner).install(bundle);
 
   // Spawn the running code
-  const { handler, oracleHandler } = await E(handlerInstall).spawn({
+  const { handler, oracleHandler, oracleURLHandler } = await E(
+    handlerInstall,
+  ).spawn({
     http,
     board,
     feeIssuer,
@@ -145,6 +149,8 @@ export default async function deployApi(
   await E(http).registerAPIHandler(handler);
 
   if (INSTALL_ORACLE) {
+    await E(http).registerURLHandler(oracleURLHandler, '/api/oracle');
+
     // To get the backend of our dapp up and running, first we need to
     // grab the installationHandle that our contract deploy script put
     // in the public board.
@@ -174,14 +180,10 @@ export default async function deployApi(
     // by calling the `complete` function on the `completeObj`.
     console.log('Retrieving admin');
     const adminSeat = E(zoe).offer(creatorInvitation);
-    const completeObj = E(adminSeat).getOfferResult();
 
-    // When the promise for a payout resolves, we want to deposit the
-    // payments in our purses. We will put the adminPayoutP and
-    // completeObj in our scratch location so that we can share the
-    // live objects with the shutdown.js script.
+    // We put the adminSeat in our scratch location so that we can share the
+    // live object with the shutdown.js script.
     E(scratch).set('adminSeat', adminSeat);
-    E(scratch).set('completeObj', completeObj);
 
     INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
   }
@@ -207,24 +209,33 @@ export default async function deployApi(
   const INVITE_BRAND_BOARD_ID = await E(board).getId(invitationBrand);
   const FEE_ISSUER_BOARD_ID = await E(board).getId(feeIssuer);
 
-  const API_URL = process.env.API_URL || `http://127.0.0.1:${API_PORT || 8000}`;
+  const API_URL = process.env.API_URL || `http://127.0.0.1:${API_PORT}`;
 
   // Re-save the constants somewhere where the UI and api can find it.
   const dappConstants = {
-    INSTANCE_HANDLE_BOARD_ID,
-    INSTALLATION_HANDLE_BOARD_ID,
     INVITE_BRAND_BOARD_ID,
     // BRIDGE_URL: 'agoric-lookup:https://local.agoric.com?append=/bridge',
     brandBoardIds: { Fee: FEE_BRAND_BOARD_ID },
     issuerBoardIds: { Fee: FEE_ISSUER_BOARD_ID },
-    BRIDGE_URL: 'http://127.0.0.1:8000',
-    API_URL,
   };
-  const defaultsFile = pathResolve(`../ui/public/conf/defaults.js`);
+  const defaultsFile = pathResolve('../ui/public/conf/defaults.js');
+  let defaults;
+  try {
+    // eslint-disable-next-line global-require,import/no-dynamic-require
+    defaults = require(defaultsFile).default;
+  } catch (e) {
+    // do nothing
+  }
+  const newDefaults = {
+    ...defaults,
+    ...dappConstants,
+    [API_PORT]: { INSTANCE_HANDLE_BOARD_ID, API_URL },
+  };
+
   console.log('writing', defaultsFile);
   const defaultsContents = `\
 // GENERATED FROM ${pathResolve('./deploy.js')}
-export default ${JSON.stringify(dappConstants, undefined, 2)};
+export default ${JSON.stringify(newDefaults, undefined, 2)};
 `;
   await fs.promises.writeFile(defaultsFile, defaultsContents);
 }

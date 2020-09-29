@@ -32,32 +32,17 @@ export default async function main() {
 
   let zoeInvitationDepositFacetId;
   
-  /**
-   * @param {{ type: string; data: any; walletURL: string }} obj
-   */
-  const walletRecv = obj => {
-    switch (obj.type) {
-      case 'walletUpdatePurses': {
-        const purses = JSON.parse(obj.data);
-        walletUpdatePurses(purses, selects);
-        $inputAmount.removeAttribute('disabled');
-        break;
-      }
-      case 'walletDepositFacetIdResponse': {
-        zoeInvitationDepositFacetId = obj.data;
-      }
-    }
-  };
-
   const $oracleInstanceId = /** @type {HTMLInputElement} */ (document.getElementById('oracleInstanceId'));
   const $oracleQuery = /** @type {HTMLInputElement} */ (document.getElementById('oracleQuery'));
   const $inputAmount = /** @type {HTMLInputElement} */ (document.getElementById('inputAmount'));
   const $oracleRequests = /** @type {HTMLDivElement} */ (document.getElementById('oracleRequests'));
+  const $oracleReplies = /** @type {HTMLDivElement} */ (document.getElementById('oracleReplies'));
 
   if (INSTANCE_HANDLE_BOARD_ID) {
-    // Make the oracle visible.
     const boardId = `board:${INSTANCE_HANDLE_BOARD_ID}`;
     $oracleInstanceId.value = boardId;
+  
+      // Make the oracle visible.
     document.getElementById('myOracleInstanceId').innerText = boardId;
     for (const el of document.getElementsByClassName('visibleOnlyToOracleService')) {
       const hel = /** @type {HTMLElement} */ (el);
@@ -65,94 +50,183 @@ export default async function main() {
     }
   }
 
-  let apiSend;
-  const queryIdToDeposit = new Map();
+  const oracleSend = await connect(
+    'api/oracle', 
+    obj => {
+      switch (obj.type) {
+        case 'oracleServer/onQuery': {
+          const { queryId, query } = obj.data;
+          const id = `query-${queryId}`;
+          let el = document.getElementById(id);
+          if (!el) {
+            el = document.createElement('li');
+            el.id = id;
+            $oracleRequests.appendChild(el);
+          }
+          if (!el.querySelector('.query')) {
+            const ql = document.createElement('pre');
+            ql.innerText = JSON.stringify(query, null, 2);
+            ql.setAttribute('class', 'query');
+            el.appendChild(ql);
+          }
+          let actions = el.querySelector('.actions');
+          if (!actions) {
+            actions = document.createElement('div');
+            actions.setAttribute('class', 'actions');
+            el.appendChild(actions);
+          }
+          actions.innerHTML = `\
+Deposit=<span id="taken-${queryId}">0</span> <input value="0" type="number"/> <button class="take">Lock Deposit</button><br />
+<textarea placeholder="JSON reply"></textarea><br />
+<button class="reply">Reply and Collect</button> <button class="cancel">Cancel</button>
+`;
+          const $inp = actions.querySelector('input');
+          actions.querySelector('button.take').addEventListener('click', function (ev) {
+            oracleSend({
+              type: 'oracleServer/assertDeposit',
+              data: {
+                queryId,
+                value: $inp.valueAsNumber,
+              },
+            });
+          });
+          actions.querySelector('button.cancel').addEventListener('click', _ev => {
+            oracleSend({
+              type: 'oracleServer/reply',
+              data: {
+                queryId,
+                reply: undefined,
+                value: 0,
+              },
+            });
+          });
+          const $txt = actions.querySelector('textarea');
+          actions.querySelector('button.reply').addEventListener('click', _ev => {
+            let reply;
+            try {
+              reply = JSON.parse($txt.value);
+            } catch (e) {
+              alert(`Cannot parse reply: ${e && e.stack || e}`);
+              return;
+            }
+            oracleSend({
+              type: 'oracleServer/reply',
+              data: {
+                queryId,
+                reply,
+                value: $inp.valueAsNumber,
+              },
+            });
+            actions.innerHTML = `Waiting for confirmation`;
+          });
+          break;
+        }
+        case 'oracleServer/assertDepositResponse': {
+          const { queryId, value } = obj.data;
+          const $taken = /** @type {HTMLButtonElement} */ (document.querySelector(`#taken-${queryId}`));
+          if ($taken) {
+            $taken.innerText = value;
+          }
+          break;
+        }
+        case 'oracleServer/onError': {
+          const { queryId } = obj.data;
+          const id = `query-${queryId}`;
+          const el = document.getElementById(id);
+          if (el) {
+            $oracleRequests.removeChild(el);
+          }
+        }
+        case 'oracleServer/onReply': {
+          const { queryId } = obj.data;
+          const id = `query-${queryId}`;
+          const el = document.getElementById(id);
+          if (el) {
+            $oracleRequests.removeChild(el);
+          }
+          break;
+        }
+      }
+    },
+  );
+
+  const $queryOracle = /** @type {HTMLInputElement} */ (document.getElementById('queryOracle'));
+  
+  const answer = ({ replyId, reply, error }) => {
+    const $reply = document.querySelector(`#reply-${replyId} .reply`);
+    if (error) {
+      $reply.innerHTML = error;
+    } else {
+      const $pre = document.createElement('pre');
+      $pre.className = 'reply';
+      $pre.innerText = JSON.stringify(reply, null, 2);
+      $reply.replaceWith($pre);
+    }
+  };
+  
+  // All the "suggest" messages below are backward-compatible:
+  // the new wallet will confirm them with the user, but the old
+  // wallet will just ignore the messages and allow access immediately.
+  const walletSend = await connect(
+    'wallet',
+    obj => {
+      switch (obj.type) {
+        case 'walletUpdatePurses': {
+          const purses = JSON.parse(obj.data);
+          walletUpdatePurses(purses, selects);
+          $inputAmount.removeAttribute('disabled');
+          break;
+        }
+        case 'walletDepositFacetIdResponse': {
+          zoeInvitationDepositFacetId = obj.data;
+          break;
+        }
+        case 'walletOfferResult': {
+          const { outcomeDetails, outcome } = obj.data;
+          answer({ ...outcomeDetails, reply: outcome });
+          break;
+        }
+      }
+    },
+    '?suggestedDappPetname=Oracle',
+  ).then(walletSend => {
+    walletSend({ type: 'walletGetPurses'});
+    walletSend({ type: 'walletGetDepositFacetId', brandBoardId: INVITE_BRAND_BOARD_ID });
+    if (INSTALLATION_HANDLE_BOARD_ID) {
+      walletSend({
+        type: 'walletSuggestInstallation',
+        petname: 'Installation',
+        boardId: INSTALLATION_HANDLE_BOARD_ID,
+      });
+    }
+    if (INSTANCE_HANDLE_BOARD_ID) {
+      walletSend({
+        type: 'walletSuggestInstance',
+        petname: 'Instance',
+        boardId: INSTANCE_HANDLE_BOARD_ID,
+      });
+    }
+    if (FEE_ISSUER_BOARD_ID) {
+      walletSend({
+        type: 'walletSuggestIssuer',
+        petname: 'Fee',
+        boardId: FEE_ISSUER_BOARD_ID,
+      });
+    }
+    return walletSend;
+  });
 
   /**
    * @param {{ type: string; data: any; }} obj
    */
   const apiRecv = obj => {
-    const doAnswer = (requestId, answer) =>
-      apiSend({
-        type: 'oracle/requestResponse',
-        data: { requestId, answer }
-      });
     switch (obj.type) {
       case 'oracle/queryResponse': {
-        const { instanceId, query, reply } = obj.data;
-        alert(`\
-Oracle ${instanceId}
-answers ${JSON.stringify(query)}
-with ${JSON.stringify(reply)}`);
+        answer(obj.data);
         break;
       }
       case 'oracle/queryError': {
-        alert(`Oracle failed: ${obj.data}`);
-        break;
-      }
-      case 'oracleServer/onQuery': {
-        const { queryId, query } = obj.data;
-        const id = `query-${queryId}`;
-        let el = document.getElementById(id);
-        if (!el) {
-          el = document.createElement('li');
-          el.id = id;
-          $oracleRequests.appendChild(el);
-        }
-        if (!el.querySelector('.query')) {
-          const ql = document.createElement('div');
-          ql.innerText = JSON.stringify(query, null, 2);
-          ql.setAttribute('class', 'query');
-          el.appendChild(ql);
-        }
-        let actions = el.querySelector('.actions');
-        if (!actions) {
-          actions = document.createElement('div');
-          actions.setAttribute('class', 'actions');
-          el.appendChild(actions);
-        }
-        actions.innerHTML = `\
-<input value="0" type="number"/> <button class="take">Set Fee</button><br />
-<textarea></textarea>
-<button class="reply">Reply</button>
-`;
-        const inp = actions.querySelector('input');
-        actions.querySelector('button.take').addEventListener('click', function (ev) {
-          apiSend({
-            type: 'oracleServer/collectFee',
-            data: {
-              queryId,
-              value: inp.valueAsNumber,
-            },
-          });
-        });
-        const txt = actions.querySelector('textarea');
-        actions.querySelector('button.reply').addEventListener('click', _ev => {
-          let reply;
-          try {
-            reply = JSON.parse(txt.value);
-          } catch (e) {
-            alert(`Cannot parse reply: ${e && e.stack || e}`);
-            return;
-          }
-          apiSend({
-            type: 'oracleServer/reply',
-            data: {
-              queryId,
-              reply,
-            },
-          });
-          actions.innerHTML = `Waiting for confirmation`;
-        });
-        break;
-      }
-      case 'oracleServer/onReply': {
-        const { queryId } = obj.data;
-        const id = `query-${queryId}`;
-        const el = document.getElementById(id);
-        if (el) {
-          $oracleRequests.removeChild(el);
-        }
+        answer(obj.data);
         break;
       }
       case 'oracle/sendInvitationResponse': {
@@ -170,42 +244,17 @@ with ${JSON.stringify(reply)}`);
     }
   };
 
-  const $queryOracle = /** @type {HTMLInputElement} */ (document.getElementById('queryOracle'));
-  
-  // All the "suggest" messages below are backward-compatible:
-  // the new wallet will confirm them with the user, but the old
-  // wallet will just ignore the messages and allow access immediately.
-  const walletSend = await connect('wallet', walletRecv, '?suggestedDappPetname=Oracle').then(walletSend => {
-    walletSend({ type: 'walletGetPurses'});
-    walletSend({ type: 'walletGetDepositFacetId', brandBoardId: INVITE_BRAND_BOARD_ID });
-    if (INSTALLATION_HANDLE_BOARD_ID) {
-      walletSend({
-        type: 'walletSuggestInstallation',
-        petname: 'Installation',
-        boardId: INSTALLATION_HANDLE_BOARD_ID,
-      });
-    }
-    if (INSTANCE_HANDLE_BOARD_ID) {
-      walletSend({
-        type: 'walletSuggestInstance',
-        petname: 'Instance',
-        boardId: INSTANCE_HANDLE_BOARD_ID,
-      });
-    }
-    walletSend({
-      type: 'walletSuggestIssuer',
-      petname: 'Fee',
-      boardId: FEE_ISSUER_BOARD_ID,
-    });
-    return walletSend;
-  });
-
-  apiSend = await connect('api', apiRecv).then(apiSend => {
+  let lastReplyId;
+  connect('api', apiRecv).then(apiSend => {
     $queryOracle.removeAttribute('disabled');
     $queryOracle.addEventListener('click', () => {
-      let instanceId = $oracleInstanceId.value;
+      let instanceId = $oracleInstanceId.value.trim();
       if (instanceId.startsWith('board:')) {
         instanceId = instanceId.slice('board:'.length);
+      }
+      if (!instanceId) {
+        alert(`Oracle ID is not set`);
+        return;
       }
       let query;
       try {
@@ -214,12 +263,15 @@ with ${JSON.stringify(reply)}`);
         alert(`Query ${query} is not valid JSON: ${e}`);
         return;
       }
+      lastReplyId = Date.now();
+      const replyId = lastReplyId;
       if ($forFree.checked) {
         apiSend({
           type: 'oracle/query',
           data: {
             instanceId,
             query,
+            replyId,
           }
         });
       }
@@ -228,12 +280,6 @@ with ${JSON.stringify(reply)}`);
         const offer = {
           // JSONable ID for this offer.  This is scoped to the origin.
           id: now,
-
-          // TODO: get this from the invitation instead in the wallet. We
-          // don't want to trust the dapp on this.
-          instanceHandleBoardId: INSTANCE_HANDLE_BOARD_ID,
-          installationHandleBoardId: INSTALLATION_HANDLE_BOARD_ID,
-      
           proposalTemplate: {
             give: {
               Fee: {
@@ -249,13 +295,31 @@ with ${JSON.stringify(reply)}`);
           type: 'oracle/sendInvitation',
           data: {
             depositFacetId: zoeInvitationDepositFacetId,
-            instanceId,
-            query,
+            outcomeDetails: {
+              instanceId,
+              query,
+              replyId,
+            },
             offer,
           },
         });
         // alert('Please approve your tip, then close the wallet.')
       }
+      const el = document.createElement('li');
+      el.id = `reply-${replyId}`;
+      el.innerHTML = `\
+<div>board:${instanceId}</div>
+<div class="queryReply">
+  <pre class="query"></pre>
+  <div>-&gt;</div>
+  <div class="reply">Waiting...</div>
+</div>
+`;
+      const $query = /** @type {HTMLElement} */ (el.querySelector('.query'));
+      if ($query) {
+        $query.innerText = JSON.stringify(query, null, 2);
+      }
+      $oracleReplies.prepend(el);
     });
     
     return apiSend;

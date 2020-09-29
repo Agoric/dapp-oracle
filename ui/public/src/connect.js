@@ -24,9 +24,21 @@ debugChange();
  */
 export const connect = (id, recv, query = '') => {
   const $status = /** @type {HTMLSpanElement} */(document.getElementById(`${id}-status`));
-  $status.innerHTML = 'Connecting...';
+  if ($status) {
+    $status.innerHTML = 'Connecting...';
+  }
 
-  const endpoint = id === 'wallet' ? `/private/wallet-bridge${query}` : '/api';
+  let endpoint;
+  switch (id) {
+    case 'wallet': {
+      endpoint = `/private/wallet-bridge${query}`;
+      break;
+     }
+    default: {
+      endpoint = `/${id}`;
+      break;
+    }
+  }
 
   /**
    * @param {{ type: string, data: any}} obj
@@ -55,11 +67,13 @@ export const connect = (id, recv, query = '') => {
   const activator = id === 'wallet' ? startBridge : startApi;
   activator({
     onConnect() {
-      $status.innerHTML = 'Connected';
+      if ($status) {
+        $status.innerHTML = 'Connected';
+      }
       resolve(send);
     },
     /**
-     * @param {{ type: string }} msg
+     * @param {{ type: string, data: any }} obj
      */
     onMessage(obj) {
       if (!obj || typeof obj.type !== 'string') {
@@ -73,7 +87,9 @@ export const connect = (id, recv, query = '') => {
       recv(obj);
     },
     onDisconnect() {
-      $status.innerHTML = 'Disconnected';
+      if ($status) {
+        $status.innerHTML = 'Disconnected';
+      }
       reject();
     },
   }, endpoint);
