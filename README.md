@@ -15,7 +15,7 @@ agoric start local-solo 8000 >& 8000.log &
 # Start a solo for the oracle.
 agoric start local-solo 7999 >& 7999.log &
 # Deploy the oracle server contract.
-INSTALL_ORACLE='My Oracle' agoric deploy \
+INSTALL_ORACLE='My Oracle' FEE_ISSUER_PETNAME='moola' agoric deploy \
   --hostport=127.0.0.1:7999 contract/deploy.js api/deploy.js
 # Deploy the oracle query contract.
 agoric deploy api/deploy.js
@@ -48,9 +48,92 @@ The `actions` additionally allow the oracle to call:
   reply has been returned, and then it resolves to the lesser of the actual
   payment (which is guaranteed to be more than the assertDeposit amount), or the desired fee.
 
-## Streaming Usage
+## WebSocket Oracle API
 
-Not yet implemented.
+To create an external oracle to serve an on-chain oracle contract, you will need
+to do the following:
+
+```sh
+# Initialise a new testnet client in the background.
+agoric start testnet >& testnet.log &
+# Wait for the testnet ag-solo to start up.
+tail -f testnet.log
+<Control-C> when 'swingset running'
+
+# Do any setup your ag-solo wallet needs, such as setting a petname
+# for the fee tokens you wish to charge ('moola' in this example).
+
+# Deploy the contract and API server when the above is ready.
+INSTALL_ORACLE='My wonderful oracle' FEE_ISSUER_PETNAME='moola' \
+  agoric deploy contract/deploy.js api/deploy.js
+```
+
+Your external oracle service would function like the following JS-like pseudocode:
+
+```js
+// Obtain a websocket connection to the oracle API of the above local testnet client.
+const ws = new WebSocket('ws://localhost:8000/api/oracle');
+
+ws.addEventListener('open', ev => {
+  console.log('Opened connection');
+
+  // A helper to send an object as a JSON websocket message.
+  const send = obj => ws.send(JSON.stringify(obj));
+
+  ws.addEventListener('message', ev => {
+    // Receive JSON packets according to the recv function defined below.
+    recv(JSON.parse(ev.data));
+  });
+
+  // Perform a query and send back a reply.
+  async function sendReply({ queryId, query }) {
+    const reply = performQuery(query); // A function you define.
+    const value = calculateFee(query, reply); // A function you define, may be 0.
+    send({ type: 'oracleServer/reply', queryId, reply, value });
+  }
+
+  // Receive from the server.
+  function recv(message) {
+    const obj = JSON.parse(message);
+    switch (obj.type) {
+      case 'oracleServer/onQuery': {
+        const { queryId, query } = obj.data;
+        const value = calculateDeposit(query);
+        if (value) {
+          // Wait until the deposit is satisfied.
+          send({ type: 'oracleServer/assertDeposit', queryId, query, value });
+        } else {
+          // No deposit, answer immediately.
+          sendReply(obj.data);
+        }
+        break;
+      }
+
+      case 'oracleServer/assertDepositResponse': {
+        sendReply(obj.data);
+        break;
+      }
+
+      case 'oracleServer/onError': {
+        const { queryId, query, error } = obj.data;
+        console.log('Error fulfilling query', query, error);
+        break;
+      }
+
+      case 'oracleServer/onReply': {
+        const { queryId, query, error } = obj.data;
+        console.log('Done fulfilling query', query, reply);
+        break;
+      }
+
+      default: {
+        console.log('Unrecognized message type', obj.type);
+        break;
+      }
+    }
+  }
+}
+```
 
 # Chainlink Integration
 

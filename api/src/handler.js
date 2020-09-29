@@ -106,12 +106,12 @@ const startSpawn = async (
                       // Asserted!
                       _ => ({
                         type: 'oracleServer/assertDepositResponse',
-                        data: { queryId, value },
+                        data: obj.data,
                       }),
                       // Failed!
                       e => ({
                         type: 'oracleServer/onError',
-                        data: { queryId, error: e },
+                        data: { ...obj.data, error: e },
                       }),
                     );
                 }
