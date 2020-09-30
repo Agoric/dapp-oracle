@@ -182,8 +182,8 @@ Deposit=<span id="taken-${queryId}">0</span> <input value="0" type="number"/> <b
           break;
         }
         case 'walletOfferResult': {
-          const { outcomeDetails, outcome } = obj.data;
-          answer({ ...outcomeDetails, reply: outcome });
+          const { dappContext, outcome } = obj.data;
+          answer({ ...dappContext, reply: outcome });
           break;
         }
       }
@@ -295,7 +295,7 @@ Deposit=<span id="taken-${queryId}">0</span> <input value="0" type="number"/> <b
           type: 'oracle/sendInvitation',
           data: {
             depositFacetId: zoeInvitationDepositFacetId,
-            outcomeDetails: {
+            dappContext: {
               instanceId,
               query,
               replyId,

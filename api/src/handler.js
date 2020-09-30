@@ -170,8 +170,8 @@ const startSpawn = async (
             }
 
             case 'oracle/sendInvitation': {
-              const { depositFacetId, outcomeDetails, offer } = obj.data;
-              const { instanceId, query } = outcomeDetails;
+              const { depositFacetId, dappContext, offer } = obj.data;
+              const { instanceId, query } = dappContext;
               try {
                 const depositFacet = E(board).getValue(depositFacetId);
                 const instance = await E(board).getValue(instanceId);
@@ -190,7 +190,7 @@ const startSpawn = async (
                 const updatedOffer = {
                   ...offer,
                   invitationHandleBoardId,
-                  outcomeDetails,
+                  dappContext,
                 };
 
                 // We need to wait for the invitation to be
@@ -206,7 +206,7 @@ const startSpawn = async (
               } catch (e) {
                 return harden({
                   type: 'oracle/queryError',
-                  data: { ...outcomeDetails, error: `${(e && e.stack) || e}` },
+                  data: { ...dappContext, error: `${(e && e.stack) || e}` },
                 });
               }
             }
