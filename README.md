@@ -91,14 +91,24 @@ ws.addEventListener('open', ev => {
     switch (obj.type) {
       case 'oracleServer/onQuery': {
         const { queryId, query, fee } = obj.data;
-        const { requiredFee, reply } = await performQuery(query, fee); // A function you define.
-        send({ type: 'oracleServer/reply', queryId, reply, requiredFee });
+        try {
+          const { requiredFee, reply } = await performQuery(query, fee); // A function you define.
+          send({ type: 'oracleServer/reply', data: { queryId, reply, requiredFee } });
+        } catch (e) {
+          send({ type: 'oracleServer/error', data: { queryId, error: `${(e && e.stack) || e}` }})
+        }
         break;
       }
 
       case 'oracleServer/onError': {
         const { queryId, query, error } = obj.data;
-        console.log('Error fulfilling query', query, error);
+        console.log('Failed query', query, error);
+        break;
+      }
+
+      case 'oracleServer/onReply': {
+        const { queryId, query, reply, fee } = obj.data;
+        console.log('Successful query', query, 'reply', reply, 'for fee', fee);
         break;
       }
 
