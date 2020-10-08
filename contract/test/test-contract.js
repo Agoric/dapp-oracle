@@ -12,6 +12,7 @@ import { makeZoe } from '@agoric/zoe';
 import '../src/types';
 import '@agoric/zoe/exported';
 import { makeIssuerKit } from '@agoric/ertp';
+import { assert, details } from '@agoric/assert/src/assert';
 
 /**
  * @typedef {Object} TestContext
@@ -51,25 +52,28 @@ test.before(
     const makePingOracle = async t => {
       /** @type {OracleHandler} */
       const oracleHandler = harden({
-        async onQuery(query, actions) {
+        async onQuery(query, fee) {
+          let requiredFee;
           if (query.kind === 'Paid') {
-            await E(actions).assertDeposit({ Fee: feeAmount });
+            requiredFee = feeAmount;
+            assert(
+              link.amountMath.isGTE(fee, requiredFee),
+              details`Minimum fee of ${feeAmount} not met; have ${fee}`,
+            );
           }
-          const reply = harden({ pong: query });
-          if (query.kind === 'Paid') {
-            E(actions)
-              .collectFee({ Fee: feeAmount })
-              .then(collected => t.deepEqual(collected.Fee, feeAmount));
-          }
-          return reply;
+          const reply = { pong: query };
+          return harden({ reply, requiredFee });
         },
       });
 
       /** @type {OracleStartFnResult} */
       const startResult = await E(zoe).startInstance(
         installation,
-        { Link: link.issuer },
-        { oracleHandler, oracleDescription: 'myOracle' },
+        { Fee: link.issuer },
+        {
+          oracleHandler,
+          oracleDescription: 'myOracle',
+        },
       );
 
       t.is(await E(startResult.publicFacet).getDescription(), 'myOracle');

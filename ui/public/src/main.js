@@ -55,14 +55,9 @@ export default async function main() {
     obj => {
       switch (obj.type) {
         case 'oracleServer/onQuery': {
-          const { queryId, query } = obj.data;
-          const id = `query-${queryId}`;
-          let el = document.getElementById(id);
-          if (!el) {
-            el = document.createElement('li');
-            el.id = id;
-            $oracleRequests.appendChild(el);
-          }
+          const { queryId, query, fee } = obj.data;
+          const el = document.createElement('li');
+          $oracleRequests.appendChild(el);
           if (!el.querySelector('.query')) {
             const ql = document.createElement('pre');
             ql.innerText = JSON.stringify(query, null, 2);
@@ -76,29 +71,20 @@ export default async function main() {
             el.appendChild(actions);
           }
           actions.innerHTML = `\
-Deposit=<span id="taken-${queryId}">0</span> <input value="0" type="number"/> <button class="take">Lock Deposit</button><br />
-<textarea placeholder="JSON reply"></textarea><br />
+Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
+<textarea placeholder="JSON reply">null</textarea><br />
 <button class="reply">Reply and Collect</button> <button class="cancel">Cancel</button>
 `;
-          const $inp = actions.querySelector('input');
-          actions.querySelector('button.take').addEventListener('click', function (ev) {
-            oracleSend({
-              type: 'oracleServer/assertDeposit',
-              data: {
-                queryId,
-                value: $inp.valueAsNumber,
-              },
-            });
-          });
+          const $fee = actions.querySelector('input');
           actions.querySelector('button.cancel').addEventListener('click', _ev => {
             oracleSend({
-              type: 'oracleServer/reply',
+              type: 'oracleServer/error',
               data: {
                 queryId,
-                reply: undefined,
-                value: 0,
+                error: 'cancelled',
               },
             });
+            $oracleRequests.removeChild(el);
           });
           const $txt = actions.querySelector('textarea');
           actions.querySelector('button.reply').addEventListener('click', _ev => {
@@ -114,36 +100,11 @@ Deposit=<span id="taken-${queryId}">0</span> <input value="0" type="number"/> <b
               data: {
                 queryId,
                 reply,
-                value: $inp.valueAsNumber,
+                requiredFee: $fee.valueAsNumber,
               },
             });
-            actions.innerHTML = `Waiting for confirmation`;
+            $oracleRequests.removeChild(el);
           });
-          break;
-        }
-        case 'oracleServer/assertDepositResponse': {
-          const { queryId, value } = obj.data;
-          const $taken = /** @type {HTMLButtonElement} */ (document.querySelector(`#taken-${queryId}`));
-          if ($taken) {
-            $taken.innerText = value;
-          }
-          break;
-        }
-        case 'oracleServer/onError': {
-          const { queryId } = obj.data;
-          const id = `query-${queryId}`;
-          const el = document.getElementById(id);
-          if (el) {
-            $oracleRequests.removeChild(el);
-          }
-        }
-        case 'oracleServer/onReply': {
-          const { queryId } = obj.data;
-          const id = `query-${queryId}`;
-          const el = document.getElementById(id);
-          if (el) {
-            $oracleRequests.removeChild(el);
-          }
           break;
         }
       }
@@ -182,8 +143,8 @@ Deposit=<span id="taken-${queryId}">0</span> <input value="0" type="number"/> <b
           break;
         }
         case 'walletOfferResult': {
-          const { dappContext, outcome } = obj.data;
-          answer({ ...dappContext, reply: outcome });
+          const { dappContext, outcome, error } = obj.data;
+          answer({ ...dappContext, reply: outcome, error });
           break;
         }
       }
@@ -259,8 +220,11 @@ Deposit=<span id="taken-${queryId}">0</span> <input value="0" type="number"/> <b
       let query;
       try {
         query = JSON.parse($oracleQuery.value);
+        if (Object(query) !== query) {
+          throw Error(`Not a JSON object`);
+        }
       } catch (e) {
-        alert(`Query ${query} is not valid JSON: ${e}`);
+        alert(`Query is invalid: ${e}`);
         return;
       }
       lastReplyId = Date.now();

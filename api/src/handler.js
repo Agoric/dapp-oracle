@@ -3,6 +3,7 @@ import harden from '@agoric/harden';
 import { E } from '@agoric/eventual-send';
 
 import { makeAmountMath } from '@agoric/ertp';
+import { makePromiseKit } from '@agoric/promise-kit';
 
 /**
  * @param {{ zoe: any, http: any, board: any, installOracle?: string, feeIssuer: Issuer, invitationIssuer: Issuer }} param0
@@ -17,9 +18,9 @@ const startSpawn = async (
 
   if (installOracle) {
     const subChannelHandles = new Set();
-    const queryIdToObj = new Map();
-    const queryIdToActions = new Map();
-    const queryIdToDoReply = new Map();
+    const queryIdToData = new Map();
+    const queryIdToReplyPK = new Map();
+    const queryToData = new Map();
 
     const feeAmountMathKind = await E(feeIssuer).getAmountMathKind();
     const feeBrand = await E(feeIssuer).getBrand();
@@ -35,7 +36,7 @@ const startSpawn = async (
     let lastQueryId = 0;
 
     oracleHandler = {
-      async onQuery(query, actions) {
+      async onQuery(query, fee) {
         lastQueryId += 1;
         const queryId = lastQueryId;
         const obj = {
@@ -43,29 +44,38 @@ const startSpawn = async (
           data: {
             queryId,
             query,
+            fee: fee.value,
           },
         };
-        queryIdToActions.set(queryId, actions);
-        queryIdToObj.set(queryId, obj);
+        queryIdToData.set(queryId, obj.data);
         sendToSubscribers(obj);
-        return new Promise(resolve => {
-          queryIdToDoReply.set(queryId, (reply, value) => {
-            if (value) {
-              E(actions).collectFee({ Fee: feeAmountMath.make(value) });
-            }
-            resolve(reply);
-            queryIdToDoReply.delete(queryId);
-            queryIdToObj.delete(queryId);
-            queryIdToActions.delete(queryId);
-            sendToSubscribers({
-              type: 'oracleServer/onReply',
-              data: {
-                queryId,
-                query,
-                reply,
-              },
-            });
-          });
+        const replyPK = makePromiseKit();
+        queryIdToReplyPK.set(queryId, replyPK);
+        queryToData.set(query, obj.data);
+        return replyPK.promise;
+      },
+      async onReply(query, reply, fee) {
+        const data = queryToData.get(query);
+        if (data) {
+          queryIdToData.delete(data.queryId);
+          queryIdToReplyPK.delete(data.queryId);
+        }
+        queryToData.delete(query);
+        sendToSubscribers({
+          type: 'oracleServer/onReply',
+          data: { ...data, reply, fee: fee.value },
+        });
+      },
+      async onError(query, error) {
+        const data = queryToData.get(query);
+        if (data) {
+          queryIdToData.delete(data.queryId);
+          queryIdToReplyPK.delete(data.queryId);
+        }
+        queryToData.delete(query);
+        sendToSubscribers({
+          type: 'oracleServer/onError',
+          data: { ...data, error: `${(error && error.stack) || error}` },
         });
       },
     };
@@ -79,7 +89,7 @@ const startSpawn = async (
 
           onOpen(_obj, { channelHandle }) {
             // Send all the pending requests to the new channel.
-            for (const obj of queryIdToObj.values()) {
+            for (const obj of queryIdToData.values()) {
               E(http)
                 .send(obj, [channelHandle])
                 .catch(e => console.error('cannot send', e));
@@ -94,35 +104,30 @@ const startSpawn = async (
           async onMessage(obj, { _channelHandle }) {
             // These are messages we receive from either POST or WebSocket.
             switch (obj.type) {
-              case 'oracleServer/assertDeposit': {
-                const { queryId, value } = obj.data;
-                const actions = queryIdToActions.get(queryId);
-                if (actions) {
-                  return E(actions)
-                    .assertDeposit({
-                      Fee: feeAmountMath.make(value),
-                    })
-                    .then(
-                      // Asserted!
-                      _ => ({
-                        type: 'oracleServer/assertDepositResponse',
-                        data: obj.data,
-                      }),
-                      // Failed!
-                      e => ({
-                        type: 'oracleServer/onError',
-                        data: { ...obj.data, error: e },
-                      }),
-                    );
+              case 'oracleServer/reply': {
+                const { queryId, reply, requiredFee } = obj.data;
+                const replyPK = queryIdToReplyPK.get(queryId);
+                if (replyPK) {
+                  replyPK.resolve({
+                    reply,
+                    requiredFee: feeAmountMath.make(requiredFee || 0),
+                  });
                 }
-                return undefined;
+                queryIdToReplyPK.delete(queryId);
+                return true;
               }
 
-              case 'oracleServer/reply': {
-                const { queryId, reply, value } = obj.data;
-                const doReply = queryIdToDoReply.get(queryId);
-                if (doReply) {
-                  doReply(reply, value);
+              case 'oracleServer/error': {
+                const { queryId, error } = obj.data;
+                const replyPK = queryIdToReplyPK.get(queryId);
+                if (replyPK) {
+                  replyPK.reject(Error(error));
+                }
+                const oldData = queryIdToData.get(queryId);
+                queryIdToReplyPK.delete(queryId);
+                queryIdToData.delete(queryId);
+                if (oldData) {
+                  queryToData.delete(oldData.query);
                 }
                 return true;
               }

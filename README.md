@@ -85,44 +85,20 @@ ws.addEventListener('open', ev => {
     recv(JSON.parse(ev.data));
   });
 
-  // Perform a query and send back a reply.
-  async function sendReply({ queryId, query }) {
-    const reply = performQuery(query); // A function you define.
-    const value = calculateFee(query, reply); // A function you define, may be 0.
-    send({ type: 'oracleServer/reply', queryId, reply, value });
-  }
-
   // Receive from the server.
-  function recv(message) {
+  async function recv(message) {
     const obj = JSON.parse(message);
     switch (obj.type) {
       case 'oracleServer/onQuery': {
-        const { queryId, query } = obj.data;
-        const value = calculateDeposit(query);
-        if (value) {
-          // Wait until the deposit is satisfied.
-          send({ type: 'oracleServer/assertDeposit', queryId, query, value });
-        } else {
-          // No deposit, answer immediately.
-          sendReply(obj.data);
-        }
-        break;
-      }
-
-      case 'oracleServer/assertDepositResponse': {
-        sendReply(obj.data);
+        const { queryId, query, fee } = obj.data;
+        const { requiredFee, reply } = await performQuery(query, fee); // A function you define.
+        send({ type: 'oracleServer/reply', queryId, reply, requiredFee });
         break;
       }
 
       case 'oracleServer/onError': {
         const { queryId, query, error } = obj.data;
         console.log('Error fulfilling query', query, error);
-        break;
-      }
-
-      case 'oracleServer/onReply': {
-        const { queryId, query, error } = obj.data;
-        console.log('Done fulfilling query', query, reply);
         break;
       }
 

@@ -27,14 +27,9 @@
 
 /**
  * @typedef {Object} OracleHandler
- * @property {(query: any, actions: ERef<OracleQueryActions>) => Promise<any>} onQuery
- * callback to reply to a query
- */
-
-/**
- * @typedef {Object} OracleQueryActions
- * @property {(deposit: AmountKeywordRecord) => void} assertDeposit ensure that
- * the caller has deposited this much, failing the query if they haven't
- * @property {(desiredFee: AmountKeywordRecord) => ERef<AmountKeywordRecord>} collectFee
- * determine the fee for the query and result
+ * @property {(query: any, fee: Amount) => Promise<{ reply:
+ * any, requiredFee: Amount }>} onQuery callback to reply to a query
+ * @property {(query: any, reason: any) => void} onError notice an error
+ * @property {(query: any, reply: any, requiredFee: Amount) => void} onReply
+ * notice a successful reply
  */
