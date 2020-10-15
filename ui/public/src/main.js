@@ -51,7 +51,7 @@ export default async function main() {
   }
 
   const oracleSend = await connect(
-    'api/oracle', 
+    '/api/oracle', 
     obj => {
       switch (obj.type) {
         case 'oracleServer/onQuery': {
@@ -206,7 +206,7 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
   };
 
   let lastReplyId;
-  connect('api', apiRecv).then(apiSend => {
+  connect('/api/oracle-client', apiRecv).then(apiSend => {
     $queryOracle.removeAttribute('disabled');
     $queryOracle.addEventListener('click', () => {
       let instanceId = $oracleInstanceId.value.trim();

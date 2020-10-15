@@ -1,5 +1,5 @@
 {
-  "name": "dapp-chainlink",
+  "name": "dapp-oracle",
   "version": "0.0.1",
   "private": true,
   "useWorkspaces": true,

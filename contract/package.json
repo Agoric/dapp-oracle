@@ -1,8 +1,8 @@
 {
-  "name": "dapp-chainlink-contract",
+  "name": "dapp-oracle-contract",
   "version": "0.1.0",
   "private": true,
-  "description": "Contract for the dapp-encouragement Agoric Dapp",
+  "description": "Contract for the dapp-oracle Agoric Dapp",
   "scripts": {
     "build": "exit 0",
     "test": "ava --verbose",

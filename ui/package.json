@@ -1,7 +1,7 @@
 {
-  "name": "dapp-chainlink-ui",
+  "name": "dapp-oracle-ui",
   "version": "0.0.1",
-  "description": "dapp-encouragement Frontend",
+  "description": "dapp-oracle Frontend",
   "author": "Agoric",
   "license": "Apache-2.0",
   "homepage": ".",

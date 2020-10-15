@@ -90,13 +90,12 @@ export default async function deployApi(
   let INSTALLATION_HANDLE_BOARD_ID;
   let INSTANCE_HANDLE_BOARD_ID;
 
-  // Second, we can use the installationHandle to create a new
-  // instance of our contract code on Zoe. A contract instance is a running
-  // program that can take offers through Zoe. Creating a contract
-  // instance gives you an invitation to the contract. In this case, it is
-  // an admin invitation with special authority - whoever redeems this
-  // admin invitation will get all of the tips from the encouragement
-  // contract instance.
+  // Second, we can use the installationHandle to create a new instance of our
+  // contract code on Zoe. A contract instance is a running program that can
+  // take offers through Zoe. Creating a contract instance gives you an
+  // invitation to the contract. In this case, it is an admin invitation with
+  // special authority - whoever redeems this admin invitation will get all of
+  // the fees from the contract instance.
 
   // At the time that we make the contract instance, we need to tell
   // Zoe what kind of token to accept as tip money. In this instance,
@@ -146,7 +145,7 @@ export default async function deployApi(
     zoe,
   });
 
-  await E(http).registerAPIHandler(handler);
+  await E(http).registerURLHandler(handler, '/api/oracle-client');
 
   if (INSTALL_ORACLE) {
     await E(http).registerURLHandler(oracleURLHandler, '/api/oracle');

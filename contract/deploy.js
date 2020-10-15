@@ -59,11 +59,10 @@ export default async function deployContract(
   const bundle = await bundleSource(pathResolve(`./src/contract.js`));
   const installationHandle = await E(zoe).install(bundle);
 
-  // Let's share this installationHandle with other people, so that
-  // they can run our encouragement contract code by making a contract
-  // instance (see the api deploy script in this repo to see an
-  // example of how to use the installationHandle to make a new contract
-  // instance.)
+  // Let's share this installationHandle with other people, so that they can run
+  // our contract code by making a contract instance (see the api deploy script
+  // in this repo to see an example of how to use the installationHandle to make
+  // a new contract instance.)
 
   // To share the installationHandle, we're going to put it in the
   // board. The board is a shared, on-chain object that maps
