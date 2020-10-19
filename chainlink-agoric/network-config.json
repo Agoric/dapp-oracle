@@ -1,0 +1,6 @@
+{
+  "chainName": "agoric",
+  "rpcAddrs": [
+    "host.docker.internal:26657"
+  ]
+}

@@ -20,7 +20,7 @@ add_jobspec() {
       "params": {
         "name": "test-ei",
         "body": {
-          "endpoint": "substrate-node",
+          "endpoint": "agoric-node",
           "accountIds": ["${ACCOUNT_ID}"]
         }
       }
@@ -37,7 +37,7 @@ add_jobspec() {
       "type": "multiply"
     },
     {
-      "type": "substrate",
+      "type": "agoric",
       "params": {
         "type": "int128"
       }

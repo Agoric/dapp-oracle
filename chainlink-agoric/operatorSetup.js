@@ -2,7 +2,7 @@ const {ApiPromise, Keyring, WsProvider} = require('@polkadot/api');
 const {cryptoWaitReady} = require('@polkadot/util-crypto');
 
 async function fundOperatorAccountIfNeeded(api, aliceAccount, operatorAccount) {
-    // TODO migrate to 'system.account' ? See https://github.com/paritytech/substrate/pull/4820
+    // TODO migrate to 'system.account' ? See https://github.com/paritytech/agoric/pull/4820
     return new Promise(async (resolve) => {
         const balance = await api.query.balances.freeBalance(operatorAccount.address);
         if (balance.isZero()) {

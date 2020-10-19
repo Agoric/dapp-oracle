@@ -1,5 +1,8 @@
 #!/bin/bash
 
+thisdir=$(dirname -- "$BASH_SOURCES[0]")
+cd "$thisdir" || exit $?
+
 source ./internal-scripts/common.sh
 
 run_setup() {
@@ -9,15 +12,15 @@ run_setup() {
   touch external_initiator2.env
   touch external_initiator3.env
 
-  SA_ENDPOINT="ws://host.docker.internal:9944/"
+  AG_NETWORK_CONFIG="$PWD/network-config.json"
 
   if [ "$1" != "" ]; then
-    SA_ENDPOINT=$1
+    AG_NETWORK_CONFIG=$1
   fi
 
-  echo "Endpoint: $SA_ENDPOINT"
+  echo "Network config: $AG_NETWORK_CONFIG"
 
-  export SA_ENDPOINT
+  export AG_NETWORK_CONFIG
   start_docker
 
   source ./internal-scripts/add-ei.sh

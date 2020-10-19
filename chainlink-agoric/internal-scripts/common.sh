@@ -70,7 +70,7 @@ run_ei() {
 start_docker() {
   title "Starting Chainlink Docker containers"
 
-  docker-compose up -d chainlink-node1 chainlink-node2 chainlink-node3 substrate-adapter1 substrate-adapter2 substrate-adapter3
+  docker-compose up -d chainlink-node1 chainlink-node2 chainlink-node3 agoric-adapter1 agoric-adapter2 agoric-adapter3
 
   launch_chainlink "http://localhost:6691/"
   launch_chainlink "http://localhost:6692/"
@@ -98,12 +98,12 @@ build_docker() {
 reset_volumes() {
   title "Removing Docker volumes"
 
-  docker volume rm substrate-chainlink_cl1
-  docker volume rm substrate-chainlink_cl2
-  docker volume rm substrate-chainlink_cl3
-  docker volume rm substrate-chainlink_pg1
-  docker volume rm substrate-chainlink_pg2
-  docker volume rm substrate-chainlink_pg3
+  docker volume rm agoric-chainlink_cl1
+  docker volume rm agoric-chainlink_cl2
+  docker volume rm agoric-chainlink_cl3
+  docker volume rm agoric-chainlink_pg1
+  docker volume rm agoric-chainlink_pg2
+  docker volume rm agoric-chainlink_pg3
 
   title "Done removing Docker volumes"
 }

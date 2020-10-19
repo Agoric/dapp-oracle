@@ -16,13 +16,22 @@ x-postgres-def:
   environment:
     - "POSTGRES_MULTIPLE_DATABASES=chainlink,ei"
     - "POSTGRES_HOST_AUTH_METHOD=trust"
+x-ag-solo-node-def:
+  &ag-solo-node-def
+  image: agoric/cosmic-swingset-solo
+  restart: on-failure
+  environment:
+    - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+  command: 'setup --webport="${AG_SOLO_WEBPORT}" --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
 x-external-initiator-def:
   &external-initiator-def
-  image: smartcontract/external-initiator
-  command: '{\"name\":\"substrate-node\",\"type\":\"substrate\",\"url\":\"${SA_ENDPOINT}\"}'
-x-substrate-adapter-def:
-  &substrate-adapter-def
-  image: smartcontract/substrate-adapter
+  # image: smartcontract/external-initiator
+  image: agoric/chainlink-external-initiator
+  command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"${EI_AGORICURL}\"}'
+x-agoric-adapter-def:
+  &agoric-adapter-def
+  # image: smartcontract/agoric-adapter
+  image: agoric/chainlink-adapter
   restart: on-failure
   env_file:
     - ./adapter.env
@@ -34,7 +43,7 @@ services:
     ports:
       - "6691:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node1_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@agoric-chainlink_postgres-node1_1:5432/chainlink?sslmode=disable"
     volumes:
       - 'cl1:/chainlink'
   postgres-node1:
@@ -42,25 +51,30 @@ services:
     volumes:
       - './docker-init-scripts:/docker-entrypoint-initdb.d'
       - 'pg1:/var/lib/postgresql/data'
+  ag-solo-node1:
+    <<: *ag-solo-node-def
+    ports:
+      - "8001"
+    environment:
+      - "AG_SOLO_WEBPORT=8001"
+    volumes:
+      - 'ag1:/usr/src/app/solo'
+      - '$HOME/.agoric:/root/.agoric'
+      - '$PWD/network-config.json:$PWD/network-config.json'
   external-initiator-node1:
     <<: *external-initiator-def
     depends_on:
       - postgres-node1
     environment:
-      - "EI_DATABASEURL=postgresql://ei@substrate-chainlink_postgres-node1_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node1_1:6688/"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:8001"
+      - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node1_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node1_1:6688/"
     env_file:
       - ./external_initiator1.env
-  substrate-adapter1:
-    <<: *substrate-adapter-def
+  agoric-adapter1:
+    <<: *agoric-adapter-def
     environment:
-      - "SA_ENDPOINT=${SA_ENDPOINT}"
-      - "SA_PRIVATE_KEY=0x2875481aae0807cf598d6097c901a33b36241c761158c85852a6d79a8f20bc62"
-    # Secret phrase `dry squeeze youth enjoy provide blouse claw engage host what horn next` is account:
-    #  Secret seed:      0x2875481aae0807cf598d6097c901a33b36241c761158c85852a6d79a8f20bc62
-    #  Public key (hex): 0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c
-    #  Account ID:       0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c
-    #  SS58 Address:     5EsiCstpHTxarfafS3tvG7WDwbrp9Bv6BbyRvpwt3fY8PCtN
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:8001"
   chainlink-node2:
     <<: *chainlink-def
     depends_on:
@@ -68,7 +82,7 @@ services:
     ports:
       - "6692:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node2_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@agoric-chainlink_postgres-node2_1:5432/chainlink?sslmode=disable"
     volumes:
       - 'cl2:/chainlink'
   postgres-node2:
@@ -76,25 +90,30 @@ services:
     volumes:
       - './docker-init-scripts:/docker-entrypoint-initdb.d'
       - 'pg2:/var/lib/postgresql/data'
+  ag-solo-node2:
+    <<: *ag-solo-node-def
+    ports:
+      - "8002"
+    environment:
+      - "AG_SOLO_WEBPORT=8003"
+    volumes:
+      - 'ag2:/usr/src/app/solo'
+      - '$HOME/.agoric:/root/.agoric'
+      - '$PWD/network-config.json:$PWD/network-config.json'
   external-initiator-node2:
     <<: *external-initiator-def
     depends_on:
       - postgres-node2
     environment:
-      - "EI_DATABASEURL=postgresql://ei@substrate-chainlink_postgres-node2_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node2_1:6688/"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:8002"
+      - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node2_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node2_1:6688/"
     env_file:
       - ./external_initiator2.env
-  substrate-adapter2:
-    <<: *substrate-adapter-def
+  agoric-adapter2:
+    <<: *agoric-adapter-def
     environment:
-      - "SA_ENDPOINT=${SA_ENDPOINT}"
-      - "SA_PRIVATE_KEY=0x00ed255f936202d04c70c02737ba322a7aaf961e94bb22c3e15d4ec7f44ab407"
-    # Secret phrase `price trip nominee recycle walk park borrow sausage crucial only wheel joke` is account:
-    #  Secret seed:      0x00ed255f936202d04c70c02737ba322a7aaf961e94bb22c3e15d4ec7f44ab407
-    #  Public key (hex): 0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54
-    #  Account ID:       0x06f0d58c43477508c0e5d5901342acf93a0208088816ff303996564a1d8c1c54
-    #  SS58 Address:     5CDogos4Dy2tSCvShBHkeFeMscwx9Wi2vFRijjTRRFau3vkJ
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:8002"
   chainlink-node3:
     <<: *chainlink-def
     depends_on:
@@ -102,7 +121,7 @@ services:
     ports:
       - "6693:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@substrate-chainlink_postgres-node3_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@agoric-chainlink_postgres-node3_1:5432/chainlink?sslmode=disable"
     volumes:
       - 'cl3:/chainlink'
   postgres-node3:
@@ -110,32 +129,40 @@ services:
     volumes:
       - './docker-init-scripts:/docker-entrypoint-initdb.d'
       - 'pg3:/var/lib/postgresql/data'
+  ag-solo-node3:
+    <<: *ag-solo-node-def
+    ports:
+      - "8003"
+    environment:
+      - "AG_SOLO_WEBPORT=8003"
+    volumes:
+      - 'ag3:/usr/src/app/solo'
+      - '$HOME/.agoric:/root/.agoric'
+      - '$PWD/network-config.json:$PWD/network-config.json'
   external-initiator-node3:
     <<: *external-initiator-def
     depends_on:
       - postgres-node3
     environment:
-      - "EI_DATABASEURL=postgresql://ei@substrate-chainlink_postgres-node3_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://substrate-chainlink_chainlink-node3_1:6688/"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:8003"
+      - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node3_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node3_1:6688/"
     env_file:
       - ./external_initiator3.env
-  substrate-adapter3:
-    <<: *substrate-adapter-def
+  agoric-adapter3:
+    <<: *agoric-adapter-def
     environment:
-      - "SA_ENDPOINT=${SA_ENDPOINT}"
-      - "SA_PRIVATE_KEY=0xb9de30043e09e2c6b6d6c3b23505aee0170ba57f8af91bb035d1f1130151755a"
-    # Secret phrase `camp acid then kid between survey dentist delay actor fox ensure soccer` is account:
-    #  Secret seed:      0xb9de30043e09e2c6b6d6c3b23505aee0170ba57f8af91bb035d1f1130151755a
-    #  Public key (hex): 0xfaa31acde43e8859565f7576d5a37e6e8ee1b0f6a7c1ae2e8b0ce2bf76248467
-    #  Account ID:       0xfaa31acde43e8859565f7576d5a37e6e8ee1b0f6a7c1ae2e8b0ce2bf76248467
-    #  SS58 Address:     5HjLHE3A9L6zxUEn6uy8mcx3tqyVxZvVXu7okovfWzemadzs
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:8003"
 volumes:
   pg1:
   cl1:
+  ag1:
   pg2:
   cl2:
+  ag2:
   pg3:
   cl3:
+  ag3:
 secrets:
   node_password:
     file: ./secrets/password.txt
