@@ -54,9 +54,9 @@ services:
   ag-solo-node1:
     <<: *ag-solo-node-def
     ports:
-      - "8001"
+      - "6891"
     environment:
-      - "AG_SOLO_WEBPORT=8001"
+      - "AG_SOLO_WEBPORT=6891"
     volumes:
       - 'ag1:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
@@ -66,7 +66,7 @@ services:
     depends_on:
       - postgres-node1
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:8001"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:6891"
       - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node1_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node1_1:6688/"
     env_file:
@@ -74,7 +74,7 @@ services:
   agoric-adapter1:
     <<: *agoric-adapter-def
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:8001"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:6891"
   chainlink-node2:
     <<: *chainlink-def
     depends_on:
@@ -93,9 +93,9 @@ services:
   ag-solo-node2:
     <<: *ag-solo-node-def
     ports:
-      - "8002"
+      - "6892"
     environment:
-      - "AG_SOLO_WEBPORT=8003"
+      - "AG_SOLO_WEBPORT=6892"
     volumes:
       - 'ag2:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
@@ -105,7 +105,7 @@ services:
     depends_on:
       - postgres-node2
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:8002"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:6892"
       - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node2_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node2_1:6688/"
     env_file:
@@ -113,7 +113,7 @@ services:
   agoric-adapter2:
     <<: *agoric-adapter-def
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:8002"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:6892"
   chainlink-node3:
     <<: *chainlink-def
     depends_on:
@@ -132,9 +132,9 @@ services:
   ag-solo-node3:
     <<: *ag-solo-node-def
     ports:
-      - "8003"
+      - "6893"
     environment:
-      - "AG_SOLO_WEBPORT=8003"
+      - "AG_SOLO_WEBPORT=6893"
     volumes:
       - 'ag3:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
@@ -144,7 +144,7 @@ services:
     depends_on:
       - postgres-node3
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:8003"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:6893"
       - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node3_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node3_1:6688/"
     env_file:
@@ -152,7 +152,7 @@ services:
   agoric-adapter3:
     <<: *agoric-adapter-def
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:8003"
+      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:6893"
 volumes:
   pg1:
   cl1:

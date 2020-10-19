@@ -6,7 +6,7 @@ cd "$thisdir" || exit $?
 source ./internal-scripts/common.sh
 
 run_setup() {
-  yarn install
+  # yarn install
 
   touch external_initiator1.env
   touch external_initiator2.env
@@ -22,6 +22,12 @@ run_setup() {
 
   export AG_NETWORK_CONFIG
   start_docker
+
+  source ./internal-scripts/add-dapp-oracle.sh
+
+  add_dapp_oracle "1" true
+  add_dapp_oracle "2"
+  add_dapp_oracle "3"
 
   source ./internal-scripts/add-ei.sh
 
@@ -44,11 +50,11 @@ run_setup() {
   add_jobspec "3" "0xfaa31acde43e8859565f7576d5a37e6e8ee1b0f6a7c1ae2e8b0ce2bf76248467"
 
   title "Done setting up Chainlink nodes and services"
-  title "Funding accounts and registering operators..."
+#  title "Funding accounts and registering operators..."
 
-  node ./operatorSetup.js "dry squeeze youth enjoy provide blouse claw engage host what horn next"
-  node ./operatorSetup.js "price trip nominee recycle walk park borrow sausage crucial only wheel joke"
-  node ./operatorSetup.js "camp acid then kid between survey dentist delay actor fox ensure soccer"
+#  node ./operatorSetup.js "dry squeeze youth enjoy provide blouse claw engage host what horn next"
+#  node ./operatorSetup.js "price trip nominee recycle walk park borrow sausage crucial only wheel joke"
+#  node ./operatorSetup.js "camp acid then kid between survey dentist delay actor fox ensure soccer"
 
   title "All operators are now ready"
   echo "Jobids can be found in jobids.txt or their respective Chainlink GUIs"
