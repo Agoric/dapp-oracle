@@ -19,12 +19,12 @@ waitFor() {
 
 waitForResponse() {
   title "Waiting for $1."
-  waitFor "curl -s \"$1\""
+  waitFor "curl -s \"$1\"" $2
   title "Service on $1 is ready."
 }
 
 launch_chainlink() {
-  waitForResponse "$1"
+  waitForResponse "$1" $2
   title "Chainlink node $1 is running."
 }
 
@@ -72,9 +72,9 @@ start_docker() {
 
   docker-compose up -d chainlink-node1 chainlink-node2 chainlink-node3 agoric-adapter1 agoric-adapter2 agoric-adapter3
 
-  launch_chainlink "http://localhost:6691/"
-  launch_chainlink "http://localhost:6692/"
-  launch_chainlink "http://localhost:6693/"
+  launch_chainlink "http://localhost:6691/" $1
+  launch_chainlink "http://localhost:6692/" $1
+  launch_chainlink "http://localhost:6693/" $1
 
   title "Done starting Chainlink Docker containers"
 }

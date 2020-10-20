@@ -24,7 +24,6 @@ x-external-initiator-def:
   &external-initiator-def
   # image: smartcontract/external-initiator
   image: agoric/chainlink-external-initiator
-  command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"${EI_AGORICURL}\"}'
 x-agoric-adapter-def:
   &agoric-adapter-def
   # image: smartcontract/agoric-adapter
@@ -55,19 +54,20 @@ services:
     command: 'setup --webport=6891 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
     environment:
       - "AG_SOLO_BASEDIR=chainlink"
+      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
     volumes:
       - 'ag1:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
-      - './etc:/etc/ag-solo/networks'
+      - '..:/usr/src/dapp-oracle'
   external-initiator-node1:
     <<: *external-initiator-def
     depends_on:
       - ag-solo-node1
       - postgres-node1
     environment:
-      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node1_1:6891"
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node1_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node1_1:6688/"
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"http://chainlink-agoric_ag-solo-node1_1:6891\"}'
     env_file:
       - ./external_initiator1.env
   agoric-adapter1:
@@ -98,19 +98,20 @@ services:
     command: 'setup --webport=6892 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
     environment:
       - "AG_SOLO_BASEDIR=chainlink"
+      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
     volumes:
       - 'ag2:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
-      - './etc:/etc/ag-solo/networks'
+      - '..:/usr/src/dapp-oracle'
   external-initiator-node2:
     <<: *external-initiator-def
     depends_on:
       - ag-solo-node2
       - postgres-node2
     environment:
-      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node2_1:6892"
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node2_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node2_1:6688/"
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"http://chainlink-agoric_ag-solo-node1_1:6892\"}'
     env_file:
       - ./external_initiator2.env
   agoric-adapter2:
@@ -141,19 +142,20 @@ services:
     command: 'setup --webport=6893 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
     environment:
       - "AG_SOLO_BASEDIR=chainlink"
+      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
     volumes:
       - 'ag3:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
-      - './etc:/etc/ag-solo/networks'
+      - '..:/usr/src/dapp-oracle'
   external-initiator-node3:
     <<: *external-initiator-def
     depends_on:
       - ag-solo-node3
       - postgres-node3
     environment:
-      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node3_1:6893"
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node3_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node3_1:6688/"
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"http://chainlink-agoric_ag-solo-node1_1:6893\"}'
     env_file:
       - ./external_initiator3.env
   agoric-adapter3:
