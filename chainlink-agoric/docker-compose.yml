@@ -20,8 +20,6 @@ x-ag-solo-node-def:
   &ag-solo-node-def
   image: agoric/cosmic-swingset-solo
   restart: on-failure
-  environment:
-    - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
   command: 'setup --webport="${AG_SOLO_WEBPORT}" --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
 x-external-initiator-def:
   &external-initiator-def
@@ -43,7 +41,7 @@ services:
     ports:
       - "6691:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@agoric-chainlink_postgres-node1_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@chainlink-agoric_postgres-node1_1:5432/chainlink?sslmode=disable"
     volumes:
       - 'cl1:/chainlink'
   postgres-node1:
@@ -54,27 +52,32 @@ services:
   ag-solo-node1:
     <<: *ag-solo-node-def
     ports:
-      - "6891"
+      - "127.0.0.1:6891:6891"
     environment:
+      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+      - "AG_SOLO_BASEDIR=chainlink"
       - "AG_SOLO_WEBPORT=6891"
     volumes:
       - 'ag1:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
-      - '$PWD/network-config.json:$PWD/network-config.json'
+      - './etc:/etc/ag-solo/networks'
   external-initiator-node1:
     <<: *external-initiator-def
     depends_on:
+      - ag-solo-node1
       - postgres-node1
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:6891"
-      - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node1_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node1_1:6688/"
+      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node1_1:6891"
+      - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node1_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node1_1:6688/"
     env_file:
       - ./external_initiator1.env
   agoric-adapter1:
     <<: *agoric-adapter-def
+    depends_on:
+      - ag-solo-node1
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node1_1:6891"
+      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node1_1:6891"
   chainlink-node2:
     <<: *chainlink-def
     depends_on:
@@ -82,7 +85,7 @@ services:
     ports:
       - "6692:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@agoric-chainlink_postgres-node2_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@chainlink-agoric_postgres-node2_1:5432/chainlink?sslmode=disable"
     volumes:
       - 'cl2:/chainlink'
   postgres-node2:
@@ -93,27 +96,32 @@ services:
   ag-solo-node2:
     <<: *ag-solo-node-def
     ports:
-      - "6892"
+      - "127.0.0.1:6892:6892"
     environment:
+      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+      - "AG_SOLO_BASEDIR=chainlink"
       - "AG_SOLO_WEBPORT=6892"
     volumes:
       - 'ag2:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
-      - '$PWD/network-config.json:$PWD/network-config.json'
+      - './etc:/etc/ag-solo/networks'
   external-initiator-node2:
     <<: *external-initiator-def
     depends_on:
+      - ag-solo-node2
       - postgres-node2
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:6892"
-      - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node2_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node2_1:6688/"
+      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node2_1:6892"
+      - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node2_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node2_1:6688/"
     env_file:
       - ./external_initiator2.env
   agoric-adapter2:
     <<: *agoric-adapter-def
+    depends_on:
+      - ag-solo-node2
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node2_1:6892"
+      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node2_1:6892"
   chainlink-node3:
     <<: *chainlink-def
     depends_on:
@@ -121,7 +129,7 @@ services:
     ports:
       - "6693:6688"
     environment:
-      - "DATABASE_URL=postgresql://chainlink@agoric-chainlink_postgres-node3_1:5432/chainlink?sslmode=disable"
+      - "DATABASE_URL=postgresql://chainlink@chainlink-agoric_postgres-node3_1:5432/chainlink?sslmode=disable"
     volumes:
       - 'cl3:/chainlink'
   postgres-node3:
@@ -132,27 +140,32 @@ services:
   ag-solo-node3:
     <<: *ag-solo-node-def
     ports:
-      - "6893"
+      - "127.0.0.1:6893:6893"
     environment:
+      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+      - "AG_SOLO_BASEDIR=chainlink"
       - "AG_SOLO_WEBPORT=6893"
     volumes:
       - 'ag3:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
-      - '$PWD/network-config.json:$PWD/network-config.json'
+      - './etc:/etc/ag-solo/networks'
   external-initiator-node3:
     <<: *external-initiator-def
     depends_on:
+      - ag-solo-node3
       - postgres-node3
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:6893"
-      - "EI_DATABASEURL=postgresql://ei@agoric-chainlink_postgres-node3_1:5432/ei?sslmode=disable"
-      - "EI_CHAINLINKURL=http://agoric-chainlink_chainlink-node3_1:6688/"
+      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node3_1:6893"
+      - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node3_1:5432/ei?sslmode=disable"
+      - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node3_1:6688/"
     env_file:
       - ./external_initiator3.env
   agoric-adapter3:
     <<: *agoric-adapter-def
+    depends_on:
+      - ag-solo-node3
     environment:
-      - "EI_AGORICURL=http://agoric-chainlink_ag-solo-node3_1:6893"
+      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node3_1:6893"
 volumes:
   pg1:
   cl1:

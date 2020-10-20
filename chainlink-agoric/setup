@@ -12,7 +12,7 @@ run_setup() {
   touch external_initiator2.env
   touch external_initiator3.env
 
-  AG_NETWORK_CONFIG="$PWD/network-config.json"
+  AG_NETWORK_CONFIG="/etc/ag-solo/networks/network-config.json"
 
   if [ "$1" != "" ]; then
     AG_NETWORK_CONFIG=$1

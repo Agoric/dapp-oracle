@@ -1,5 +1,6 @@
 {
   "chainName": "agoric",
+  "gci": "http://host.docker.internal:26657/genesis",
   "rpcAddrs": [
     "host.docker.internal:26657"
   ]
