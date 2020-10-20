@@ -3740,9 +3740,9 @@ plur@^4.0.0:
   dependencies:
     irregular-plurals "^3.2.0"
 
-"polycrc@git+https://github.com/agoric-labs/node-polycrc.git":
+"polycrc@https://github.com/agoric-labs/node-polycrc":
   version "1.0.1-agoric"
-  resolved "git+https://github.com/agoric-labs/node-polycrc.git#f396a902c5ba663cb91b6c8c13ec0afe792108d0"
+  resolved "https://github.com/agoric-labs/node-polycrc#f396a902c5ba663cb91b6c8c13ec0afe792108d0"
 
 prelude-ls@~1.1.2:
   version "1.1.2"
