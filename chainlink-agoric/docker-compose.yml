@@ -20,7 +20,6 @@ x-ag-solo-node-def:
   &ag-solo-node-def
   image: agoric/cosmic-swingset-solo
   restart: on-failure
-  command: 'setup --webport="${AG_SOLO_WEBPORT}" --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
 x-external-initiator-def:
   &external-initiator-def
   # image: smartcontract/external-initiator
@@ -53,10 +52,9 @@ services:
     <<: *ag-solo-node-def
     ports:
       - "127.0.0.1:6891:6891"
+    command: 'setup --webport=6891 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
     environment:
-      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
       - "AG_SOLO_BASEDIR=chainlink"
-      - "AG_SOLO_WEBPORT=6891"
     volumes:
       - 'ag1:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
@@ -97,10 +95,9 @@ services:
     <<: *ag-solo-node-def
     ports:
       - "127.0.0.1:6892:6892"
+    command: 'setup --webport=6892 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
     environment:
-      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
       - "AG_SOLO_BASEDIR=chainlink"
-      - "AG_SOLO_WEBPORT=6892"
     volumes:
       - 'ag2:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
@@ -141,10 +138,9 @@ services:
     <<: *ag-solo-node-def
     ports:
       - "127.0.0.1:6893:6893"
+    command: 'setup --webport=6893 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
     environment:
-      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
       - "AG_SOLO_BASEDIR=chainlink"
-      - "AG_SOLO_WEBPORT=6893"
     volumes:
       - 'ag3:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'

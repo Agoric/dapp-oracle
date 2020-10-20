@@ -13,7 +13,7 @@ add_bridge() {
     cat <<EOF
 {
   "name": "agoric",
-  "url": "http://agoric-chainlink_agoric-adapter$1_1:8080/"
+  "url": "http://chainlink-agoric_agoric-adapter$1_1:8080/"
 }
 EOF
   )

@@ -98,12 +98,12 @@ build_docker() {
 reset_volumes() {
   title "Removing Docker volumes"
 
-  docker volume rm agoric-chainlink_cl1
-  docker volume rm agoric-chainlink_cl2
-  docker volume rm agoric-chainlink_cl3
-  docker volume rm agoric-chainlink_pg1
-  docker volume rm agoric-chainlink_pg2
-  docker volume rm agoric-chainlink_pg3
+  docker volume rm chainlink-agoric_cl1
+  docker volume rm chainlink-agoric_cl2
+  docker volume rm chainlink-agoric_cl3
+  docker volume rm chainlink-agoric_pg1
+  docker volume rm chainlink-agoric_pg2
+  docker volume rm chainlink-agoric_pg3
 
   title "Done removing Docker volumes"
 }

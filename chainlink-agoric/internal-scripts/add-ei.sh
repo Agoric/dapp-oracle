@@ -13,7 +13,7 @@ add_ei() {
     cat <<EOF
 {
   "name": "test-ei",
-  "url": "http://agoric-chainlink_external-initiator-node$1_1:8080/jobs"
+  "url": "http://chainlink-agoric_external-initiator-node$1_1:8080/jobs"
 }
 EOF
   )
