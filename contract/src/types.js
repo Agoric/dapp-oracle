@@ -19,8 +19,18 @@
  */
 
 /**
+ * @typedef {Object} OraclePrivateParameters
+ * @property {OracleHandler} oracleHandler
+ */
+
+/**
+ * @typedef {Object} OracleInitializationFacet
+ * @property {(privateParams: OraclePrivateParameters) => OracleCreatorFacet} initialize
+ */
+
+/**
  * @typedef {Object} OracleStartFnResult
- * @property {OracleCreatorFacet} creatorFacet
+ * @property {OracleInitializationFacet} creatorFacet
  * @property {OraclePublicFacet} publicFacet
  * @property {Invitation} creatorInvitation
  */

@@ -14,15 +14,15 @@ import './types';
  *
  */
 const start = async zcf => {
-  const { oracleHandler, oracleDescription } = zcf.getTerms();
+  const { oracleDescription } = zcf.getTerms();
 
   const {
     brands: { Fee: feeBrand },
     maths: { Fee: feeMath },
   } = zcf.getTerms();
 
-  /** @type {OracleHandler} */
-  const handler = oracleHandler;
+  /** @type {OracleHandler | undefined} */
+  let handler = undefined;
   /** @type {string} */
   const description = oracleDescription;
 
@@ -33,7 +33,7 @@ const start = async zcf => {
   let revoked;
 
   /** @type {OracleCreatorFacet} */
-  const creatorFacet = {
+  const realCreatorFacet = {
     async addFeeIssuer(issuerP) {
       lastIssuerNonce += 1;
       const keyword = `OracleFee${lastIssuerNonce}`;
@@ -53,6 +53,14 @@ const start = async zcf => {
       return feeSeat.getCurrentAllocation();
     },
   };
+
+  const creatorFacet = harden({
+    initialize: privateParams => {
+      const { oracleHandler } = privateParams;
+      handler = oracleHandler;
+      return realCreatorFacet;
+    },
+  });
 
   /** @type {OraclePublicFacet} */
   const publicFacet = harden({
