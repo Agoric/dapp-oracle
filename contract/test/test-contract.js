@@ -70,11 +70,11 @@ test.before(
       const startResult = await E(zoe).startInstance(
         installation,
         { Fee: link.issuer },
-        {
-          oracleHandler,
-          oracleDescription: 'myOracle',
-        },
+        { oracleDescription: 'myOracle' },
       );
+      E(startResult.creatorFacet).initialize({
+        oracleHandler,
+      });
 
       t.is(await E(startResult.publicFacet).getDescription(), 'myOracle');
       return startResult;
