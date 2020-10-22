@@ -1,5 +1,6 @@
 // @ts-check
 import 'regenerator-runtime/runtime';
+import JSON5 from 'json5';
 import dappConstants from '../lib/constants.js';
 import { connect } from './connect.js';
 import { walletUpdatePurses, flipSelectedBrands } from './wallet.js';
@@ -90,7 +91,7 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
           actions.querySelector('button.reply').addEventListener('click', _ev => {
             let reply;
             try {
-              reply = JSON.parse($txt.value);
+              reply = JSON5.parse($txt.value);
             } catch (e) {
               alert(`Cannot parse reply: ${e && e.stack || e}`);
               return;
@@ -219,7 +220,7 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
       }
       let query;
       try {
-        query = JSON.parse($oracleQuery.value);
+        query = JSON5.parse($oracleQuery.value);
         if (Object(query) !== query) {
           throw Error(`Not a JSON object`);
         }
