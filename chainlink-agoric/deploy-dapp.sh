@@ -2,7 +2,8 @@
 set -e
 
 # Create the Agoric CLI in $HOME/bin/agoric.
-(cd /usr/src/agoric-sdk && yarn create-agoric-cli)
+export PATH=$HOME/bin:$PATH
+(cd /usr/src/agoric-sdk && yarn create-agoric-cli $HOME/bin/agoric)
 
 case $AG_NETWORK_CONFIG in
 /*) ncf=$(cat "$AG_NETWORK_CONFIG") ;;
@@ -35,12 +36,15 @@ addr=$(cat chainlink/ag-cosmos-helper-address)
 
 erun() {
   echo ${1+"$@"}
-  "$@"
+  out=$("$@" 2>&1)
+  status=$?
+  echo "$out" | head -1
+  return $status
 }
 
 while ! ag-cosmos-helper query swingset egress "$addr" --node=tcp://$rp; do
-  erun ag-cosmos-helper tx swingset provision-one "ag-solo$1" "$addr" \
-    --yes --node=tcp://$rp --chain-id="$chainName" --from=faucet || sleep 5
+  echo "Try: ag-cosmos-helper tx swingset provision-one ag-solo$1 $addr --yes --chain-id=$chainName"
+  sleep 5
 done
 
 HOSTPORT="localhost:689$1"

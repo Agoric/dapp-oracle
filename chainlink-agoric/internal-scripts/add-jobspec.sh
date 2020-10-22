@@ -20,8 +20,7 @@ add_jobspec() {
       "params": {
         "name": "test-ei",
         "body": {
-          "endpoint": "agoric-node",
-          "accountIds": ["${ACCOUNT_ID}"]
+          "endpoint": "agoric-node"
         }
       }
     }
@@ -37,17 +36,19 @@ add_jobspec() {
       "type": "multiply"
     },
     {
-      "type": "agoric",
-      "params": {
-        "type": "int128"
-      }
+      "type": "agoric"
     }
   ]
 }
 EOF
   )
 
-  JOBID=$(curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs" | jq -r '.data.id')
+  while true; do
+    JOBID=$(curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/specs" | jq -r '.data.id')
+    [[ "$JOBID" == null ]] || break
+    echo "Failed: retrying"
+    sleep 5
+  done
   echo "$JOBID" >> jobids.txt
 
   echo "Jobspec has been added to Chainlink node"

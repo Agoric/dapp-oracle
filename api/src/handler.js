@@ -66,7 +66,7 @@ const startSpawn = async (
           data: { ...data, reply, fee: fee.value },
         });
       },
-      async onError(query, error) {
+      async onError(query, e) {
         const data = queryToData.get(query);
         if (data) {
           queryIdToData.delete(data.queryId);
@@ -75,7 +75,7 @@ const startSpawn = async (
         queryToData.delete(query);
         sendToSubscribers({
           type: 'oracleServer/onError',
-          data: { ...data, error: `${(error && error.stack) || error}` },
+          data: { ...data, error: `${(e && e.stack) || e}` },
         });
       },
     };

@@ -21,10 +21,10 @@ If you are running the Agoric node locally, simply run:
 ./setup
 ```
 
-If you are running the Agoric chain externally, run:
+If you are running the Agoric chain externally, run something like:
 
 ```bash
-./setup "https://your_agoric_network/network-config"
+./setup "https://testnet.agoric.com/network-config"
 ```
 
 This will create and start 3 Chainlink nodes, with an adapter and EI connected to each.
@@ -48,3 +48,14 @@ docker-compose up
 
 The env var `AG_NETWORK_CONFIG` needs to be set before bringing the services up.
 `./setup` will default to `$PWD/network-config.json`, but you need to set this again if it is unset.
+
+## Testing end-to-end
+
+Run:
+
+```bash
+(cd ../ui && yarn start)
+```
+
+then visit `http://localhost:3000/?API_PORT=6891` and submit queries.  You
+should see the replies appear when served by the Chainlink node.

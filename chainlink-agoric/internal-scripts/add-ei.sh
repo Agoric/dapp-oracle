@@ -18,7 +18,12 @@ add_ei() {
 EOF
   )
 
-  result=$(curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/external_initiators")
+  while true; do
+    result=$(curl -s -b ./tmp/cookiefile -d "$payload" -X POST -H 'Content-Type: application/json' "$CL_URL/v2/external_initiators")
+    [[ "$result" == null ]] || break
+    echo "Failed: retrying"
+    sleep 5
+  done
 
   EI_IC_ACCESSKEY=$(jq -r '.data.attributes.incomingAccessKey' <<<"$result")
   EI_IC_SECRET=$(jq -r '.data.attributes.incomingSecret' <<<"$result")

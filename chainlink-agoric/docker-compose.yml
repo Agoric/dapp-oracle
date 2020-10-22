@@ -22,8 +22,7 @@ x-ag-solo-node-def:
   restart: on-failure
 x-external-initiator-def:
   &external-initiator-def
-  # image: smartcontract/external-initiator
-  image: agoric/chainlink-external-initiator
+  image: smartcontract/external-initiator
 x-agoric-adapter-def:
   &agoric-adapter-def
   # image: smartcontract/agoric-adapter
@@ -67,7 +66,7 @@ services:
     environment:
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node1_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node1_1:6688/"
-    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"http://chainlink-agoric_ag-solo-node1_1:6891\"}'
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node1_1:6891/api/oracle\"}'
     env_file:
       - ./external_initiator1.env
   agoric-adapter1:
@@ -75,7 +74,7 @@ services:
     depends_on:
       - ag-solo-node1
     environment:
-      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node1_1:6891"
+      - "AG_SOLO_ORACLE_URL=http://chainlink-agoric_ag-solo-node1_1:6891/api/oracle"
   chainlink-node2:
     <<: *chainlink-def
     depends_on:
@@ -111,7 +110,7 @@ services:
     environment:
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node2_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node2_1:6688/"
-    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"http://chainlink-agoric_ag-solo-node1_1:6892\"}'
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node2_1:6892/api/oracle\"}'
     env_file:
       - ./external_initiator2.env
   agoric-adapter2:
@@ -119,7 +118,7 @@ services:
     depends_on:
       - ag-solo-node2
     environment:
-      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node2_1:6892"
+      - "AG_SOLO_ORACLE_URL=http://chainlink-agoric_ag-solo-node2_1:6892/api/oracle"
   chainlink-node3:
     <<: *chainlink-def
     depends_on:
@@ -155,7 +154,7 @@ services:
     environment:
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node3_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node3_1:6688/"
-    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"http://chainlink-agoric_ag-solo-node1_1:6893\"}'
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node3_1:6893/api/oracle\"}'
     env_file:
       - ./external_initiator3.env
   agoric-adapter3:
@@ -163,7 +162,7 @@ services:
     depends_on:
       - ag-solo-node3
     environment:
-      - "EI_AGORICURL=http://chainlink-agoric_ag-solo-node3_1:6893"
+      - "AG_SOLO_ORACLE_URL=http://chainlink-agoric_ag-solo-node3_1:6893/api/oracle"
 volumes:
   pg1:
   cl1:
