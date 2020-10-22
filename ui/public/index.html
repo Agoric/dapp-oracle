@@ -32,7 +32,15 @@
         </label>
       </p>
 
-      <textarea id="oracleQuery" placeholder="JSON query">{"jobId": "foo"}</textarea><br/>
+      <textarea id="oracleQuery" placeholder="JSON query">{
+ "jobId":"7d6242f103b247078a9d643a45f49e49",
+ "params":{ 
+  "get": "https://bitstamp.net/api/ticker/",
+  "path": ["last"],
+  "times": "100"
+ }
+}
+</textarea><br/>
       <input type="submit" value="Query Oracle!" id="queryOracle" disabled="disabled" />
       <span><iframe id="walletBridgeIFrame" width="100" height="21"></iframe></span>
     </form>

@@ -41,7 +41,7 @@ run_setup() {
   add_bridge "2"
   add_bridge "3"
 
-  echo "" > jobids.txt
+  : > jobids.txt
 
   source ./internal-scripts/add-jobspec.sh
 

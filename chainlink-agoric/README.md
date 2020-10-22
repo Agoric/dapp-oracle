@@ -18,13 +18,13 @@ _Note: Make sure you have cd-ed into this directory_
 If you are running the Agoric node locally, simply run:
 
 ```bash
-./setup
+AG_COSMOS_HELPER_OPTS="--from=<your-keyname>" ./setup
 ```
 
 If you are running the Agoric chain externally, run something like:
 
 ```bash
-./setup "https://testnet.agoric.com/network-config"
+AG_COSMOS_HELPER_OPTS="--from=<your-keyname>" ./setup "https://testnet.agoric.com/network-config"
 ```
 
 This will create and start 3 Chainlink nodes, with an adapter and EI connected to each.
