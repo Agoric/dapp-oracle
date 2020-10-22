@@ -161,14 +161,12 @@ export default async function deployApi(
 
     console.log('Instantiating contract');
     const issuerKeywordRecord = harden({ Fee: feeIssuer });
-    const { creatorInvitation, instance } = await E(zoe).startInstance(
+    const { creatorInvitation, instance, creatorFacet: initializationFacet } = await E(zoe).startInstance(
       contractInstallation,
       issuerKeywordRecord,
-      {
-        oracleHandler,
-        oracleDescription: INSTALL_ORACLE,
-      },
+      { oracleDescription: INSTALL_ORACLE },
     );
+    const creatorFacet = E(initializationFacet).initialize(oracleHandler);
 
     console.log('- SUCCESS! contract instance is running on Zoe');
 
