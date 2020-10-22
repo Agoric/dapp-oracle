@@ -72,12 +72,16 @@ test.before(
         { Fee: link.issuer },
         { oracleDescription: 'myOracle' },
       );
-      E(startResult.creatorFacet).initialize({
+      const creatorFacet = E(startResult.creatorFacet).initialize({
         oracleHandler,
       });
 
       t.is(await E(startResult.publicFacet).getDescription(), 'myOracle');
-      return startResult;
+      return harden({
+        creatorFacet,
+        publicFacet: startResult.publicFacet,
+        creatorInvitation: startResult.creatorInvitation,
+      });
     };
 
     ot.context.zoe = zoe;
