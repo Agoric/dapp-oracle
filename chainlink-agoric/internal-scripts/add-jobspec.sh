@@ -30,12 +30,6 @@ add_jobspec() {
       "type": "httpget"
     },
     {
-      "type": "jsonparse"
-    },
-    {
-      "type": "multiply"
-    },
-    {
       "type": "agoric"
     }
   ]

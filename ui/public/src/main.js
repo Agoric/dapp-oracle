@@ -55,7 +55,7 @@ export default async function main() {
     obj => {
       switch (obj.type) {
         case 'oracleServer/onQuery': {
-          const { queryId, query, fee } = obj.data;
+          const { queryId, query, fee, replyId } = obj.data;
           const el = document.createElement('li');
           $oracleRequests.appendChild(el);
           if (!el.querySelector('.query')) {
