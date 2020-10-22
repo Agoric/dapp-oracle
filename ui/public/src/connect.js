@@ -23,7 +23,8 @@ debugChange();
  * @param {string} [query='']
  */
 export const connect = (endpointPath, recv, query = '') => {
-  const statusId = endpointPath === 'wallet' ? 'wallet-status' : 'api-status';
+  const statusId = `${endpointPath}-status`;
+  console.log('have' ,statusId);
   const $status = /** @type {HTMLSpanElement} */(document.getElementById(statusId));
   if ($status) {
     $status.innerHTML = 'Connecting...';

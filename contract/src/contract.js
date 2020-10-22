@@ -22,7 +22,7 @@ const start = async zcf => {
   } = zcf.getTerms();
 
   /** @type {OracleHandler | undefined} */
-  let handler = undefined;
+  let handler;
   /** @type {string} */
   const description = oracleDescription;
 
@@ -55,7 +55,7 @@ const start = async zcf => {
   };
 
   const creatorFacet = harden({
-    initialize: privateParams => {
+    initialize(privateParams) {
       const { oracleHandler } = privateParams;
       handler = oracleHandler;
       return realCreatorFacet;

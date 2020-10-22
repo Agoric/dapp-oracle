@@ -54,6 +54,6 @@ EOF
 
   echo "$JOBID" >> jobids.txt
 
-  echo "Jobspec has been added to Chainlink node"
+  echo "Jobspec $JOBID has been added to Chainlink node"
   title "Done adding jobspec #$1"
 }

@@ -11,6 +11,11 @@ body {
   padding: 20px;
 }
 
+#oracleQuery {
+  width: 100%;
+  height: 100px;
+}
+
 .visibleOnlyToOracleService {
   display: none;
 }

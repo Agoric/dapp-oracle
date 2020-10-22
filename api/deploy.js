@@ -41,7 +41,7 @@ const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'moola';
  */
 export default async function deployApi(
   homePromise,
-  { bundleSource, pathResolve, host = 'localhost', port = '8000' },
+  { bundleSource, pathResolve, port = '8000' },
 ) {
   // Let's wait for the promise to resolve.
   const home = await homePromise;
@@ -161,12 +161,14 @@ export default async function deployApi(
 
     console.log('Instantiating contract');
     const issuerKeywordRecord = harden({ Fee: feeIssuer });
-    const { creatorInvitation, instance, creatorFacet: initializationFacet } = await E(zoe).startInstance(
-      contractInstallation,
-      issuerKeywordRecord,
-      { oracleDescription: INSTALL_ORACLE },
-    );
-    const creatorFacet = E(initializationFacet).initialize(oracleHandler);
+    const {
+      creatorInvitation,
+      instance,
+      creatorFacet: initializationFacet,
+    } = await E(zoe).startInstance(contractInstallation, issuerKeywordRecord, {
+      oracleDescription: INSTALL_ORACLE,
+    });
+    E(initializationFacet).initialize({ oracleHandler });
 
     console.log('- SUCCESS! contract instance is running on Zoe');
 
