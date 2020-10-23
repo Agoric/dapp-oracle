@@ -63,6 +63,7 @@ run_setup() {
 
   title "All operators are now ready"
   echo "Jobids can be found in jobids.txt or their respective Chainlink GUIs"
+  ./show-jobs.js
 }
 
 run_setup "$1"
