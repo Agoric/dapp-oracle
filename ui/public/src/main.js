@@ -60,7 +60,7 @@ export default async function main() {
           const el = document.createElement('li');
           $oracleRequests.appendChild(el);
           if (!el.querySelector('.query')) {
-            const ql = document.createElement('pre');
+            const ql = document.createElement('code');
             ql.innerText = JSON.stringify(query, null, 2);
             ql.setAttribute('class', 'query');
             el.appendChild(ql);
@@ -114,15 +114,46 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
 
   const $queryOracle = /** @type {HTMLInputElement} */ (document.getElementById('queryOracle'));
   
+  function linesToHTML(lines) {
+    return lines
+      .split('\n')
+      .map(
+        l =>
+          l
+            // These replacements are for securely inserting into .innerHTML, from
+            // https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html#rule-1-html-encode-before-inserting-untrusted-data-into-html-element-content
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+            .replace(/\//g, '&#x2F;')
+
+            // These two replacements are just for word wrapping, not security.
+            .replace(/\t/g, '  ') // expand tabs
+            .replace(/ {2}/g, ' &nbsp;'), // try preserving whitespace
+      )
+      .join('<br />');
+  }
+
+  /**
+   * Nicely put an object into a <code> tag.
+   * @param {HTMLElement} codeTag
+   * @param {any} obj
+   */
+  const format = (codeTag, obj) => {
+    codeTag.innerHTML = linesToHTML(JSON.stringify(obj, null, 2));
+  };
+
   const answer = ({ replyId, reply, error }) => {
     const $reply = document.querySelector(`#reply-${replyId} .reply`);
     if (error) {
       $reply.innerHTML = error;
     } else {
-      const $pre = document.createElement('pre');
-      $pre.className = 'reply';
-      $pre.innerText = JSON.stringify(reply, null, 2);
-      $reply.replaceWith($pre);
+      const $code = document.createElement('code');
+      $code.className = 'reply';
+      format($code, reply);
+      $reply.replaceWith($code);
     }
   };
   
@@ -275,14 +306,14 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
       el.innerHTML = `\
 <div>board:${instanceId}</div>
 <div class="queryReply">
-  <pre class="query"></pre>
+  <code class="query"></code>
   <div>-&gt;</div>
   <div class="reply">Waiting...</div>
 </div>
 `;
       const $query = /** @type {HTMLElement} */ (el.querySelector('.query'));
       if ($query) {
-        $query.innerText = JSON.stringify(query, null, 2);
+        format($query, query)
       }
       $oracleReplies.prepend(el);
     });

@@ -20,6 +20,13 @@ body {
   display: none;
 }
 
+.query, .reply {
+  overflow-wrap: anywhere;
+  flex-basis: 40%;
+  flex-grow: 1;
+  flex-shrink: 1;
+}
+
 .queryReply {
   display: flex;
   flex-direction: row;
