@@ -1,4 +1,27 @@
 /**
+ * @typedef {Object} MedianAggregatorResult
+ * @property {number} median
+ * @property {number} timestamp
+ */
+
+/**
+ * @typedef {Object} MedianAggregatorPublicFacet
+ * @property {() => Notifier<MedianAggregatorResult>} getNotifier
+ */
+
+/**
+ * @typedef {Object} MedianAggregatorCreatorFacet
+ * @property {(oracleInstance: Instance, query: any) => void} addOracle
+ * @property {(oracleInstance: Instance) => void} dropOracle
+ */
+
+/**
+ * @typedef {Object} MedianAggregatorStartFnResult
+ * @property {MedianAggregatorPublicFacet} publicFacet
+ * @property {MedianAggregatorCreatorFacet} creatorFacet
+ */
+
+/**
  * @typedef {Object} OraclePublicFacet the public methods accessible from the
  * contract instance
  * @property {(query: any) => ERef<Invitation>} makeQueryInvitation create an
@@ -32,6 +55,15 @@
  * @typedef {Object} OracleStartFnResult
  * @property {OracleInitializationFacet} creatorFacet
  * @property {OraclePublicFacet} publicFacet
+ * @property {Instance} instance
+ * @property {Invitation} creatorInvitation
+ */
+
+/**
+ * @typedef {Object} OracleInitializedResult
+ * @property {OracleCreatorFacet} creatorFacet
+ * @property {OraclePublicFacet} publicFacet
+ * @property {Instance} instance
  * @property {Invitation} creatorInvitation
  */
 

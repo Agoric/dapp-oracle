@@ -27,10 +27,16 @@ add_jobspec() {
   ],
   "tasks": [
     {
-      "type": "httpget"
+      "type": "HTTPGet"
     },
     {
-      "type": "agoric"
+      "type": "JSONParse"
+    },
+    {
+      "type": "Multiply"
+    },
+    {
+      "type": "Agoric"
     }
   ]
 }
