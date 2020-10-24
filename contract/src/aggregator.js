@@ -1,13 +1,11 @@
 // @ts-check
 import '@agoric/zoe/exported';
 
-import { assert, details } from '@agoric/assert';
 import { E } from '@agoric/eventual-send';
-import { trade } from '@agoric/zoe/src/contractSupport';
 
 import './types';
-import { makeNotifierKit } from '../../../agoric-sdk/node_modules/@agoric/notifier/src';
-import makeStore from '../../../agoric-sdk/node_modules/@agoric/store/src';
+import { makeNotifierKit } from '@agoric/notifier';
+import makeStore from '@agoric/store';
 
 /**
  * This contract provides oracle queries for a fee or for pay.
@@ -16,15 +14,34 @@ import makeStore from '../../../agoric-sdk/node_modules/@agoric/store/src';
  *
  */
 const start = async zcf => {
+  const { timer, POLL_INTERVAL } = zcf.getTerms();
   const { notifier, updater } = makeNotifierKit();
-  const instanceToSample = makeStore('oracleInstance');
+  const zoe = zcf.getZoeService();
 
-  let fakeTimestamp = 39;
+  /** @type {Store<Instance, { querier: (timestamp: any) => void, lastSample: number }>} */
+  const instanceToRecord = makeStore('oracleInstance');
 
+  let latestTimestamp = await E(timer).getCurrentTimestamp();
+
+  const repeaterP = E(timer).createRepeater(0, POLL_INTERVAL);
+  const handler = {
+    wake(timestamp) {
+      // Run all the queriers.
+      instanceToRecord.values().forEach(({ querier }) => querier && querier(timestamp));
+    },
+  };
+  E(repeaterP).schedule(handler);
+  
   const updateMedian = timestamp => {
-    const sorted = instanceToSample
-      .values() // Find all the samples.
-      .filter(value => value) // Take out the zero and NaN samples.
+    if (timestamp > latestTimestamp) {
+      // Fresh value.
+      latestTimestamp = timestamp;
+    }
+
+    const sorted = instanceToRecord
+      .values() // Find all the instance records.
+      .map(({ lastSample }) => lastSample) // Get the last sample.
+      .filter(value => value > 0) // Only allow positive samples.
       .sort((a, b) => a - b); // Sort ascending.
     if (sorted.length === 0) {
       // No valid samples, don't report anything.
@@ -41,29 +58,46 @@ const start = async zcf => {
     } else {
       median = sorted[(sorted.length - 1) / 2];
     }
-    // console.error('took median', median, 'of', sorted);
-    updater.updateState({ median, timestamp });
+    // console.error('found median', median, 'of', sorted);
+    updater.updateState({ median, timestamp: latestTimestamp });
   };
 
   /** @type {MedianAggregatorCreatorFacet} */
   const creatorFacet = harden({
-    addOracle(oracleInstance, query) {
-      instanceToSample.init(oracleInstance, 0);
-      E(zcf.getZoeService())
-        .getPublicFacet(oracleInstance)
-        .then(oracle => oracle.query(query))
-        .then(value => {
-          // Sample is NaN is a valid thing.
-          const num = parseInt(value, 10);
-          instanceToSample.set(oracleInstance, num);
-          // FIXME: Get actual timestamp from timer service.
-          fakeTimestamp += 1;
-          return Promise.resolve(fakeTimestamp);
-        })
-        .then(updateMedian);
+    async addOracle(oracleInstance, query) {
+      // Register our sample collection.
+      const record = { querier: undefined, lastSample: NaN };
+      instanceToRecord.init(oracleInstance, record);
+
+      // Obtain the oracle's publicFacet and schedule the repeater in the background.
+      const oracle = await E(zoe).getPublicFacet(oracleInstance);
+      if (!instanceToRecord.has(oracleInstance)) {
+        // We were dropped already, no harm done.
+        return;
+      }
+
+      let lastWakeTimestamp = 0;
+      record.querier = async timestamp => {
+        // Submit the query.
+        const result = await E(oracle).query(query);
+        // Now that we've received the result, check if we're out of date.
+        if (timestamp < lastWakeTimestamp || !instanceToRecord.has(oracleInstance)) {
+          return;
+        }
+        lastWakeTimestamp = timestamp;
+
+        // Sample of NaN, 0, or negative numbers are valid, they get culled in
+        // the median calculation.
+        const sample = parseInt(result, 10);
+        record.lastSample = sample;
+        updateMedian(timestamp);
+      };
+      return record.querier(latestTimestamp);
     },
     dropOracle(oracleInstance) {
-      instanceToSample.delete(oracleInstance);
+      // Just remove the map entries.
+      instanceToRecord.delete(oracleInstance);
+      updateMedian(latestTimestamp);
     },
   });
 
@@ -77,5 +111,4 @@ const start = async zcf => {
   return { creatorFacet, publicFacet };
 };
 
-harden(start);
 export { start };

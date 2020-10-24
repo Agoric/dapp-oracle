@@ -8,6 +8,7 @@ import bundleSource from '@agoric/bundle-source';
 import { E } from '@agoric/eventual-send';
 import { makeFakeVatAdmin } from '@agoric/zoe/src/contractFacet/fakeVatAdmin';
 import { makeZoe } from '@agoric/zoe';
+import buildManualTimer from '@agoric/zoe/tools/manualTimer';
 
 import '../src/types';
 import '@agoric/zoe/exported';
@@ -21,6 +22,7 @@ import { makeIssuerKit, MathKind } from '@agoric/ertp';
  * @property {MedianAggregatorStartFnResult} aggregator
  * @property {Amount} feeAmount
  * @property {IssuerKit} link
+ * @property {ReturnType<typeof buildManualTimer>} timer
  *
  * @typedef {import('ava').ExecutionContext<TestContext>} ExecutionContext
  */
@@ -34,6 +36,7 @@ test.before(
     // Outside of tests, we should use the long-lived Zoe on the
     // testnet. In this test, we must create a new Zoe.
     const zoe = makeZoe(makeFakeVatAdmin().admin);
+    const timer = buildManualTimer(console.log);
 
     // Pack the contracts.
     const contractBundle = await bundleSource(contractPath);
@@ -85,16 +88,17 @@ test.before(
       });
     };
 
-    const aggregator = await E(zoe).startInstance(aggregatorInstallation);
+    const aggregator = await E(zoe).startInstance(aggregatorInstallation, undefined, { timer, POLL_INTERVAL: 1 });
     ot.context.zoe = zoe;
     ot.context.makeFakePriceOracle = makeFakePriceOracle;
     ot.context.aggregator = aggregator;
     ot.context.link = link;
+    ot.context.timer = timer;
   },
 );
 
 test('median aggregator', /** @param {ExecutionContext} t */ async t => {
-  const { makeFakePriceOracle, aggregator } = t.context;
+  const { makeFakePriceOracle, aggregator, timer } = t.context;
 
   const price1000 = await makeFakePriceOracle(t, 1000);
   const price1300 = await makeFakePriceOracle(t, 1300);
@@ -102,27 +106,33 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
 
   const notifier = aggregator.publicFacet.getNotifier();
   const rec0P = notifier.getUpdateSince(undefined);
-  aggregator.creatorFacet.addOracle(price1000.instance, { increment: 10 });
+  await aggregator.creatorFacet.addOracle(price1000.instance, { increment: 10 });
+
+  timer.tick();
   const rec0 = await rec0P;
-  t.deepEqual(rec0.value, { median: 1010, timestamp: 40 });
+  t.deepEqual(rec0.value, { median: 1010, timestamp: 0 });
 
-  // TODO: timer tick.
-  const rec0b = await notifier.getUpdateSince(undefined);
-  t.deepEqual(rec0b.value, { median: 1010, timestamp: 40 });
+  timer.tick();
+  const rec0b = await notifier.getUpdateSince(rec0.updateCount);
+  t.deepEqual(rec0b.value, { median: 1020, timestamp: 1 });
 
-  aggregator.creatorFacet.addOracle(price1300.instance, { increment: 8 });
-  const rec1 = await notifier.getUpdateSince(rec0.updateCount);
-  t.deepEqual(rec1.value, { median: 1159, timestamp: 41 });
+  await aggregator.creatorFacet.addOracle(price1300.instance, { increment: 8 });
+  const rec1 = await notifier.getUpdateSince(rec0b.updateCount);
+  t.deepEqual(rec1.value, { median: 1169, timestamp: 2 });
 
-  // TODO: timer tick.
-  const rec1b = await notifier.getUpdateSince(rec0.updateCount);
-  t.deepEqual(rec1b.value, { median: 1159, timestamp: 41 });
+  timer.tick();
+  const rec1b = await notifier.getUpdateSince(rec1.updateCount);
+  t.deepEqual(rec1b.value, { median: 1174, timestamp: 3 });
 
-  aggregator.creatorFacet.addOracle(price800.instance, { increment: 17 });
-  const rec2 = await notifier.getUpdateSince(rec1.updateCount);
-  t.deepEqual(rec2.value, { median: 1010, timestamp: 42 });
+  await aggregator.creatorFacet.addOracle(price800.instance, { increment: 17 });
+  const rec2 = await notifier.getUpdateSince(rec1b.updateCount);
+  t.deepEqual(rec2.value, { median: 1040, timestamp: 3 });
 
-  // TODO: timer tick.
-  const rec2b = await notifier.getUpdateSince(rec1.updateCount);
-  t.deepEqual(rec2b.value, { median: 1010, timestamp: 42 });
+  timer.tick();
+  const rec2b = await notifier.getUpdateSince(rec2.updateCount);
+  t.deepEqual(rec2b.value, { median: 1050, timestamp: 4 });
+
+  aggregator.creatorFacet.dropOracle(price1300.instance);
+  const rec3 = await notifier.getUpdateSince(rec2b.updateCount);
+  t.deepEqual(rec3.value, { median: 942, timestamp: 4 });
 });
