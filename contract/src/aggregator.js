@@ -27,11 +27,13 @@ const start = async zcf => {
   const handler = {
     wake(timestamp) {
       // Run all the queriers.
-      instanceToRecord.values().forEach(({ querier }) => querier && querier(timestamp));
+      instanceToRecord
+        .values()
+        .forEach(({ querier }) => querier && querier(timestamp));
     },
   };
   E(repeaterP).schedule(handler);
-  
+
   const updateMedian = timestamp => {
     if (timestamp > latestTimestamp) {
       // Fresh value.
@@ -81,7 +83,10 @@ const start = async zcf => {
         // Submit the query.
         const result = await E(oracle).query(query);
         // Now that we've received the result, check if we're out of date.
-        if (timestamp < lastWakeTimestamp || !instanceToRecord.has(oracleInstance)) {
+        if (
+          timestamp < lastWakeTimestamp ||
+          !instanceToRecord.has(oracleInstance)
+        ) {
           return;
         }
         lastWakeTimestamp = timestamp;

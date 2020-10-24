@@ -11,8 +11,8 @@
 
 /**
  * @typedef {Object} MedianAggregatorCreatorFacet
- * @property {(oracleInstance: Instance, query: any) => void} addOracle
- * @property {(oracleInstance: Instance) => void} dropOracle
+ * @property {(oracleInstance: Instance, query: any) => Promise<void>} addOracle
+ * @property {(oracleInstance: Instance) => Promise<void>} dropOracle
  */
 
 /**

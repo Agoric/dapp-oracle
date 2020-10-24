@@ -88,7 +88,11 @@ test.before(
       });
     };
 
-    const aggregator = await E(zoe).startInstance(aggregatorInstallation, undefined, { timer, POLL_INTERVAL: 1 });
+    const aggregator = await E(zoe).startInstance(
+      aggregatorInstallation,
+      undefined,
+      { timer, POLL_INTERVAL: 1 },
+    );
     ot.context.zoe = zoe;
     ot.context.makeFakePriceOracle = makeFakePriceOracle;
     ot.context.aggregator = aggregator;
@@ -106,7 +110,9 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
 
   const notifier = aggregator.publicFacet.getNotifier();
   const rec0P = notifier.getUpdateSince(undefined);
-  await aggregator.creatorFacet.addOracle(price1000.instance, { increment: 10 });
+  await aggregator.creatorFacet.addOracle(price1000.instance, {
+    increment: 10,
+  });
 
   timer.tick();
   const rec0 = await rec0P;
