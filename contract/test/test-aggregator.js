@@ -113,26 +113,31 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   t.deepEqual(rec0.value, { median: 1010, timestamp: 0 });
 
   timer.tick();
-  const rec0b = await notifier.getUpdateSince(rec0.updateCount);
-  t.deepEqual(rec0b.value, { median: 1020, timestamp: 1 });
+  const rec1 = await notifier.getUpdateSince(rec0.updateCount);
+  t.deepEqual(rec1.value, { median: 1020, timestamp: 1 });
 
   await aggregator.creatorFacet.addOracle(price1300.instance, { increment: 8 });
-  const rec1 = await notifier.getUpdateSince(rec0b.updateCount);
-  t.deepEqual(rec1.value, { median: 1169, timestamp: 2 });
 
   timer.tick();
-  const rec1b = await notifier.getUpdateSince(rec1.updateCount);
-  t.deepEqual(rec1b.value, { median: 1174, timestamp: 3 });
+  const rec2 = await notifier.getUpdateSince(rec1.updateCount);
+  t.deepEqual(rec2.value, { median: 1169, timestamp: 2 });
+
+  timer.tick();
+  const rec3 = await notifier.getUpdateSince(rec2.updateCount);
+  t.deepEqual(rec3.value, { median: 1174, timestamp: 3 });
 
   await aggregator.creatorFacet.addOracle(price800.instance, { increment: 17 });
-  const rec2 = await notifier.getUpdateSince(rec1b.updateCount);
-  t.deepEqual(rec2.value, { median: 1040, timestamp: 3 });
 
   timer.tick();
-  const rec2b = await notifier.getUpdateSince(rec2.updateCount);
-  t.deepEqual(rec2b.value, { median: 1050, timestamp: 4 });
+  const rec4 = await notifier.getUpdateSince(rec3.updateCount);
+  t.deepEqual(rec4.value, { median: 1050, timestamp: 4 });
 
-  aggregator.creatorFacet.dropOracle(price1300.instance);
-  const rec3 = await notifier.getUpdateSince(rec2b.updateCount);
-  t.deepEqual(rec3.value, { median: 942, timestamp: 4 });
+  timer.tick();
+  const rec5 = await notifier.getUpdateSince(rec4.updateCount);
+  t.deepEqual(rec5.value, { median: 1060, timestamp: 5 });
+
+  await aggregator.creatorFacet.dropOracle(price1300.instance);
+  timer.tick();
+  const rec6 = await notifier.getUpdateSince(rec5.updateCount);
+  t.deepEqual(rec6.value, { median: 961, timestamp: 6 });
 });

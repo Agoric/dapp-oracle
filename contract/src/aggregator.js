@@ -92,12 +92,14 @@ const start = async zcf => {
         record.lastSample = sample;
         updateMedian(timestamp);
       };
-      return record.querier(latestTimestamp);
+      const now = await E(timer).getCurrentTimestamp();
+      await record.querier(now);
     },
-    dropOracle(oracleInstance) {
+    async dropOracle(oracleInstance) {
       // Just remove the map entries.
       instanceToRecord.delete(oracleInstance);
-      updateMedian(latestTimestamp);
+      const now = await E(timer).getCurrentTimestamp();
+      updateMedian(now);
     },
   });
 
