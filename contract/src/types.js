@@ -1,24 +1,25 @@
 /**
- * @typedef {Object} MedianAggregatorResult
- * @property {number} median
+ * @typedef {Object} AggregatorResult
+ * @property {Amount} price
  * @property {number} timestamp
  */
 
 /**
- * @typedef {Object} MedianAggregatorPublicFacet
- * @property {() => Notifier<MedianAggregatorResult>} getNotifier
+ * @typedef {Object} AggregatorPublicFacet
+ * @property {() => Notifier<Payment>} getNotifier
  */
 
 /**
- * @typedef {Object} MedianAggregatorCreatorFacet
+ * @typedef {Object} AggregatorCreatorFacet
+ * @property {(quoteMint: Mint) => Promise<void>} initializeQuoteMint
  * @property {(oracleInstance: Instance, query: any) => Promise<void>} addOracle
  * @property {(oracleInstance: Instance) => Promise<void>} dropOracle
  */
 
 /**
- * @typedef {Object} MedianAggregatorStartFnResult
- * @property {MedianAggregatorPublicFacet} publicFacet
- * @property {MedianAggregatorCreatorFacet} creatorFacet
+ * @typedef {Object} AggregatorKit
+ * @property {AggregatorPublicFacet} publicFacet
+ * @property {AggregatorCreatorFacet} creatorFacet
  */
 
 /**
@@ -60,7 +61,7 @@
  */
 
 /**
- * @typedef {Object} OracleInitializedResult
+ * @typedef {Object} OracleKit
  * @property {OracleCreatorFacet} creatorFacet
  * @property {OraclePublicFacet} publicFacet
  * @property {Instance} instance

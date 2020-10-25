@@ -5,7 +5,9 @@ import { E } from '@agoric/eventual-send';
 
 import './types';
 import { makeNotifierKit } from '@agoric/notifier';
+import { MathKind } from '@agoric/ertp';
 import makeStore from '@agoric/store';
+import { assert, details } from '@agoric/assert';
 
 /**
  * This contract provides oracle queries for a fee or for pay.
@@ -14,32 +16,34 @@ import makeStore from '@agoric/store';
  *
  */
 const start = async zcf => {
-  const { timer, POLL_INTERVAL } = zcf.getTerms();
+  const { timer, POLL_INTERVAL, maths: { Price: priceMath } } = zcf.getTerms();
   const { notifier, updater } = makeNotifierKit();
   const zoe = zcf.getZoeService();
 
   /** @type {Store<Instance, { querier: (timestamp: any) => void, lastSample: number }>} */
   const instanceToRecord = makeStore('oracleInstance');
 
-  let latestTimestamp = await E(timer).getCurrentTimestamp();
+  let recentTimestamp = await E(timer).getCurrentTimestamp();
+
+  /** @type {IssuerRecord & { mint: ERef<Mint> }} */
+  let aggregatorQuoteKit;
+
+  /** @type {Payment} */
+  let recentQuotePayment;
 
   const repeaterP = E(timer).createRepeater(0, POLL_INTERVAL);
   const handler = {
-    wake(timestamp) {
+    async wake(timestamp) {
       // Run all the queriers.
-      instanceToRecord
+      const querierPs = instanceToRecord
         .values()
-        .forEach(({ querier }) => querier && querier(timestamp));
+        .map(({ querier }) => querier && querier(timestamp));
+      await Promise.all(querierPs);
     },
   };
   E(repeaterP).schedule(handler);
 
-  const updateMedian = timestamp => {
-    if (timestamp > latestTimestamp) {
-      // Fresh value.
-      latestTimestamp = timestamp;
-    }
-
+  const updateQuote = async timestamp => {
     const sorted = instanceToRecord
       .values() // Find all the instance records.
       .map(({ lastSample }) => lastSample) // Get the last sample.
@@ -60,14 +64,38 @@ const start = async zcf => {
     } else {
       median = sorted[(sorted.length - 1) / 2];
     }
+
     // console.error('found median', median, 'of', sorted);
-    updater.updateState({ median, timestamp: latestTimestamp });
+    const price = priceMath.make(median);
+    const quote = aggregatorQuoteKit.amountMath.make(harden([{ price, timestamp: recentTimestamp }]));
+
+    // Authenticate the quote by minting it, then publish.
+    const authenticatedQuote = await E(aggregatorQuoteKit.mint).mintPayment(quote);
+
+    // FIXME: Do our price triggers now, even if we're too late to publish.
+
+    if (timestamp < recentTimestamp) {
+      // Too late to publish.
+      return;
+    }
+    recentTimestamp = timestamp;
+    recentQuotePayment = authenticatedQuote;
+    updater.updateState(recentQuotePayment);
   };
 
-  /** @type {MedianAggregatorCreatorFacet} */
+  /** @type {AggregatorCreatorFacet} */
   const creatorFacet = harden({
+    async initializeQuoteMint(quoteMint) {
+      const quoteIssuerRecord = await zcf.saveIssuer(E(quoteMint).getIssuer(), 'Quote');
+      aggregatorQuoteKit = {
+        ...quoteIssuerRecord,
+        mint: quoteMint,
+      };
+    },
     async addOracle(oracleInstance, query) {
-      // Register our sample collection.
+      assert(aggregatorQuoteKit, details`Must initializeQuoteMint before adding an oracle`);
+
+      // Register our record.
       const record = { querier: undefined, lastSample: NaN };
       instanceToRecord.init(oracleInstance, record);
 
@@ -95,7 +123,7 @@ const start = async zcf => {
         // the median calculation.
         const sample = parseInt(result, 10);
         record.lastSample = sample;
-        updateMedian(timestamp);
+        await updateQuote(timestamp);
       };
       const now = await E(timer).getCurrentTimestamp();
       await record.querier(now);
@@ -104,11 +132,11 @@ const start = async zcf => {
       // Just remove the map entries.
       instanceToRecord.delete(oracleInstance);
       const now = await E(timer).getCurrentTimestamp();
-      updateMedian(now);
+      await updateQuote(now);
     },
   });
 
-  /** @type {MedianAggregatorPublicFacet} */
+  /** @type {AggregatorPublicFacet} */
   const publicFacet = harden({
     getNotifier() {
       return notifier;
