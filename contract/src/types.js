@@ -8,7 +8,7 @@
 
 /**
  * @typedef {Object} AggregatorPublicFacet
- * @property {(desiredPriceBrand: Brand) => Notifier<Payment>} getPriceNotifier
+ * @property {(desiredPriceBrand?: Brand) => Notifier<Payment>} getPriceNotifier
  * @property {(deadline: number, desiredPriceBrand?: Brand,
  * assetAmount?: Amount) => Promise<PriceQuote>} priceAtTime
  * @property {(priceLimit: Amount, assetAmount?: Amount) => Promise<PriceQuote>}
