@@ -2,12 +2,20 @@
 import '@agoric/zoe/exported';
 
 import { E } from '@agoric/eventual-send';
-
-import './types';
 import { makeNotifierKit } from '@agoric/notifier';
-import { MathKind } from '@agoric/ertp';
 import makeStore from '@agoric/store';
 import { assert, details } from '@agoric/assert';
+import { makePromiseKit } from '@agoric/promise-kit';
+
+import './types';
+
+/**
+ * @typedef {Object} PriceTrigger
+ * @property {Amount} limit
+ * @property {Amount} asset
+ * @property {(result: ERef<PriceQuote>) => void} resolve
+ * @property {(reason: any) => void} reject
+ */
 
 /**
  * This contract provides oracle queries for a fee or for pay.
@@ -16,7 +24,21 @@ import { assert, details } from '@agoric/assert';
  *
  */
 const start = async zcf => {
-  const { timer, POLL_INTERVAL, maths: { Price: priceMath } } = zcf.getTerms();
+  const { timer, POLL_INTERVAL, brands: { Price: priceBrand }, maths: { Asset: assetMath, Price: priceMath } } = zcf.getTerms();
+
+  // FIXME: We need some ERTP support for creating a unit.
+  // It should throw if the asset cannot multiply.
+  const unitAsset = assetMath.make(1);
+
+  /**
+   * 
+   * @param {PriceQuoteValue} quote 
+   */
+  const authenticateQuote = async quote => {
+    const quoteAmount = aggregatorQuoteKit.amountMath.make(harden([quote]));
+    return E(aggregatorQuoteKit.mint).mintPayment(quoteAmount);
+  };
+
   const { notifier, updater } = makeNotifierKit();
   const zoe = zcf.getZoeService();
 
@@ -28,8 +50,89 @@ const start = async zcf => {
   /** @type {IssuerRecord & { mint: ERef<Mint> }} */
   let aggregatorQuoteKit;
 
-  /** @type {Payment} */
-  let recentQuotePayment;
+  /** @type {PriceQuoteValue} */
+  let recentUnitQuote;
+
+  /** @type {Array<PriceTrigger>} */
+  let pendingAboveTriggers = [];
+  /** @type {Array<PriceTrigger>} */
+  let pendingBelowTriggers = [];
+
+  /**
+   * @param {number} timestamp
+   */
+  const fireTriggers = timestamp => {
+    if (!recentUnitQuote) {
+      // No quote yet.
+      return;
+    }
+
+    const recentUnitPriceValue = priceMath.getValue(recentUnitQuote.Price);
+
+    /**
+     * Make a filter function that also fires triggers.
+     * @param {boolean} fireIfAboveLimit true iff we should fire above,
+     * otherwise below
+     * @returns {(trigger: PriceTrigger) => boolean}
+     */
+    const makeFiringFilter = fireIfAboveLimit => trigger => {
+      const { asset: Asset, limit, resolve, reject } = trigger;
+      try {
+        const assetValue = assetMath.getValue(Asset);
+        const Price = priceMath.make(assetValue * recentUnitPriceValue);
+
+        if (fireIfAboveLimit) {
+          // Firing if above.
+          if (!priceMath.isGTE(assetValue, limit)) {
+            // It's below the limit, so keep the trigger and don't fire.
+            return true;
+          }
+        } else {
+          // Firing if below.
+          if (priceMath.isGTE(assetValue, limit)) {
+            // It's above the limit, so keep the trigger and don't fire.
+            return true;
+          }
+        }
+
+        // Fire the trigger, then drop it from the pending list.
+        resolve(authenticateQuote({ Asset, Price, timestamp }));
+        return false;
+      } catch (e) {
+        // Trigger failed, so reject and drop.
+        reject(e);
+        return false;
+      }
+    };
+
+    pendingAboveTriggers = pendingAboveTriggers.filter(makeFiringFilter(true));
+    pendingBelowTriggers = pendingBelowTriggers.filter(makeFiringFilter(false));
+  };
+
+  /**
+   * 
+   * @param {Array<PriceTrigger>} triggers
+   * @param {Amount} priceLimit 
+   * @param {Amount} assetAmount 
+   */
+  const insertTrigger = async (triggers, priceLimit, assetAmount) => {
+    const triggerPK = makePromiseKit();
+    /** @type {PriceTrigger} */
+    const newTrigger = {
+      asset: assetAmount,
+      limit: priceLimit,
+      resolve: triggerPK.resolve,
+      reject: triggerPK.reject,
+    };
+
+    triggers.push(newTrigger);
+
+    // See if this trigger needs to fire.
+    const timestamp = await E(timer).getCurrentTimestamp();
+    fireTriggers(timestamp);
+
+    return triggerPK.promise;
+  };
 
   const repeaterP = E(timer).createRepeater(0, POLL_INTERVAL);
   const handler = {
@@ -66,21 +169,25 @@ const start = async zcf => {
     }
 
     // console.error('found median', median, 'of', sorted);
-    const price = priceMath.make(median);
-    const quote = aggregatorQuoteKit.amountMath.make(harden([{ price, timestamp: recentTimestamp }]));
+    const Price = priceMath.make(median);
+    const quote = { Asset: unitAsset, Price, timestamp: recentTimestamp };
 
-    // Authenticate the quote by minting it, then publish.
-    const authenticatedQuote = await E(aggregatorQuoteKit.mint).mintPayment(quote);
+    // Authenticate the quote by minting it with our quote issuer, then publish.
+    const authenticatedQuote = await authenticateQuote(quote);
 
-    // FIXME: Do our price triggers now, even if we're too late to publish.
+    // Fire any price triggers now; we don't care if the timestamp is fully
+    // ordered, only if the limit has been met.
+    fireTriggers(timestamp);
 
     if (timestamp < recentTimestamp) {
       // Too late to publish.
       return;
     }
+
+    // Publish a new authenticated quote.
     recentTimestamp = timestamp;
-    recentQuotePayment = authenticatedQuote;
-    updater.updateState(recentQuotePayment);
+    recentUnitQuote = quote;
+    updater.updateState(authenticatedQuote);
   };
 
   /** @type {AggregatorCreatorFacet} */
@@ -138,8 +245,40 @@ const start = async zcf => {
 
   /** @type {AggregatorPublicFacet} */
   const publicFacet = harden({
-    getNotifier() {
+    getPriceNotifier(desiredPriceBrand = priceBrand) {
+      assert.equal(priceBrand, desiredPriceBrand, details`Desired brand ${desiredPriceBrand} must match ${priceBrand}`);
       return notifier;
+    },
+    priceAtTime(deadline, desiredPriceBrand = priceBrand, assetAmount = unitAsset) {
+      assert.equal(priceBrand, desiredPriceBrand);
+      const assetValue = assetMath.getValue(assetAmount);
+      const quotePK = makePromiseKit();
+      E(timer).setWakeup(deadline, harden({
+        async wake(timestamp) {
+          try {
+            // Get the latest quote.
+            if (!recentUnitQuote) {
+              throw Error(`No valid price quote at ${timestamp}`);
+            }
+            const recentUnitPriceValue = priceMath.getValue(recentUnitQuote.Price);
+            const Price = priceMath.make(assetValue * recentUnitPriceValue);
+
+            // We don't wait for the quote to be authenticated; resolve immediately.
+            quotePK.resolve(authenticateQuote({ Asset: assetAmount, Price, timestamp }));
+          } catch (e) {
+            quotePK.reject(e);
+          }
+        },
+      }));
+
+      // Wait until the wakeup passes.
+      return quotePK.promise;
+    },
+    priceWhenEqualOrAbove(priceLimit, assetAmount = unitAsset) {
+      return insertTrigger(pendingAboveTriggers, priceLimit, assetAmount);
+    },
+    priceWhenBelow(priceLimit, assetAmount = unitAsset) {
+      return insertTrigger(pendingBelowTriggers, priceLimit, assetAmount);
     },
   });
 

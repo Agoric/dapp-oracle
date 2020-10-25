@@ -1,12 +1,20 @@
 /**
- * @typedef {Object} AggregatorResult
- * @property {Amount} price
+ * @typedef {Payment} PriceQuote
+ * @typedef {Object} PriceQuoteValue
+ * @property {Amount} Asset
+ * @property {Amount} Price
  * @property {number} timestamp
  */
 
 /**
  * @typedef {Object} AggregatorPublicFacet
- * @property {() => Notifier<Payment>} getNotifier
+ * @property {(desiredPriceBrand: Brand) => Notifier<Payment>} getPriceNotifier
+ * @property {(deadline: number, desiredPriceBrand?: Brand,
+ * assetAmount?: Amount) => Promise<PriceQuote>} priceAtTime
+ * @property {(priceLimit: Amount, assetAmount?: Amount) => Promise<PriceQuote>}
+ * priceWhenEqualOrAbove
+ * @property {(priceLimit: Amount, assetAmount?: Amount) => Promise<PriceQuote>}
+ * priceWhenBelow
  */
 
 /**
