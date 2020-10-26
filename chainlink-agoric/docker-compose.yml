@@ -22,7 +22,8 @@ x-ag-solo-node-def:
   restart: on-failure
 x-external-initiator-def:
   &external-initiator-def
-  image: smartcontract/external-initiator
+  # image: smartcontract/external-initiator
+  image: agoric/chainlink-external-initiator
 x-agoric-adapter-def:
   &agoric-adapter-def
   # image: smartcontract/agoric-adapter
