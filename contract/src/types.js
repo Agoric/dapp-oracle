@@ -3,13 +3,14 @@
  * @typedef {Object} PriceQuoteValue
  * @property {Amount} Asset
  * @property {Amount} Price
+ * @property {TimerService} timer
  * @property {number} timestamp
  */
 
 /**
  * @typedef {Object} AggregatorPublicFacet
  * @property {(desiredPriceBrand?: Brand) => Notifier<Payment>} getPriceNotifier
- * @property {(deadline: number, desiredPriceBrand?: Brand,
+ * @property {(timer: TimerService, deadline: number, desiredPriceBrand?: Brand,
  * assetAmount?: Amount) => Promise<PriceQuote>} priceAtTime
  * @property {(priceLimit: Amount, assetAmount?: Amount) => Promise<PriceQuote>}
  * priceWhenEqualOrAbove

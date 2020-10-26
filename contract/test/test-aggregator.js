@@ -109,7 +109,7 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
 
   const aggregator = await t.context.makeMedianAggregator(1);
   const {
-    timer,
+    timer: oracleTimer,
     brands: { Price: priceBrand },
     issuers: { Quote: quoteIssuer },
     maths: { Asset: assetMath, Price: priceMath, Quote: quoteMath },
@@ -126,10 +126,11 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
 
   let lastRec;
   const tickAndQuote = async () => {
-    await timer.tick();
+    await oracleTimer.tick();
     lastRec = await E(notifier).getUpdateSince(lastRec && lastRec.updateCount);
     const q = await E(quoteIssuer).getAmountOf(lastRec.value);
-    const [{ timestamp, Asset, Price }] = quoteMath.getValue(q);
+    const [{ timestamp, timer, Asset, Price }] = quoteMath.getValue(q);
+    t.is(timer, oracleTimer);
     const price = priceMath.getValue(Price);
     const asset = assetMath.getValue(Asset);
     return { asset, timestamp, price };
@@ -170,9 +171,11 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
 test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
   const { makeFakePriceOracle, zoe } = t.context;
 
+  const userTimer = buildManualTimer(() => {});
+
   const aggregator = await t.context.makeMedianAggregator(1);
   const {
-    timer,
+    timer: oracleTimer,
     brands: { Price: usdBrand },
     issuers: { Quote: quoteIssuer },
     maths: { Asset: assetMath, Price: priceMath, Quote: quoteMath },
@@ -183,6 +186,7 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
   const price800 = await makeFakePriceOracle(t, 800);
 
   const priceAtTime = E(aggregator.publicFacet).priceAtTime(
+    oracleTimer,
     7,
     usdBrand,
     assetMath.make(41),
@@ -197,39 +201,78 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
       }),
   );
 
+  const priceAtUserTime = E(aggregator.publicFacet).priceAtTime(
+    userTimer,
+    1,
+    usdBrand,
+    assetMath.make(23),
+  );
+
+  let userQuotePayment;
+  priceAtUserTime.then(
+    result => (userQuotePayment = result),
+    reason =>
+      t.notThrowsAsync(() => {
+        throw reason;
+      }),
+  );
+
   await E(aggregator.creatorFacet).addOracle(price1000.instance, {
     increment: 10,
   });
 
-  await E(timer).tick();
-  await E(timer).tick();
+  await E(oracleTimer).tick();
+  await E(oracleTimer).tick();
 
   await E(aggregator.creatorFacet).addOracle(price1300.instance, {
     increment: 8,
   });
 
-  await E(timer).tick();
-  await E(timer).tick();
+  await E(oracleTimer).tick();
+  await E(oracleTimer).tick();
 
   await E(aggregator.creatorFacet).addOracle(price800.instance, {
     increment: 17,
   });
 
-  await E(timer).tick();
-  await E(timer).tick();
+  await E(oracleTimer).tick();
+
+  // Ensure our user quote fires exactly now.
+  t.falsy(userQuotePayment);
+  await E(userTimer).tick();
+  t.truthy(userQuotePayment);
+
+  const userQuote = await E(quoteIssuer).getAmountOf(userQuotePayment);
+  const [
+    {
+      Asset: userAsset,
+      Price: userPrice,
+      timer: utimer,
+      timestamp: utimestamp,
+    },
+  ] = await E(quoteMath).getValue(userQuote);
+  t.is(utimer, userTimer);
+  t.is(utimestamp, 1);
+  t.is(await E(assetMath).getValue(userAsset), 23);
+  t.is((await E(priceMath).getValue(userPrice)) / 23, 1060);
+
+  await E(oracleTimer).tick();
 
   await E(aggregator.creatorFacet).dropOracle(price1300.instance);
 
   // Ensure our quote fires exactly now.
   t.falsy(quotePayment);
-  await E(timer).tick();
+  await E(oracleTimer).tick();
   t.truthy(quotePayment);
 
   const quote = await E(quoteIssuer).getAmountOf(quotePayment);
-  const [{ Asset, Price, timestamp }] = await E(quoteMath).getValue(quote);
+  const [{ Asset, Price, timer, timestamp }] = await E(quoteMath).getValue(
+    quote,
+  );
+  t.is(timer, oracleTimer);
   t.is(timestamp, 7);
   t.is(await E(assetMath).getValue(Asset), 41);
-  t.is(await E(priceMath).getValue(Price), 961 * 41);
+  t.is((await E(priceMath).getValue(Price)) / 41, 961);
 });
 
 test('priceWhen', /** @param {ExecutionContext} t */ async t => {
@@ -237,7 +280,7 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
 
   const aggregator = await t.context.makeMedianAggregator(1);
   const {
-    timer,
+    timer: oracleTimer,
     issuers: { Quote: quoteIssuer },
     maths: { Asset: assetMath, Price: priceMath, Quote: quoteMath },
   } = await E(zoe).getTerms(aggregator.instance);
@@ -278,17 +321,17 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
     increment: 10,
   });
 
-  await E(timer).tick();
-  await E(timer).tick();
+  await E(oracleTimer).tick();
+  await E(oracleTimer).tick();
 
   await E(aggregator.creatorFacet).addOracle(price1300.instance, {
     increment: 8,
   });
 
-  await E(timer).tick();
+  await E(oracleTimer).tick();
   // Above trigger has not yet fired.
   t.falsy(aboveQuotePayment);
-  await E(timer).tick();
+  await E(oracleTimer).tick();
 
   // The above trigger should fire here.
   await priceWhenEqualOrAbove;
@@ -299,20 +342,20 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
   ] = await E(quoteMath).getValue(aboveQuote);
   t.is(aboveTimestamp, 4);
   t.is(await E(assetMath).getValue(aboveAsset), 37);
-  t.is(await E(priceMath).getValue(abovePrice), 1183 * 37);
+  t.is((await E(priceMath).getValue(abovePrice)) / 37, 1183);
 
   await E(aggregator.creatorFacet).addOracle(price800.instance, {
     increment: 17,
   });
 
-  await E(timer).tick();
-  await E(timer).tick();
+  await E(oracleTimer).tick();
+  await E(oracleTimer).tick();
 
   await E(aggregator.creatorFacet).dropOracle(price1300.instance);
 
   // Below trigger has not yet fired.
   t.falsy(belowQuotePayment);
-  await E(timer).tick();
+  await E(oracleTimer).tick();
 
   // The below trigger should fire here.
   await priceWhenBelow;
@@ -323,5 +366,5 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
   ] = await E(quoteMath).getValue(belowQuote);
   t.is(belowTimestamp, 7);
   t.is(await E(assetMath).getValue(belowAsset), 29);
-  t.is(await E(priceMath).getValue(belowPrice), 961 * 29);
+  t.is((await E(priceMath).getValue(belowPrice)) / 29, 961);
 });

@@ -25,7 +25,7 @@ import './types';
  */
 const start = async zcf => {
   const {
-    timer,
+    timer: oracleTimer,
     POLL_INTERVAL,
     brands: { Price: priceBrand },
     maths: { Asset: assetMath, Price: priceMath },
@@ -51,7 +51,7 @@ const start = async zcf => {
   /** @type {Store<Instance, { querier: (timestamp: number) => void, lastSample: number }>} */
   const instanceToRecord = makeStore('oracleInstance');
 
-  let recentTimestamp = await E(timer).getCurrentTimestamp();
+  let recentTimestamp = await E(oracleTimer).getCurrentTimestamp();
 
   /** @type {PriceQuoteValue} */
   let recentUnitQuote;
@@ -97,7 +97,9 @@ const start = async zcf => {
         }
 
         // Fire the trigger, then drop it from the pending list.
-        resolve(authenticateQuote({ Asset, Price, timestamp }));
+        resolve(
+          authenticateQuote({ Asset, Price, timer: oracleTimer, timestamp }),
+        );
         return false;
       } catch (e) {
         // Trigger failed, so reject and drop.
@@ -129,13 +131,13 @@ const start = async zcf => {
     triggers.push(newTrigger);
 
     // See if this trigger needs to fire.
-    const timestamp = await E(timer).getCurrentTimestamp();
+    const timestamp = await E(oracleTimer).getCurrentTimestamp();
     fireTriggers(timestamp);
 
     return triggerPK.promise;
   };
 
-  const repeaterP = E(timer).createRepeater(0, POLL_INTERVAL);
+  const repeaterP = E(oracleTimer).createRepeater(0, POLL_INTERVAL);
   const handler = {
     async wake(timestamp) {
       // Run all the queriers.
@@ -171,7 +173,12 @@ const start = async zcf => {
 
     // console.error('found median', median, 'of', sorted);
     const Price = priceMath.make(median);
-    const quote = { Asset: unitAsset, Price, timestamp: recentTimestamp };
+    const quote = {
+      Asset: unitAsset,
+      Price,
+      timer: oracleTimer,
+      timestamp: recentTimestamp,
+    };
 
     // Authenticate the quote by minting it with our quote issuer, then publish.
     const authenticatedQuote = await authenticateQuote(quote);
@@ -239,13 +246,13 @@ const start = async zcf => {
         record.lastSample = sample;
         await updateQuote(timestamp);
       };
-      const now = await E(timer).getCurrentTimestamp();
+      const now = await E(oracleTimer).getCurrentTimestamp();
       await record.querier(now);
     },
     async dropOracle(oracleInstance) {
       // Just remove the map entries.
       instanceToRecord.delete(oracleInstance);
-      const now = await E(timer).getCurrentTimestamp();
+      const now = await E(oracleTimer).getCurrentTimestamp();
       await updateQuote(now);
     },
   });
@@ -261,6 +268,7 @@ const start = async zcf => {
       return notifier;
     },
     async priceAtTime(
+      userTimer,
       deadline,
       desiredPriceBrand = priceBrand,
       Asset = unitAsset,
@@ -268,7 +276,7 @@ const start = async zcf => {
       assert.equal(priceBrand, desiredPriceBrand);
       const assetValue = assetMath.getValue(Asset);
       const quotePK = makePromiseKit();
-      E(timer).setWakeup(
+      await E(userTimer).setWakeup(
         deadline,
         harden({
           async wake(timestamp) {
@@ -284,7 +292,14 @@ const start = async zcf => {
 
               // We don't wait for the quote to be authenticated; resolve
               // immediately.
-              quotePK.resolve(authenticateQuote({ Asset, Price, timestamp }));
+              quotePK.resolve(
+                authenticateQuote({
+                  Asset,
+                  Price,
+                  timer: userTimer,
+                  timestamp,
+                }),
+              );
             } catch (e) {
               quotePK.reject(e);
             }
