@@ -31,10 +31,10 @@ const start = async zcf => {
     maths: { Asset: assetMath, Price: priceMath },
   } = zcf.getTerms();
 
-  const unitAsset = assetMath.make(1);
-
   /** @type {IssuerRecord & { mint: ERef<Mint> }} */
   let aggregatorQuoteKit;
+
+  const unitAsset = assetMath.make(1);
 
   /**
    *
@@ -266,6 +266,15 @@ const start = async zcf => {
         details`Desired brand ${desiredPriceBrand} must match ${priceBrand}`,
       );
       return notifier;
+    },
+    async getRecentPrice(desiredPriceBrand = priceBrand) {
+      assert.equal(
+        priceBrand,
+        desiredPriceBrand,
+        details`Desired brand ${desiredPriceBrand} must match ${priceBrand}`,
+      );
+      const { value } = await notifier.getUpdateSince();
+      return value;
     },
     async priceAtTime(
       userTimer,

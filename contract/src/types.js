@@ -9,6 +9,7 @@
 
 /**
  * @typedef {Object} AggregatorPublicFacet
+ * @property {(desiredPriceBrand?: Brand) => Promise<PriceQuote>} getRecentPrice
  * @property {(desiredPriceBrand?: Brand) => Notifier<Payment>} getPriceNotifier
  * @property {(timer: TimerService, deadline: number, desiredPriceBrand?: Brand,
  * assetAmount?: Amount) => Promise<PriceQuote>} priceAtTime
@@ -45,7 +46,7 @@
  * contract instance
  * @property {(issuerP: ERef<Issuer>) => Promise<void>} addFeeIssuer add an
  * issuer to collect fees for the oracle
- * @property {() => ERef<AmountKeywordRecord>} getCurrentFees get the current
+ * @property {() => AmountKeywordRecord} getCurrentFees get the current
  * fee amounts
  * @property {(total: boolean = false) => ERef<Invitation>}
  * makeWithdrawInvitation create an invitation to withdraw fees

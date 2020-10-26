@@ -124,48 +124,64 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
     increment: 10,
   });
 
+  const unitAsset = assetMath.make(1);
+
   let lastRec;
   const tickAndQuote = async () => {
     await oracleTimer.tick();
     lastRec = await E(notifier).getUpdateSince(lastRec && lastRec.updateCount);
+
     const q = await E(quoteIssuer).getAmountOf(lastRec.value);
     const [{ timestamp, timer, Asset, Price }] = quoteMath.getValue(q);
     t.is(timer, oracleTimer);
     const price = priceMath.getValue(Price);
-    const asset = assetMath.getValue(Asset);
-    return { asset, timestamp, price };
+
+    t.deepEqual(Asset, unitAsset);
+
+    // Validate that we can get a recent price explicitly as well.
+    const recent = await E(aggregator.publicFacet).getRecentPrice();
+    const recentQ = await E(quoteIssuer).getAmountOf(recent);
+    const [
+      { timestamp: rtimestamp, timer: rtimer, Asset: rAsset, Price: rPrice },
+    ] = quoteMath.getValue(recentQ);
+    t.is(rtimer, oracleTimer);
+    t.is(rtimestamp, timestamp);
+    t.deepEqual(rAsset, Asset);
+    t.deepEqual(rPrice, Price);
+
+    return { timestamp, price };
   };
 
   const quote0 = await tickAndQuote();
-  t.deepEqual(quote0, { asset: 1, price: 1020, timestamp: 0 });
+  t.deepEqual(quote0, { price: 1020, timestamp: 0 });
 
   const quote1 = await tickAndQuote();
-  t.deepEqual(quote1, { asset: 1, price: 1030, timestamp: 1 });
+  t.deepEqual(quote1, { price: 1030, timestamp: 1 });
 
   await E(aggregator.creatorFacet).addOracle(price1300.instance, {
     increment: 8,
   });
 
   const quote2 = await tickAndQuote();
-  t.deepEqual(quote2, { asset: 1, price: 1178, timestamp: 2 });
+  t.deepEqual(quote2, { price: 1178, timestamp: 2 });
 
   const quote3 = await tickAndQuote();
-  t.deepEqual(quote3, { asset: 1, price: 1187, timestamp: 3 });
+  t.deepEqual(quote3, { price: 1187, timestamp: 3 });
 
   await E(aggregator.creatorFacet).addOracle(price800.instance, {
     increment: 17,
   });
 
   const quote4 = await tickAndQuote();
-  t.deepEqual(quote4, { asset: 1, price: 1060, timestamp: 4 });
+  t.deepEqual(quote4, { price: 1060, timestamp: 4 });
 
   const quote5 = await tickAndQuote();
-  t.deepEqual(quote5, { asset: 1, price: 1070, timestamp: 5 });
+  t.deepEqual(quote5, { price: 1070, timestamp: 5 });
 
   await E(aggregator.creatorFacet).dropOracle(price1300.instance);
 
   const quote6 = await tickAndQuote();
-  t.deepEqual(quote6, { asset: 1, price: 974, timestamp: 6 });
+  t.deepEqual(quote6, { price: 974, timestamp: 6 });
 });
 
 test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
