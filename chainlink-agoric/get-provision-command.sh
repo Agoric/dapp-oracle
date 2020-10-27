@@ -2,6 +2,10 @@
 set -e
 
 case $AG_NETWORK_CONFIG in
+"")
+  echo 1>&2 "You must set \$AG_NETWORK_CONFIG"
+  exit 1
+  ;;
 /*) ncf=$(cat "$AG_NETWORK_CONFIG") ;;
 *) ncf=$(curl -Ss "$AG_NETWORK_CONFIG") ;;
 esac

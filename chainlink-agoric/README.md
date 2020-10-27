@@ -5,9 +5,26 @@ This tool automates the setup and running of Chainlink components to read/write 
 ## Prerequisites
 
 The Chainlink components assume that you already have an Agoric chain running.
-See `agoric start local-chain` in the instructions.
+This can either be a public chain or a local chain.
 
-_See the directory above for more instructions on how to run this._
+To start a local chain, do the following:
+
+Start with https://agoric.com/documentation/getting-started/before-using-agoric.html
+
+Then:
+
+```sh
+# Go to the parent directory.
+cd ..
+# Install the needed dependencies.
+agoric install
+# Start local chain implementation.
+agoric start --reset local-chain >& chain.log &
+# Start a solo for the oracle client.
+agoric start --reset local-solo 8000 >& 8000.log &
+# Deploy the oracle client.
+agoric deploy contract/deploy.js api/deploy.js
+```
 
 ## Running
 
@@ -15,10 +32,10 @@ _See the directory above for more instructions on how to run this._
 
 _Note: Make sure you have cd-ed into this directory_
 
-If you are running the Agoric node locally, simply run:
+If you are running the Agoric local-chain, simply run:
 
 ```bash
-AG_COSMOS_HELPER_OPTS="--from=<your-keyname>" ./setup
+./setup
 ```
 
 If you are running the Agoric chain externally, run something like:
@@ -29,8 +46,9 @@ AG_COSMOS_HELPER_OPTS="--from=<your-keyname>" ./setup "https://testnet.agoric.co
 
 This will create and start 3 Chainlink nodes, with an adapter and EI connected to each.
 
-It will instruct you to provision 3 different addresses, which you can do via
-`ag-cosmos-helper tx swingset provision-one <node-name> <addr>`.
+It will attempt to provision 3 different Agoric addresses, which if you used a
+non-local chain you can do manually via `ag-cosmos-helper tx swingset
+provision-one <node-name> <addr>`.
 
 ### Start/stop
 
@@ -54,8 +72,15 @@ The env var `AG_NETWORK_CONFIG` needs to be set before bringing the services up.
 Run:
 
 ```bash
-(cd ../ui && yarn start)
+(cd ../ui && yarn start) &
 ```
 
-then visit `http://localhost:3000/?API_PORT=6891` and submit queries.  You
-should see the replies appear when served by the Chainlink node.
+then visit `http://localhost:3000` and submit queries.  You will need to use one
+of the `board` and `jobId` identifiers printed out at the end of the `setup`
+script's execution, which looks something like:
+
+```
+board:<board-id> jobId:"<chainlink-jobid>" http://localhost:<port>
+```
+
+You should see the replies appear when served by the Chainlink node.

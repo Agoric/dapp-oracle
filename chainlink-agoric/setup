@@ -12,15 +12,9 @@ run_setup() {
   touch external_initiator2.env
   touch external_initiator3.env
 
-  AG_NETWORK_CONFIG="/usr/src/dapp-oracle/chainlink-agoric/etc/network-config.json"
-
-  if [ "$1" != "" ]; then
-    AG_NETWORK_CONFIG=$1
-  fi
-
+  export AG_NETWORK_CONFIG=${1-"/usr/src/dapp-oracle/chainlink-agoric/etc/network-config.json"}
   echo "Network config: $AG_NETWORK_CONFIG"
 
-  export AG_NETWORK_CONFIG
   start_docker 180
 
   source ./internal-scripts/add-dapp-oracle.sh
@@ -59,4 +53,4 @@ run_setup() {
   ./show-jobs.js
 }
 
-run_setup "$1"
+run_setup ${1+"$1"}

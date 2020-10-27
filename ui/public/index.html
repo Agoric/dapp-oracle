@@ -33,9 +33,11 @@
       </p>
 
       <textarea id="oracleQuery" placeholder="JSON5 query">{
- jobId:"e74db821a78a4b39aa3262b14e75dd78",
+ jobId:"&lt;chainlink-jobid&gt;",
  params:{ 
-  get: "https://testnet.agoric.com/network-config"
+  get: "https://bitstamp.net/api/ticker/",
+  path: ["last"],
+  times: 100
  }
 }
 </textarea><br/>

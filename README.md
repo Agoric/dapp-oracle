@@ -1,9 +1,12 @@
 # Oracle Dapp
 
-This Dapp is a generic way to interact with oracles such as the [Chainlink](https://chain.link) decentralized oracle network.
+This Dapp is a generic way to interact with oracles such as the
+[Chainlink](https://chain.link) decentralized oracle network.  The oracle
+contract represents a single oracle, whose publicFacet can be published for
+people to query.
 
-The oracle contract represents a single oracle, whose publicFacet can be
-published for people to query.
+(See the [Chainlink integration details](#chainlink-integration) for instructions
+on how to use Chainlink specifically with this Dapp.)
 
 ## Demo
 
@@ -15,7 +18,7 @@ Then:
 # Install the needed dependencies.
 agoric install
 # Start local chain implementation.
-agoric start local-chain >& chain.log &
+agoric start --reset local-chain >& chain.log &
 # Start a solo for the oracle client.
 agoric start local-solo 8000 >& 8000.log &
 # Start a solo for the oracle.
