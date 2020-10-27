@@ -7,7 +7,13 @@ published for people to query.
 
 ## Demo
 
+Start with https://agoric.com/documentation/getting-started/before-using-agoric.html
+
+Then:
+
 ```sh
+# Install the needed dependencies.
+agoric install
 # Start local chain implementation.
 agoric start local-chain >& chain.log &
 # Start a solo for the oracle client.
@@ -130,11 +136,14 @@ There are three basic components to a given Chainlink integration:
    Chainlink node and translates them into Agoric transactions.
 3. $LINK, a token which secures the oracle network.
 
-## Planned Implementation
+## Implementation
 
 The oracle query-only UI is deployed with `agoric deploy api/deploy.js`.
 
 The "external adapter" is [in
-Javascript](https://github.com/smartcontractkit/external-adapters-js) and
+Javascript](https://github.com/smartcontractkit/external-adapters-js/pull/114) and
 "external initiator" is [in
-Golang](https://github.com/smartcontractkit/external-initiator).
+Golang](https://github.com/smartcontractkit/external-initiator/pull/73).
+
+See the `chainlink-agoric` subdirectory for more instructions on how to run the
+Chainlink nodes.
