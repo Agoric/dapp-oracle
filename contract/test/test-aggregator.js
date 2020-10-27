@@ -110,7 +110,7 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const aggregator = await t.context.makeMedianAggregator(1);
   const {
     timer: oracleTimer,
-    brands: { Price: priceBrand },
+    brands: { Asset: assetBrand, Price: priceBrand },
     issuers: { Quote: quoteIssuer },
     maths: { Asset: assetMath, Price: priceMath, Quote: quoteMath },
   } = await E(zoe).getTerms(aggregator.instance);
@@ -118,8 +118,9 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const price1000 = await makeFakePriceOracle(t, 1000);
   const price1300 = await makeFakePriceOracle(t, 1300);
   const price800 = await makeFakePriceOracle(t, 800);
+  const pa = E(aggregator.publicFacet).getPriceAuthority();
 
-  const notifier = E(aggregator.publicFacet).getPriceNotifier(priceBrand);
+  const notifier = E(pa).getPriceNotifier(assetBrand, priceBrand);
   await E(aggregator.creatorFacet).addOracle(price1000.instance, {
     increment: 10,
   });
@@ -143,9 +144,10 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
     t.deepEqual(assetAmount, unitAsset);
 
     // Validate that we can get a recent price explicitly as well.
-    const { quotePayment: recent } = await E(
-      aggregator.publicFacet,
-    ).getInputPrice(unitAsset, priceBrand);
+    const { quotePayment: recent } = await E(pa).getInputPrice(
+      unitAsset,
+      priceBrand,
+    );
     const recentQ = await E(quoteIssuer).getAmountOf(recent);
     const [
       {
@@ -211,8 +213,9 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
   const price1000 = await makeFakePriceOracle(t, 1000);
   const price1300 = await makeFakePriceOracle(t, 1300);
   const price800 = await makeFakePriceOracle(t, 800);
+  const pa = E(aggregator.publicFacet).getPriceAuthority();
 
-  const priceAtTime = E(aggregator.publicFacet).priceAtTime(
+  const priceAtTime = E(pa).priceAtTime(
     oracleTimer,
     7,
     assetMath.make(41),
@@ -229,7 +232,7 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
       }),
   );
 
-  const priceAtUserTime = E(aggregator.publicFacet).priceAtTime(
+  const priceAtUserTime = E(pa).priceAtTime(
     userTimer,
     1,
     assetMath.make(23),
@@ -320,8 +323,9 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
   const price1000 = await makeFakePriceOracle(t, 1000);
   const price1300 = await makeFakePriceOracle(t, 1300);
   const price800 = await makeFakePriceOracle(t, 800);
+  const pa = E(aggregator.publicFacet).getPriceAuthority();
 
-  const priceWhenGTE = E(aggregator.publicFacet).priceWhenGTE(
+  const priceWhenGTE = E(pa).priceWhenGTE(
     assetMath.make(37),
     priceMath.make(1183 * 37),
   );
@@ -336,7 +340,7 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
       }),
   );
 
-  const priceWhenLTE = E(aggregator.publicFacet).priceWhenLTE(
+  const priceWhenLTE = E(pa).priceWhenLTE(
     assetMath.make(29),
     priceMath.make(974 * 29),
   );

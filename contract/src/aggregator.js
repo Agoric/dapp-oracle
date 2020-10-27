@@ -286,14 +286,19 @@ const start = async zcf => {
   });
 
   /** @type {PriceAuthority} */
-  const publicFacet = harden({
+  const priceAuthority = {
     getQuoteIssuer() {
       return aggregatorQuoteKit.issuer;
     },
-    getPriceNotifier(desiredPriceBrand = priceBrand) {
+    getPriceNotifier(desiredAssetBrand, desiredPriceBrand) {
       assert.equal(
-        priceBrand,
+        desiredAssetBrand,
+        assetBrand,
+        details`Desired brand ${desiredPriceBrand} must match ${priceBrand}`,
+      );
+      assert.equal(
         desiredPriceBrand,
+        priceBrand,
         details`Desired brand ${desiredPriceBrand} must match ${priceBrand}`,
       );
       return notifier;
@@ -397,6 +402,13 @@ const start = async zcf => {
     },
     async priceWhenLT(assetAmount, priceLimit) {
       return insertTrigger(assetAmount, priceLT, priceLimit);
+    },
+  };
+  harden(priceAuthority);
+
+  const publicFacet = harden({
+    getPriceAuthority() {
+      return priceAuthority;
     },
   });
 

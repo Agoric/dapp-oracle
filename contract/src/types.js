@@ -48,6 +48,11 @@
  */
 
 /**
+ * @typedef {Object} AggregatorPublicFacet
+ * @property {() => PriceAuthority} getPriceAuthority
+ */
+
+/**
  * @typedef {Object} AggregatorKit
  * @property {AggregatorPublicFacet} publicFacet
  * @property {AggregatorCreatorFacet} creatorFacet
