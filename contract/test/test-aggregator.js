@@ -126,28 +126,39 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
 
   const unitAsset = assetMath.make(1);
 
+  /** @type {UpdateRecord<PriceQuote>} */
   let lastRec;
   const tickAndQuote = async () => {
     await oracleTimer.tick();
     lastRec = await E(notifier).getUpdateSince(lastRec && lastRec.updateCount);
 
-    const q = await E(quoteIssuer).getAmountOf(lastRec.value);
-    const [{ timestamp, timer, Asset, Price }] = quoteMath.getValue(q);
+    const q = await E(quoteIssuer).getAmountOf(lastRec.value.quotePayment);
+    t.deepEqual(q, lastRec.value.quoteAmount);
+    const [
+      { timestamp, timer, assetAmount, price: priceAmount },
+    ] = quoteMath.getValue(q);
     t.is(timer, oracleTimer);
-    const price = priceMath.getValue(Price);
+    const price = priceMath.getValue(priceAmount);
 
-    t.deepEqual(Asset, unitAsset);
+    t.deepEqual(assetAmount, unitAsset);
 
     // Validate that we can get a recent price explicitly as well.
-    const recent = await E(aggregator.publicFacet).getRecentPrice();
+    const { quotePayment: recent } = await E(
+      aggregator.publicFacet,
+    ).getInputPrice(unitAsset, priceBrand);
     const recentQ = await E(quoteIssuer).getAmountOf(recent);
     const [
-      { timestamp: rtimestamp, timer: rtimer, Asset: rAsset, Price: rPrice },
+      {
+        timestamp: rtimestamp,
+        timer: rtimer,
+        assetAmount: rAsset,
+        price: rPrice,
+      },
     ] = quoteMath.getValue(recentQ);
     t.is(rtimer, oracleTimer);
     t.is(rtimestamp, timestamp);
-    t.deepEqual(rAsset, Asset);
-    t.deepEqual(rPrice, Price);
+    t.deepEqual(rAsset, assetAmount);
+    t.deepEqual(rPrice, priceAmount);
 
     return { timestamp, price };
   };
@@ -204,13 +215,14 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
   const priceAtTime = E(aggregator.publicFacet).priceAtTime(
     oracleTimer,
     7,
-    usdBrand,
     assetMath.make(41),
+    usdBrand,
   );
 
-  let quotePayment;
+  /** @type {PriceQuote} */
+  let priceQuote;
   priceAtTime.then(
-    result => (quotePayment = result),
+    result => (priceQuote = result),
     reason =>
       t.notThrows(() => {
         throw reason;
@@ -220,13 +232,14 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
   const priceAtUserTime = E(aggregator.publicFacet).priceAtTime(
     userTimer,
     1,
-    usdBrand,
     assetMath.make(23),
+    usdBrand,
   );
 
-  let userQuotePayment;
+  /** @type {PriceQuote} */
+  let userPriceQuote;
   priceAtUserTime.then(
-    result => (userQuotePayment = result),
+    result => (userPriceQuote = result),
     reason =>
       t.notThrowsAsync(() => {
         throw reason;
@@ -254,15 +267,17 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
   await E(oracleTimer).tick();
 
   // Ensure our user quote fires exactly now.
-  t.falsy(userQuotePayment);
+  t.falsy(userPriceQuote);
   await E(userTimer).tick();
-  t.truthy(userQuotePayment);
+  t.truthy(userPriceQuote);
 
-  const userQuote = await E(quoteIssuer).getAmountOf(userQuotePayment);
+  const userQuote = await E(quoteIssuer).getAmountOf(
+    userPriceQuote.quotePayment,
+  );
   const [
     {
-      Asset: userAsset,
-      Price: userPrice,
+      assetAmount: userAsset,
+      price: userPrice,
       timer: utimer,
       timestamp: utimestamp,
     },
@@ -277,18 +292,19 @@ test('priceAtTime', /** @param {ExecutionContext} t */ async t => {
   await E(aggregator.creatorFacet).dropOracle(price1300.instance);
 
   // Ensure our quote fires exactly now.
-  t.falsy(quotePayment);
+  t.falsy(priceQuote);
   await E(oracleTimer).tick();
-  t.truthy(quotePayment);
+  t.truthy(priceQuote);
 
-  const quote = await E(quoteIssuer).getAmountOf(quotePayment);
-  const [{ Asset, Price, timer, timestamp }] = await E(quoteMath).getValue(
-    quote,
-  );
+  const quote = await E(quoteIssuer).getAmountOf(priceQuote.quotePayment);
+  t.deepEqual(quote, priceQuote.quoteAmount);
+  const [{ assetAmount, price, timer, timestamp }] = await E(
+    quoteMath,
+  ).getValue(quote);
   t.is(timer, oracleTimer);
   t.is(timestamp, 7);
-  t.is(await E(assetMath).getValue(Asset), 41);
-  t.is((await E(priceMath).getValue(Price)) / 41, 961);
+  t.is(await E(assetMath).getValue(assetAmount), 41);
+  t.is((await E(priceMath).getValue(price)) / 41, 961);
 });
 
 test('priceWhen', /** @param {ExecutionContext} t */ async t => {
@@ -305,28 +321,30 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
   const price1300 = await makeFakePriceOracle(t, 1300);
   const price800 = await makeFakePriceOracle(t, 800);
 
-  const priceWhenEqualOrAbove = E(aggregator.publicFacet).priceWhenEqualOrAbove(
-    priceMath.make(1183 * 37),
+  const priceWhenGTE = E(aggregator.publicFacet).priceWhenGTE(
     assetMath.make(37),
+    priceMath.make(1183 * 37),
   );
 
-  let aboveQuotePayment;
-  priceWhenEqualOrAbove.then(
-    result => (aboveQuotePayment = result),
+  /** @type {PriceQuote} */
+  let abovePriceQuote;
+  priceWhenGTE.then(
+    result => (abovePriceQuote = result),
     reason =>
       t.notThrows(() => {
         throw reason;
       }),
   );
 
-  const priceWhenBelow = E(aggregator.publicFacet).priceWhenBelow(
-    priceMath.make(974 * 29),
+  const priceWhenLTE = E(aggregator.publicFacet).priceWhenLTE(
     assetMath.make(29),
+    priceMath.make(974 * 29),
   );
 
-  let belowQuotePayment;
-  priceWhenBelow.then(
-    result => (belowQuotePayment = result),
+  /** @type {PriceQuote} */
+  let belowPriceQuote;
+  priceWhenLTE.then(
+    result => (belowPriceQuote = result),
     reason =>
       t.notThrows(() => {
         throw reason;
@@ -346,15 +364,18 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
 
   await E(oracleTimer).tick();
   // Above trigger has not yet fired.
-  t.falsy(aboveQuotePayment);
+  t.falsy(abovePriceQuote);
   await E(oracleTimer).tick();
 
   // The above trigger should fire here.
-  await priceWhenEqualOrAbove;
-  t.truthy(aboveQuotePayment);
-  const aboveQuote = await E(quoteIssuer).getAmountOf(aboveQuotePayment);
+  await priceWhenGTE;
+  t.truthy(abovePriceQuote);
+  const aboveQuote = await E(quoteIssuer).getAmountOf(
+    abovePriceQuote.quotePayment,
+  );
+  t.deepEqual(aboveQuote, abovePriceQuote.quoteAmount);
   const [
-    { Asset: aboveAsset, Price: abovePrice, timestamp: aboveTimestamp },
+    { assetAmount: aboveAsset, price: abovePrice, timestamp: aboveTimestamp },
   ] = await E(quoteMath).getValue(aboveQuote);
   t.is(aboveTimestamp, 4);
   t.is(await E(assetMath).getValue(aboveAsset), 37);
@@ -370,15 +391,18 @@ test('priceWhen', /** @param {ExecutionContext} t */ async t => {
   await E(aggregator.creatorFacet).dropOracle(price1300.instance);
 
   // Below trigger has not yet fired.
-  t.falsy(belowQuotePayment);
+  t.falsy(belowPriceQuote);
   await E(oracleTimer).tick();
 
   // The below trigger should fire here.
-  await priceWhenBelow;
-  t.truthy(belowQuotePayment);
-  const belowQuote = await E(quoteIssuer).getAmountOf(belowQuotePayment);
+  await priceWhenLTE;
+  t.truthy(belowPriceQuote);
+  const belowQuote = await E(quoteIssuer).getAmountOf(
+    belowPriceQuote.quotePayment,
+  );
+  t.deepEqual(belowQuote, belowPriceQuote.quoteAmount);
   const [
-    { Asset: belowAsset, Price: belowPrice, timestamp: belowTimestamp },
+    { assetAmount: belowAsset, price: belowPrice, timestamp: belowTimestamp },
   ] = await E(quoteMath).getValue(belowQuote);
   t.is(belowTimestamp, 7);
   t.is(await E(assetMath).getValue(belowAsset), 29);

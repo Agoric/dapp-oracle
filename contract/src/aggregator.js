@@ -10,9 +10,14 @@ import { makePromiseKit } from '@agoric/promise-kit';
 import './types';
 
 /**
+ * @typedef {(price: Amount, priceLimit: Amount) => boolean} TriggerCondition
+ */
+
+/**
  * @typedef {Object} PriceTrigger
- * @property {Amount} asset expressed in terms of Asset
- * @property {Amount} limit expressed in terms of Asset.value*Price
+ * @property {Amount} assetAmount expressed in terms of Asset
+ * @property {Amount} priceLimit expressed in terms of Asset.value*Price
+ * @property {TriggerCondition} triggerCondition
  * @property {(result: ERef<PriceQuote>) => void} resolve
  * @property {(reason: any) => void} reject
  */
@@ -27,7 +32,7 @@ const start = async zcf => {
   const {
     timer: oracleTimer,
     POLL_INTERVAL,
-    brands: { Price: priceBrand },
+    brands: { Asset: assetBrand, Price: priceBrand },
     maths: { Asset: assetMath, Price: priceMath },
   } = zcf.getTerms();
 
@@ -36,13 +41,28 @@ const start = async zcf => {
 
   const unitAsset = assetMath.make(1);
 
+  /** @type {TriggerCondition} */
+  const priceLT = (price, priceLimit) => !priceMath.isGTE(price, priceLimit);
+
+  /** @type {TriggerCondition} */
+  const priceLTE = (price, priceLimit) => priceMath.isGTE(priceLimit, price);
+
+  /** @type {TriggerCondition} */
+  const priceGTE = (price, priceLimit) => priceMath.isGTE(price, priceLimit);
+
+  /** @type {TriggerCondition} */
+  const priceGT = (price, priceLimit) => !priceMath.isGTE(priceLimit, price);
+
   /**
    *
    * @param {PriceQuoteValue} quote
    */
   const authenticateQuote = async quote => {
     const quoteAmount = aggregatorQuoteKit.amountMath.make(harden([quote]));
-    return E(aggregatorQuoteKit.mint).mintPayment(quoteAmount);
+    const quotePayment = await E(aggregatorQuoteKit.mint).mintPayment(
+      quoteAmount,
+    );
+    return harden({ quoteAmount, quotePayment });
   };
 
   const { notifier, updater } = makeNotifierKit();
@@ -56,10 +76,13 @@ const start = async zcf => {
   /** @type {PriceQuoteValue} */
   let recentUnitQuote;
 
+  const ensureRecentUnitQuote = async () => {
+    await notifier.getUpdateSince();
+    assert(recentUnitQuote, details`Could not find a recent quote`);
+  };
+
   /** @type {Array<PriceTrigger>} */
-  let pendingAboveTriggers = [];
-  /** @type {Array<PriceTrigger>} */
-  let pendingBelowTriggers = [];
+  let pendingTriggers = [];
 
   /**
    * @param {number} timestamp
@@ -70,35 +93,38 @@ const start = async zcf => {
       return;
     }
 
-    const recentUnitPriceValue = priceMath.getValue(recentUnitQuote.Price);
+    const recentUnitPriceValue = priceMath.getValue(recentUnitQuote.price);
 
     /**
      * Make a filter function that also fires triggers.
-     * @param {boolean} fireIfAboveLimit true iff we should fire above,
-     * otherwise below
-     * @returns {(trigger: PriceTrigger) => boolean}
+     * @param {PriceTrigger} trigger
+     * @returns {boolean}
      */
-    const makeFiringFilter = fireIfAboveLimit => trigger => {
-      const { asset: Asset, limit, resolve, reject } = trigger;
+    const firingFilter = trigger => {
+      const {
+        assetAmount,
+        priceLimit,
+        triggerCondition,
+        resolve,
+        reject,
+      } = trigger;
       try {
-        const assetValue = assetMath.getValue(Asset);
-        const Price = priceMath.make(assetValue * recentUnitPriceValue);
+        const assetValue = assetMath.getValue(assetAmount);
+        const price = priceMath.make(assetValue * recentUnitPriceValue);
 
-        if (fireIfAboveLimit) {
-          // Firing if above but ...
-          if (!priceMath.isGTE(Price, limit)) {
-            // ... it's below the limit, so keep the trigger and don't fire.
-            return true;
-          }
-        } else if (priceMath.isGTE(Price, limit)) {
-          // Firing if below but...
-          // ... it's above the limit, so keep the trigger and don't fire.
+        if (!triggerCondition(price, priceLimit)) {
+          // Keep the trigger and don't fire.
           return true;
         }
 
         // Fire the trigger, then drop it from the pending list.
         resolve(
-          authenticateQuote({ Asset, Price, timer: oracleTimer, timestamp }),
+          authenticateQuote({
+            assetAmount,
+            price,
+            timer: oracleTimer,
+            timestamp,
+          }),
         );
         return false;
       } catch (e) {
@@ -108,27 +134,29 @@ const start = async zcf => {
       }
     };
 
-    pendingAboveTriggers = pendingAboveTriggers.filter(makeFiringFilter(true));
-    pendingBelowTriggers = pendingBelowTriggers.filter(makeFiringFilter(false));
+    pendingTriggers = pendingTriggers.filter(firingFilter);
   };
 
   /**
-   *
-   * @param {Array<PriceTrigger>} triggers
    * @param {Amount} priceLimit
+   * @param {TriggerCondition} triggerCondition
    * @param {Amount} assetAmount
    */
-  const insertTrigger = async (triggers, priceLimit, assetAmount) => {
+  const insertTrigger = async (assetAmount, triggerCondition, priceLimit) => {
+    priceMath.coerce(priceLimit);
+    assetMath.coerce(assetAmount);
+
     const triggerPK = makePromiseKit();
     /** @type {PriceTrigger} */
     const newTrigger = {
-      asset: assetAmount,
-      limit: priceLimit,
+      assetAmount,
+      triggerCondition,
+      priceLimit,
       resolve: triggerPK.resolve,
       reject: triggerPK.reject,
     };
 
-    triggers.push(newTrigger);
+    pendingTriggers.push(newTrigger);
 
     // See if this trigger needs to fire.
     const timestamp = await E(oracleTimer).getCurrentTimestamp();
@@ -172,10 +200,10 @@ const start = async zcf => {
     }
 
     // console.error('found median', median, 'of', sorted);
-    const Price = priceMath.make(median);
+    const price = priceMath.make(median);
     const quote = {
-      Asset: unitAsset,
-      Price,
+      assetAmount: unitAsset,
+      price,
       timer: oracleTimer,
       timestamp: recentTimestamp,
     };
@@ -257,8 +285,11 @@ const start = async zcf => {
     },
   });
 
-  /** @type {AggregatorPublicFacet} */
+  /** @type {PriceAuthority} */
   const publicFacet = harden({
+    getQuoteIssuer() {
+      return aggregatorQuoteKit.issuer;
+    },
     getPriceNotifier(desiredPriceBrand = priceBrand) {
       assert.equal(
         priceBrand,
@@ -267,44 +298,80 @@ const start = async zcf => {
       );
       return notifier;
     },
-    async getRecentPrice(desiredPriceBrand = priceBrand) {
+    async getInputPrice(amountIn, brandOut = priceBrand) {
+      assetMath.coerce(amountIn);
       assert.equal(
         priceBrand,
-        desiredPriceBrand,
-        details`Desired brand ${desiredPriceBrand} must match ${priceBrand}`,
+        brandOut,
+        details`Output brand ${brandOut} must match ${priceBrand}`,
       );
-      const { value } = await notifier.getUpdateSince();
-      return value;
+
+      // Ensure we have at least one quote.
+      await ensureRecentUnitQuote();
+
+      const assetValue = assetMath.getValue(amountIn);
+      const recentUnitPriceValue = priceMath.getValue(recentUnitQuote.price);
+
+      const price = priceMath.make(assetValue * recentUnitPriceValue);
+      return authenticateQuote({
+        ...recentUnitQuote,
+        assetAmount: amountIn,
+        price,
+      });
+    },
+    async getOutputPrice(amountOut, brandIn = assetBrand) {
+      priceMath.coerce(amountOut);
+      assert.equal(
+        assetBrand,
+        brandIn,
+        details`Input brand ${brandIn} must match ${assetBrand}`,
+      );
+
+      // Ensure we have at least one quote.
+      await ensureRecentUnitQuote();
+
+      const priceValue = priceMath.getValue(amountOut);
+      const recentUnitPriceValue = priceMath.getValue(recentUnitQuote.price);
+
+      const assetAmount = assetMath.make(
+        Math.ceil(priceValue / recentUnitPriceValue),
+      );
+      return authenticateQuote({
+        ...recentUnitQuote,
+        assetAmount,
+        price: amountOut,
+      });
     },
     async priceAtTime(
       userTimer,
       deadline,
+      assetAmount,
       desiredPriceBrand = priceBrand,
-      Asset = unitAsset,
     ) {
+      assetMath.coerce(assetAmount);
       assert.equal(priceBrand, desiredPriceBrand);
-      const assetValue = assetMath.getValue(Asset);
+
+      // Ensure we have at least one quote.
+      await ensureRecentUnitQuote();
+
+      const assetValue = assetMath.getValue(assetAmount);
       const quotePK = makePromiseKit();
       await E(userTimer).setWakeup(
         deadline,
         harden({
           async wake(timestamp) {
             try {
-              // Get the latest quote.
-              if (!recentUnitQuote) {
-                throw Error(`No valid price quote at ${timestamp}`);
-              }
               const recentUnitPriceValue = priceMath.getValue(
-                recentUnitQuote.Price,
+                recentUnitQuote.price,
               );
-              const Price = priceMath.make(assetValue * recentUnitPriceValue);
+              const price = priceMath.make(assetValue * recentUnitPriceValue);
 
               // We don't wait for the quote to be authenticated; resolve
               // immediately.
               quotePK.resolve(
                 authenticateQuote({
-                  Asset,
-                  Price,
+                  assetAmount,
+                  price,
                   timer: userTimer,
                   timestamp,
                 }),
@@ -319,13 +386,17 @@ const start = async zcf => {
       // Wait until the wakeup passes.
       return quotePK.promise;
     },
-    async priceWhenEqualOrAbove(priceLimit, assetAmount = unitAsset) {
-      priceMath.coerce(priceLimit);
-      return insertTrigger(pendingAboveTriggers, priceLimit, assetAmount);
+    async priceWhenGT(assetAmount, priceLimit) {
+      return insertTrigger(assetAmount, priceGT, priceLimit);
     },
-    async priceWhenBelow(priceLimit, assetAmount = unitAsset) {
-      priceMath.coerce(priceLimit);
-      return insertTrigger(pendingBelowTriggers, priceLimit, assetAmount);
+    async priceWhenGTE(assetAmount, priceLimit) {
+      return insertTrigger(assetAmount, priceGTE, priceLimit);
+    },
+    async priceWhenLTE(assetAmount, priceLimit) {
+      return insertTrigger(assetAmount, priceLTE, priceLimit);
+    },
+    async priceWhenLT(assetAmount, priceLimit) {
+      return insertTrigger(assetAmount, priceLT, priceLimit);
     },
   });
 
