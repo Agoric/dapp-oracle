@@ -38,7 +38,10 @@ function makeBuiltinOracle({
       );
       return reply.data;
     },
-    async jsonparse(input, { path = [] }) {
+    async jsonparse(input, { path }) {
+      if (path === undefined) {
+        return input;
+      }
       assert(
         Array.isArray(path),
         details`jsonparse.path ${path} must be an array of strings`,
@@ -64,7 +67,10 @@ function makeBuiltinOracle({
       }
       return result;
     },
-    async multiply(input, { times = 1 }) {
+    async multiply(input, { times }) {
+      if (times === undefined) {
+        return input;
+      }
       assert(
         Number.isSafeInteger(times),
         details`multiply.times ${times} must be a safe integer`,
