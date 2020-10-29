@@ -4,6 +4,8 @@
 import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
 
+import './types';
+
 /**
  * Create a builtin oracle handler.  This is used for testing (such as on the
  * simulated chain) when decentralized oracles cannot be used.
@@ -18,26 +20,28 @@ function makeBuiltinOracle({
   feeAmountMath,
   requiredFee = feeAmountMath.getEmpty(),
 }) {
-  /** @type {{ [taskName: string]: (input: any, params: Record<string, any>) =>
-   * Promise<any> }} */
+  /**
+   * @type {{ [taskName: string]: (input: any, params: Record<string, any>) =>
+   * Promise<any> }}
+   */
   const tasks = {
     async httpget(_input, { get }) {
       assert.typeof(
         get,
         'string',
-        details`Httpget.get ${get} must be a string`,
+        details`httpget.get ${get} must be a string`,
       );
       const reply = await E(httpClient).get(get);
       assert(
-        reply.status < 200 || reply.status >= 300,
-        details`Httpget reply status ${reply.status} is not 2xx`,
+        reply.status >= 200 && reply.status < 300,
+        details`httpget reply status ${reply.status} is not 2xx`,
       );
       return reply.data;
     },
     async jsonparse(input, { path = [] }) {
       assert(
         Array.isArray(path),
-        details`Jsonparse.path ${path} must be an array of strings`,
+        details`jsonparse.path ${path} must be an array of strings`,
       );
       path.forEach(el =>
         assert.typeof(
@@ -98,9 +102,12 @@ function makeBuiltinOracle({
 
   async function chainlinkSampleJob(params) {
     let result = '';
-    result = await tasks.httpget(result, params);
-    result = await tasks.jsonparse(result, params);
-    result = await tasks.multiply(result, params);
+    for (const task of ['httpget', 'jsonparse', 'multiply']) {
+      console.error('begin', task);
+      // eslint-disable-next-line no-await-in-loop
+      result = await tasks[task](result, params);
+      console.error('end', task);
+    }
     return result;
   }
 
@@ -114,7 +121,7 @@ function makeBuiltinOracle({
 
       // Decide how to handle the query.
       let replyP;
-      if (query.jobId === 'chainlink-sample') {
+      if (query.jobId === '<chainlink-jobid>') {
         replyP = chainlinkSampleJob(query.params);
       }
 

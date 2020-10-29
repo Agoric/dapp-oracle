@@ -27,6 +27,7 @@
   "dependencies": {
     "@agoric/eventual-send": "*",
     "@agoric/harden": "^0.0.8",
+    "axios": "^0.21.0",
     "esm": "^3.2.5"
   },
   "eslintConfig": {
