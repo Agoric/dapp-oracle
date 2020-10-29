@@ -41,7 +41,7 @@ const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'moola';
  */
 export default async function deployApi(
   homePromise,
-  { bundleSource, pathResolve, port = '8000' },
+  { bundleSource, installUnsafePlugin, pathResolve, port = '8000' },
 ) {
   // Let's wait for the promise to resolve.
   const home = await homePromise;
@@ -82,13 +82,10 @@ export default async function deployApi(
     board,
   } = home;
 
-  const { CONTRACT_NAME } = installationConstants;
+  const { CONTRACT_NAME, INSTALLATION_HANDLE_BOARD_ID } = installationConstants;
 
   // const API_HOST = process.env.API_HOST || host;
   const API_PORT = process.env.API_PORT || port;
-
-  let INSTALLATION_HANDLE_BOARD_ID;
-  let INSTANCE_HANDLE_BOARD_ID;
 
   // Second, we can use the installationHandle to create a new instance of our
   // contract code on Zoe. A contract instance is a running program that can
@@ -134,58 +131,74 @@ export default async function deployApi(
   const handlerInstall = E(spawner).install(bundle);
 
   // Spawn the running code
-  const { handler, oracleHandler, oracleURLHandler } = await E(
-    handlerInstall,
-  ).spawn({
+  const { handler, oracleCreator } = await E(handlerInstall).spawn({
     http,
     board,
     feeIssuer,
     invitationIssuer,
-    installOracle: INSTALL_ORACLE,
     zoe,
   });
 
   await E(http).registerURLHandler(handler, '/api/oracle-client');
 
+  // To get the backend of our dapp up and running, first we need to
+  // grab the installationHandle that our contract deploy script put
+  // in the public board.
+  const contractInstallation = await E(board).getValue(
+    INSTALLATION_HANDLE_BOARD_ID,
+  );
+
+  console.log('Instantiating contract');
+  const issuerKeywordRecord = harden({ Fee: feeIssuer });
+  const {
+    creatorInvitation,
+    instance,
+    creatorFacet: initializationFacet,
+  } = await E(zoe).startInstance(contractInstallation, issuerKeywordRecord, {
+    oracleDescription: INSTALL_ORACLE || 'Builtin Oracle',
+  });
+
   if (INSTALL_ORACLE) {
+    // This clause is to install an external oracle (serviced by, say, a
+    // separate oracle node).
+    const { oracleURLHandler, oracleHandler } = await E(
+      oracleCreator,
+    ).makeExternalOracle();
+
+    // Install this oracle on the ag-solo.
     await E(http).registerURLHandler(oracleURLHandler, '/api/oracle');
+    await E(initializationFacet).initialize({ oracleHandler });
+  } else {
+    // For the builtin oracle, we ask the agoric deploy command to install an
+    // HTTP client plugin into the running ag-solo, and provide the handler
+    // access to it.
+    //
+    // The function is named installUnsafePlugin because, unlike any vat or
+    // contract, the plugin will get full access to the OS-level account in
+    // which the ag-solo is running.
+    const httpClient = await installUnsafePlugin('./src/http-client.js', {});
 
-    // To get the backend of our dapp up and running, first we need to
-    // grab the installationHandle that our contract deploy script put
-    // in the public board.
-    INSTALLATION_HANDLE_BOARD_ID =
-      installationConstants.INSTALLATION_HANDLE_BOARD_ID;
-    const contractInstallation = await E(board).getValue(
-      INSTALLATION_HANDLE_BOARD_ID,
-    );
-
-    console.log('Instantiating contract');
-    const issuerKeywordRecord = harden({ Fee: feeIssuer });
-    const {
-      creatorInvitation,
-      instance,
-      creatorFacet: initializationFacet,
-    } = await E(zoe).startInstance(contractInstallation, issuerKeywordRecord, {
-      oracleDescription: INSTALL_ORACLE,
+    const { oracleHandler } = await E(oracleCreator).makeBuiltinOracle({
+      httpClient,
     });
-    E(initializationFacet).initialize({ oracleHandler });
-
-    console.log('- SUCCESS! contract instance is running on Zoe');
-
-    // Let's use the adminInvitation to make an offer. Note that we aren't
-    // specifying any proposal, and we aren't escrowing any assets with
-    // Zoe in this offer. We are doing this so that Zoe will eventually
-    // give us a payout of all of the tips. We can trigger this payout
-    // by calling the `complete` function on the `completeObj`.
-    console.log('Retrieving admin');
-    const adminSeat = E(zoe).offer(creatorInvitation);
-
-    // We put the adminSeat in our scratch location so that we can share the
-    // live object with the shutdown.js script.
-    E(scratch).set('adminSeat', adminSeat);
-
-    INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
+    await E(initializationFacet).initialize({ oracleHandler });
   }
+
+  console.log('- SUCCESS! contract instance is running on Zoe');
+
+  // Let's use the adminInvitation to make an offer. Note that we aren't
+  // specifying any proposal, and we aren't escrowing any assets with
+  // Zoe in this offer. We are doing this so that Zoe will eventually
+  // give us a payout of all of the tips. We can trigger this payout
+  // by calling the `complete` function on the `completeObj`.
+  console.log('Retrieving admin');
+  const adminSeat = E(zoe).offer(creatorInvitation);
+
+  // We put the adminSeat in our scratch location so that we can share the
+  // live object with the shutdown.js script.
+  E(scratch).set('adminSeat', adminSeat);
+
+  const INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
 
   console.log('Retrieving Board IDs for issuers and brands');
   const invitationBrandP = E(invitationIssuer).getBrand();
