@@ -89,11 +89,14 @@ test.before(
     };
 
     const quote = makeIssuerKit('quote', MathKind.SET);
+    /**
+     * @param {RelativeTime} POLL_INTERVAL
+     */
     const makeMedianAggregator = async POLL_INTERVAL => {
       const timer = buildManualTimer(() => {});
       const aggregator = await E(zoe).startInstance(
         aggregatorInstallation,
-        { Asset: link.issuer, Price: usd.issuer },
+        { In: link.issuer, Out: usd.issuer },
         { timer, POLL_INTERVAL },
       );
       await E(aggregator.creatorFacet).initializeQuoteMint(quote.mint);
@@ -111,9 +114,10 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const aggregator = await t.context.makeMedianAggregator(1);
   const {
     timer: oracleTimer,
-    brands: { Asset: assetBrand, Price: priceBrand },
+    brands: { In: brandIn, Out: brandOut },
     issuers: { Quote: quoteIssuer },
-    maths: { Asset: assetMath, Price: priceMath, Quote: quoteMath },
+    maths: { In: mathIn, Out: mathOut, Quote: quoteMath },
+    baseAmountIn = mathIn.make(1),
   } = await E(zoe).getTerms(aggregator.instance);
 
   const price1000 = await makeFakePriceOracle(t, 1000);
@@ -121,12 +125,10 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const price800 = await makeFakePriceOracle(t, 800);
   const pa = E(aggregator.publicFacet).getPriceAuthority();
 
-  const notifier = E(pa).getPriceNotifier(assetBrand, priceBrand);
+  const notifier = E(pa).getPriceNotifier(brandIn, brandOut);
   await E(aggregator.creatorFacet).addOracle(price1000.instance, {
     increment: 10,
   });
-
-  const unitAsset = assetMath.make(1);
 
   /** @type {UpdateRecord<PriceQuote>} */
   let lastRec;
@@ -136,84 +138,79 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
 
     const q = await E(quoteIssuer).getAmountOf(lastRec.value.quotePayment);
     t.deepEqual(q, lastRec.value.quoteAmount);
-    const [
-      { timestamp, timer, amountIn, amountOut: priceAmount },
-    ] = quoteMath.getValue(q);
+    const [{ timestamp, timer, amountIn, amountOut }] = quoteMath.getValue(q);
     t.is(timer, oracleTimer);
-    const amountOut = priceMath.getValue(priceAmount);
+    const valueOut = mathOut.getValue(amountOut);
 
-    t.deepEqual(amountIn, unitAsset);
+    t.deepEqual(amountIn, baseAmountIn);
 
     // Validate that we can get a recent amountOut explicitly as well.
     const { quotePayment: recentG } = await E(pa).quoteGiven(
-      unitAsset,
-      priceBrand,
+      baseAmountIn,
+      brandOut,
     );
     const recentGQ = await E(quoteIssuer).getAmountOf(recentG);
     const [
       {
         timestamp: rgTimestamp,
         timer: rgTimer,
-        amountIn: rgAsset,
-        amountOut: rgPrice,
+        amountIn: rgIn,
+        amountOut: rgOut,
       },
     ] = quoteMath.getValue(recentGQ);
     t.is(rgTimer, oracleTimer);
     t.is(rgTimestamp, timestamp);
-    t.deepEqual(rgAsset, amountIn);
-    t.deepEqual(rgPrice, priceAmount);
+    t.deepEqual(rgIn, amountIn);
+    t.deepEqual(rgOut, amountOut);
 
-    const { quotePayment: recentW } = await E(pa).quoteWanted(
-      assetBrand,
-      rgPrice,
-    );
+    const { quotePayment: recentW } = await E(pa).quoteWanted(brandIn, rgOut);
     const recentWQ = await E(quoteIssuer).getAmountOf(recentW);
     const [
       {
         timestamp: rwTimestamp,
         timer: rwTimer,
-        amountIn: rwAsset,
-        amountOut: rwPrice,
+        amountIn: rwIn,
+        amountOut: rwOut,
       },
     ] = quoteMath.getValue(recentWQ);
     t.is(rwTimer, oracleTimer);
     t.is(rwTimestamp, timestamp);
-    t.deepEqual(rwAsset, amountIn);
-    t.deepEqual(rwPrice, priceAmount);
+    t.deepEqual(rwIn, amountIn);
+    t.deepEqual(rwOut, amountOut);
 
-    return { timestamp, amountOut };
+    return { timestamp, amountOut: valueOut };
   };
 
   const quote0 = await tickAndQuote();
-  t.deepEqual(quote0, { amountOut: 1020, timestamp: 0 });
+  t.deepEqual(quote0, { amountOut: 1020, timestamp: 1 });
 
   const quote1 = await tickAndQuote();
-  t.deepEqual(quote1, { amountOut: 1030, timestamp: 1 });
+  t.deepEqual(quote1, { amountOut: 1030, timestamp: 2 });
 
   await E(aggregator.creatorFacet).addOracle(price1300.instance, {
     increment: 8,
   });
 
   const quote2 = await tickAndQuote();
-  t.deepEqual(quote2, { amountOut: 1178, timestamp: 2 });
+  t.deepEqual(quote2, { amountOut: 1178, timestamp: 3 });
 
   const quote3 = await tickAndQuote();
-  t.deepEqual(quote3, { amountOut: 1187, timestamp: 3 });
+  t.deepEqual(quote3, { amountOut: 1187, timestamp: 4 });
 
   await E(aggregator.creatorFacet).addOracle(price800.instance, {
     increment: 17,
   });
 
   const quote4 = await tickAndQuote();
-  t.deepEqual(quote4, { amountOut: 1060, timestamp: 4 });
+  t.deepEqual(quote4, { amountOut: 1060, timestamp: 5 });
 
   const quote5 = await tickAndQuote();
-  t.deepEqual(quote5, { amountOut: 1070, timestamp: 5 });
+  t.deepEqual(quote5, { amountOut: 1070, timestamp: 6 });
 
   await E(aggregator.creatorFacet).dropOracle(price1300.instance);
 
   const quote6 = await tickAndQuote();
-  t.deepEqual(quote6, { amountOut: 974, timestamp: 6 });
+  t.deepEqual(quote6, { amountOut: 974, timestamp: 7 });
 });
 
 test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
@@ -224,9 +221,9 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
   const aggregator = await t.context.makeMedianAggregator(1);
   const {
     timer: oracleTimer,
-    brands: { Price: usdBrand },
+    brands: { Out: usdBrand },
     issuers: { Quote: quoteIssuer },
-    maths: { Asset: assetMath, Price: priceMath, Quote: quoteMath },
+    maths: { In: mathIn, Out: mathOut, Quote: quoteMath },
   } = await E(zoe).getTerms(aggregator.instance);
 
   const price1000 = await makeFakePriceOracle(t, 1000);
@@ -234,7 +231,7 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
   const price800 = await makeFakePriceOracle(t, 800);
   const pa = E(aggregator.publicFacet).getPriceAuthority();
 
-  const quoteAtTime = E(pa).quoteAtTime(7, assetMath.make(41), usdBrand);
+  const quoteAtTime = E(pa).quoteAtTime(7, mathIn.make(41), usdBrand);
 
   /** @type {PriceQuote} */
   let priceQuote;
@@ -250,7 +247,7 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
   const userQuotePK = makePromiseKit();
   await E(userTimer).setWakeup(1, {
     async wake(_timestamp) {
-      userQuotePK.resolve(E(pa).quoteGiven(assetMath.make(23), usdBrand));
+      userQuotePK.resolve(E(pa).quoteGiven(mathIn.make(23), usdBrand));
       await userQuotePK.promise;
     },
   });
@@ -296,16 +293,16 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
   );
   const [
     {
-      amountIn: userAsset,
-      amountOut: userPrice,
-      timer: utimer,
-      timestamp: utimestamp,
+      amountIn: userIn,
+      amountOut: userOut,
+      timer: uTimer,
+      timestamp: uTimestamp,
     },
   ] = await E(quoteMath).getValue(userQuote);
-  t.is(utimer, oracleTimer);
-  t.is(utimestamp, 4);
-  t.is(await E(assetMath).getValue(userAsset), 23);
-  t.is((await E(priceMath).getValue(userPrice)) / 23, 1060);
+  t.is(uTimer, oracleTimer);
+  t.is(uTimestamp, 5);
+  t.is(await E(mathIn).getValue(userIn), 23);
+  t.is((await E(mathOut).getValue(userOut)) / 23, 1060);
 
   await E(oracleTimer).tick();
 
@@ -323,8 +320,8 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
   ).getValue(quote);
   t.is(timer, oracleTimer);
   t.is(timestamp, 7);
-  t.is(await E(assetMath).getValue(amountIn), 41);
-  t.is((await E(priceMath).getValue(amountOut)) / 41, 961);
+  t.is(await E(mathIn).getValue(amountIn), 41);
+  t.is((await E(mathOut).getValue(amountOut)) / 41, 960);
 });
 
 test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
@@ -334,7 +331,7 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   const {
     timer: oracleTimer,
     issuers: { Quote: quoteIssuer },
-    maths: { Asset: assetMath, Price: priceMath, Quote: quoteMath },
+    maths: { In: mathIn, Out: mathOut, Quote: quoteMath },
   } = await E(zoe).getTerms(aggregator.instance);
 
   const price1000 = await makeFakePriceOracle(t, 1000);
@@ -343,8 +340,8 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   const pa = E(aggregator.publicFacet).getPriceAuthority();
 
   const quoteWhenGTE = E(pa).quoteWhenGTE(
-    assetMath.make(37),
-    priceMath.make(1183 * 37),
+    mathIn.make(37),
+    mathOut.make(1183 * 37),
   );
 
   /** @type {PriceQuote} */
@@ -358,8 +355,8 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   );
 
   const quoteWhenLTE = E(pa).quoteWhenLTE(
-    assetMath.make(29),
-    priceMath.make(974 * 29),
+    mathIn.make(29),
+    mathOut.make(974 * 29),
   );
 
   /** @type {PriceQuote} */
@@ -396,11 +393,17 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   );
   t.deepEqual(aboveQuote, abovePriceQuote.quoteAmount);
   const [
-    { amountIn: aboveAsset, amountOut: abovePrice, timestamp: aboveTimestamp },
+    {
+      amountIn: aboveIn,
+      amountOut: aboveOut,
+      timer: aboveTimer,
+      timestamp: aboveTimestamp,
+    },
   ] = await E(quoteMath).getValue(aboveQuote);
+  t.is(aboveTimer, oracleTimer);
   t.is(aboveTimestamp, 4);
-  t.is(await E(assetMath).getValue(aboveAsset), 37);
-  t.is((await E(priceMath).getValue(abovePrice)) / 37, 1183);
+  t.is(await E(mathIn).getValue(aboveIn), 37);
+  t.is((await E(mathOut).getValue(aboveOut)) / 37, 1183);
 
   await E(aggregator.creatorFacet).addOracle(price800.instance, {
     increment: 17,
@@ -423,9 +426,15 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   );
   t.deepEqual(belowQuote, belowPriceQuote.quoteAmount);
   const [
-    { amountIn: belowAsset, amountOut: belowPrice, timestamp: belowTimestamp },
+    {
+      amountIn: belowIn,
+      amountOut: belowOut,
+      timer: belowTimer,
+      timestamp: belowTimestamp,
+    },
   ] = await E(quoteMath).getValue(belowQuote);
+  t.is(belowTimer, oracleTimer);
   t.is(belowTimestamp, 7);
-  t.is(await E(assetMath).getValue(belowAsset), 29);
-  t.is((await E(priceMath).getValue(belowPrice)) / 29, 961);
+  t.is(await E(mathIn).getValue(belowIn), 29);
+  t.is((await E(mathOut).getValue(belowOut)) / 29, 960);
 });
