@@ -20,7 +20,7 @@ import '../src/types';
  * @property {ZoeService} zoe
  * @property {(t: ExecutionContext, amountOut?: number) => Promise<OracleKit & {
  * instance: Instance }>} makeFakePriceOracle
- * @property {(POLL_INTERVAL: number) => Promise<AggregatorKit & { instance: Instance }>} makeMedianAggregator
+ * @property {(POLL_INTERVAL: number) => Promise<PriceAggregatorKit & { instance: Instance }>} makeMedianAggregator
  * @property {Amount} feeAmount
  * @property {IssuerKit} link
  *
@@ -126,7 +126,7 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const pa = E(aggregator.publicFacet).getPriceAuthority();
 
   const notifier = E(pa).getPriceNotifier(brandIn, brandOut);
-  await E(aggregator.creatorFacet).addOracle(price1000.instance, {
+  await E(aggregator.creatorFacet).initOracle(price1000.instance, {
     increment: 10,
   });
 
@@ -187,9 +187,12 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const quote1 = await tickAndQuote();
   t.deepEqual(quote1, { amountOut: 1030, timestamp: 2 });
 
-  await E(aggregator.creatorFacet).addOracle(price1300.instance, {
-    increment: 8,
-  });
+  const price1300Deleter = await E(aggregator.creatorFacet).initOracle(
+    price1300.instance,
+    {
+      increment: 8,
+    },
+  );
 
   const quote2 = await tickAndQuote();
   t.deepEqual(quote2, { amountOut: 1178, timestamp: 3 });
@@ -197,7 +200,7 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const quote3 = await tickAndQuote();
   t.deepEqual(quote3, { amountOut: 1187, timestamp: 4 });
 
-  await E(aggregator.creatorFacet).addOracle(price800.instance, {
+  await E(aggregator.creatorFacet).initOracle(price800.instance, {
     increment: 17,
   });
 
@@ -207,7 +210,7 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const quote5 = await tickAndQuote();
   t.deepEqual(quote5, { amountOut: 1070, timestamp: 6 });
 
-  await E(aggregator.creatorFacet).dropOracle(price1300.instance);
+  await E(price1300Deleter).delete();
 
   const quote6 = await tickAndQuote();
   t.deepEqual(quote6, { amountOut: 974, timestamp: 7 });
@@ -263,21 +266,24 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
       }),
   );
 
-  await E(aggregator.creatorFacet).addOracle(price1000.instance, {
+  await E(aggregator.creatorFacet).initOracle(price1000.instance, {
     increment: 10,
   });
 
   await E(oracleTimer).tick();
   await E(oracleTimer).tick();
 
-  await E(aggregator.creatorFacet).addOracle(price1300.instance, {
-    increment: 8,
-  });
+  const price1300Deleter = await E(aggregator.creatorFacet).initOracle(
+    price1300.instance,
+    {
+      increment: 8,
+    },
+  );
 
   await E(oracleTimer).tick();
   await E(oracleTimer).tick();
 
-  await E(aggregator.creatorFacet).addOracle(price800.instance, {
+  await E(aggregator.creatorFacet).initOracle(price800.instance, {
     increment: 17,
   });
 
@@ -306,7 +312,7 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
 
   await E(oracleTimer).tick();
 
-  await E(aggregator.creatorFacet).dropOracle(price1300.instance);
+  await E(price1300Deleter).delete();
 
   // Ensure our quote fires exactly now.
   t.falsy(priceQuote);
@@ -369,16 +375,19 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
       }),
   );
 
-  await E(aggregator.creatorFacet).addOracle(price1000.instance, {
+  await E(aggregator.creatorFacet).initOracle(price1000.instance, {
     increment: 10,
   });
 
   await E(oracleTimer).tick();
   await E(oracleTimer).tick();
 
-  await E(aggregator.creatorFacet).addOracle(price1300.instance, {
-    increment: 8,
-  });
+  const price1300Deleter = await E(aggregator.creatorFacet).initOracle(
+    price1300.instance,
+    {
+      increment: 8,
+    },
+  );
 
   await E(oracleTimer).tick();
   // Above trigger has not yet fired.
@@ -405,14 +414,14 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   t.is(await E(mathIn).getValue(aboveIn), 37);
   t.is((await E(mathOut).getValue(aboveOut)) / 37, 1183);
 
-  await E(aggregator.creatorFacet).addOracle(price800.instance, {
+  await E(aggregator.creatorFacet).initOracle(price800.instance, {
     increment: 17,
   });
 
   await E(oracleTimer).tick();
   await E(oracleTimer).tick();
 
-  await E(aggregator.creatorFacet).dropOracle(price1300.instance);
+  await E(price1300Deleter).delete();
 
   // Below trigger has not yet fired.
   t.falsy(belowPriceQuote);

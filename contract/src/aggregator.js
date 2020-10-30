@@ -86,8 +86,8 @@ const start = async zcf => {
    * @property {(timestamp: Timestamp) => void} querier
    * @property {number} lastSample
    */
-  /** @type {Store<Instance, OracleRecord>} */
-  const instanceToRecord = makeStore('oracleInstance');
+  /** @type {Store<Instance, Array<OracleRecord>>} */
+  const instanceToRecords = makeStore('oracleInstance');
 
   let recentTimestamp = await E(timer).getCurrentTimestamp();
 
@@ -197,9 +197,11 @@ const start = async zcf => {
   const handler = {
     async wake(timestamp) {
       // Run all the queriers.
-      const querierPs = instanceToRecord
+      const querierPs = instanceToRecords
         .values()
-        .map(({ querier }) => querier && querier(timestamp));
+        .flatMap(records =>
+          records.map(({ querier }) => querier && querier(timestamp)),
+        );
       await Promise.all(querierPs);
     },
   };
@@ -209,9 +211,9 @@ const start = async zcf => {
    * @param {Timestamp} timestamp
    */
   const updateQuote = async timestamp => {
-    const sorted = instanceToRecord
+    const sorted = instanceToRecords
       .values() // Find all the instance records.
-      .map(({ lastSample }) => lastSample) // Get the last sample.
+      .flatMap(records => records.map(({ lastSample }) => lastSample)) // Get the last sample.
       .filter(value => value > 0) // Only allow positive samples.
       .sort((a, b) => a - b); // Sort ascending.
     if (sorted.length === 0) {
@@ -259,7 +261,7 @@ const start = async zcf => {
     updater.updateState(authenticatedQuote);
   };
 
-  /** @type {AggregatorCreatorFacet} */
+  /** @type {PriceAggregatorCreatorFacet} */
   const creatorFacet = harden({
     async initializeQuoteMint(quoteMint) {
       const quoteIssuerRecord = await zcf.saveIssuer(
@@ -271,7 +273,7 @@ const start = async zcf => {
         mint: quoteMint,
       };
     },
-    async addOracle(oracleInstance, query) {
+    async initOracle(oracleInstance, query) {
       assert(
         quoteKit,
         details`Must initializeQuoteMint before adding an oracle`,
@@ -279,14 +281,21 @@ const start = async zcf => {
 
       // Register our record.
       const record = { querier: undefined, lastSample: NaN };
-      instanceToRecord.init(oracleInstance, record);
+      let records;
+      if (instanceToRecords.has(oracleInstance)) {
+        records = instanceToRecords.get(oracleInstance);
+      } else {
+        records = [];
+        instanceToRecords.init(oracleInstance, records);
+      }
+      records.push(record);
 
       // Obtain the oracle's publicFacet and schedule the repeater in the background.
       const oracle = await E(zoe).getPublicFacet(oracleInstance);
-      if (!instanceToRecord.has(oracleInstance)) {
-        // We were dropped already, no harm done.
-        return;
-      }
+      assert(
+        records.includes(record),
+        details`Oracle record is already deleted`,
+      );
 
       let lastWakeTimestamp = 0;
 
@@ -299,7 +308,7 @@ const start = async zcf => {
         // Now that we've received the result, check if we're out of date.
         if (
           timestamp < lastWakeTimestamp ||
-          !instanceToRecord.has(oracleInstance)
+          !instanceToRecords.has(oracleInstance)
         ) {
           return;
         }
@@ -313,12 +322,31 @@ const start = async zcf => {
       };
       const now = await E(timer).getCurrentTimestamp();
       await record.querier(now);
-    },
-    async dropOracle(oracleInstance) {
-      // Just remove the map entries.
-      instanceToRecord.delete(oracleInstance);
-      const now = await E(timer).getCurrentTimestamp();
-      await updateQuote(now);
+
+      // Return the AsyncDeleter.
+      return harden({
+        async delete() {
+          // The actual deletion is synchronous.
+          assert.equal(
+            instanceToRecords.has(oracleInstance) &&
+              instanceToRecords.get(oracleInstance),
+            records,
+            details`Oracle record is already deleted`,
+          );
+
+          const index = records.indexOf(record);
+          assert(index >= 0, details`Oracle record is already deleted`);
+
+          records.splice(index, 1);
+          if (records.length === 0) {
+            instanceToRecords.delete(oracleInstance);
+          }
+
+          // Delete complete, so try asynchronously updating the quote.
+          const deletedNow = await E(timer).getCurrentTimestamp();
+          await updateQuote(deletedNow);
+        },
+      });
     },
   });
 

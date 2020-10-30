@@ -1,19 +1,23 @@
 /**
- * @typedef {Object} AggregatorCreatorFacet
- * @property {(quoteMint: Mint) => Promise<void>} initializeQuoteMint
- * @property {(oracleInstance: Instance, query: any) => Promise<void>} addOracle
- * @property {(oracleInstance: Instance) => Promise<void>} dropOracle
+ * @typedef {Object} AsyncDeleter
+ * @property {() => Promise<void>} delete
  */
 
 /**
- * @typedef {Object} AggregatorPublicFacet
+ * @typedef {Object} PriceAggregatorCreatorFacet
+ * @property {(quoteMint: Mint) => Promise<void>} initializeQuoteMint
+ * @property {(oracleInstance: Instance, query: any) => Promise<AsyncDeleter>} initOracle
+ */
+
+/**
+ * @typedef {Object} PriceAggregatorPublicFacet
  * @property {() => PriceAuthority} getPriceAuthority
  */
 
 /**
- * @typedef {Object} AggregatorKit
- * @property {AggregatorPublicFacet} publicFacet
- * @property {AggregatorCreatorFacet} creatorFacet
+ * @typedef {Object} PriceAggregatorKit
+ * @property {PriceAggregatorPublicFacet} publicFacet
+ * @property {PriceAggregatorCreatorFacet} creatorFacet
  */
 
 /**
