@@ -28,7 +28,8 @@
     "@agoric/eventual-send": "*",
     "@agoric/harden": "^0.0.8",
     "axios": "^0.21.0",
-    "esm": "^3.2.5"
+    "esm": "^3.2.5",
+    "ip-address": "^7.1.0"
   },
   "eslintConfig": {
     "extends": [

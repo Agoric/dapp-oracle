@@ -7,6 +7,174 @@ import { assert, details } from '@agoric/assert';
 import './types';
 
 /**
+ * @param {string} url
+ * @param {string | Array<string>=} extPath
+ * @param {string | Array<string>=} queryParams
+ * @returns {string}
+ */
+const buildUrl = (url, extPath, queryParams) => {
+  if (extPath !== undefined) {
+    if (Array.isArray(extPath)) {
+      extPath = extPath.join('/');
+    }
+    assert.typeof(
+      extPath,
+      'string',
+      details`extPath ${extPath} must be a string`,
+    );
+    url += `/${extPath}`;
+  }
+
+  if (queryParams !== undefined) {
+    assert(
+      !Array.isArray(queryParams),
+      details`queryParams ${queryParams} array unimplemented`,
+    );
+    assert.typeof(
+      queryParams,
+      'string',
+      details`queryParams ${queryParams} must be a string`,
+    );
+    url += `?${queryParams}`;
+  }
+
+  return url;
+};
+
+/**
+ * Start with the defaults and override with the rawHeaders.
+ *
+ * Collapse arrays of strings into comma-separated strings.
+ *
+ * @param {Record<string, string | Array<string>>=} rawHeaders
+ * @param {Record<string, string | Array<string>>} [defaults={}]
+ * @returns {Record<string, string>=}
+ */
+const buildHeaders = (rawHeaders, defaults = {}) => {
+  const entries = [defaults, rawHeaders || {}].flatMap(headers =>
+    Object.entries(headers).map(([key, value]) => {
+      if (Array.isArray(value)) {
+        // Join the values.
+        return [key, value.join(',')];
+      }
+      return [key, value];
+    }),
+  );
+
+  if (!entries.length) {
+    // No headers.
+    return undefined;
+  }
+
+  // Construct the headers object.
+  return Object.fromEntries(entries);
+};
+
+/**
+ * @typedef {Object} HttpGetTaskParams
+ * @property {string} get a string containing the URL to make a GET request to
+ */
+
+/**
+ * @typedef {Object} HttpCommonTaskParams
+ * @property {Record<string, Array<string>>} headers an object containing keys
+ * as strings and values as arrays of strings.
+ * @property {string | Array<string>} queryParams the URL's query parameters
+ * @property {string | Array<string>} extPath a slash-delimited string or array
+ * of strings to be appended to the job's URL
+ */
+
+/**
+ * @callback HttpGetTask The HttpGet adapter will report the body of a successful
+ * GET request to the specified get, or return an error if the response status
+ * code is greater than or equal to 400.
+ *
+ * @param {any} _input
+ * @param {HttpCommonTaskParams & HttpGetTaskParams} params
+ * @returns {Promise<any>}
+ *
+ * @see https://docs.chain.link/docs/adapters#httpget
+ */
+
+/**
+ * @param {HttpClient} httpClient
+ * @param {boolean} [trusted=false]
+ * @returns {HttpGetTask}
+ */
+const makeHttpGetTask = (httpClient, trusted = false) =>
+  async function HttpGet(
+    _input,
+    { get, headers: rawHeaders, queryParams, extPath },
+  ) {
+    assert.typeof(get, 'string', details`httpget.get ${get} must be a string`);
+
+    const url = buildUrl(get, extPath, queryParams);
+    const headers = buildHeaders(rawHeaders);
+
+    const reply = await E(httpClient).get(url, { headers, trusted });
+    assert(
+      reply.status < 400,
+      details`httpget reply status ${reply.status} is >= 400`,
+    );
+    return reply.data;
+  };
+
+/**
+ * @typedef {Object} HttpPostTaskParams
+ * @property {string} post a string containing the URL to make a POST request to
+ * @property {string} body the JSON body (as a string) that will be used as the data in the request
+ */
+
+/**
+ * @callback HttpPostTask The HttpGet adapter will report the body of a successful
+ * POST request to the specified get, or return an error if the response status
+ * code is greater than or equal to 400.
+ *
+ * @param {any} _input
+ * @param {HttpCommonTaskParams & HttpPostTaskParams} params
+ * @returns {Promise<any>}
+ *
+ * @see https://docs.chain.link/docs/adapters#httpget
+ */
+
+/**
+ * @param {HttpClient} httpClient
+ * @param {boolean} [trusted=false]
+ * @returns {HttpPostTask}
+ */
+const makeHttpPostTask = (httpClient, trusted = false) =>
+  async function HttpPost(
+    _input,
+    { post, headers: rawHeaders, queryParams, extPath, body },
+  ) {
+    assert.typeof(
+      post,
+      'string',
+      details`httppost.post ${post} must be a string`,
+    );
+    assert.typeof(
+      body,
+      'string',
+      details`httppost.body ${body} must be a string`,
+    );
+
+    const url = buildUrl(post, extPath, queryParams);
+    const headers = buildHeaders(rawHeaders, {
+      'Content-type': 'application/json',
+    });
+
+    const reply = await E(httpClient).post(url, body, {
+      headers,
+      trusted,
+    });
+    assert(
+      reply.status >= 400,
+      details`httppost reply status ${reply.status} is > 400`,
+    );
+    return reply.data;
+  };
+
+/**
  * Create a builtin oracle handler.  This is used for testing (such as on the
  * simulated chain) when decentralized oracles cannot be used.
  *
@@ -25,22 +193,30 @@ function makeBuiltinOracle({
    * Promise<any> }}
    */
   const tasks = {
-    async httpget(_input, { get }) {
-      assert.typeof(
-        get,
-        'string',
-        details`httpget.get ${get} must be a string`,
+    httpget: makeHttpGetTask(httpClient),
+    httpgetwithunrestrictednetworkaccess: makeHttpGetTask(httpClient, true),
+    httppost: makeHttpPostTask(httpClient),
+    httppostwithunrestrictednetworkaccess: makeHttpPostTask(httpClient, true),
+    async agoricdwim(input, params) {
+      if (params.get) {
+        return tasks.httpget(input, params);
+      }
+      if (params.post) {
+        return tasks.httppost(input, params);
+      }
+      assert.fail(
+        details`agoricdwim could not find "get" or "post" in the params ${params}`,
       );
-      const reply = await E(httpClient).get(get);
-      assert(
-        reply.status >= 200 && reply.status < 300,
-        details`httpget reply status ${reply.status} is not 2xx`,
-      );
-      return reply.data;
+      return undefined;
     },
+    // https://docs.chain.link/docs/adapters#jsonparse
     async jsonparse(input, { path }) {
       if (path === undefined) {
         return input;
+      }
+      if (typeof path === 'string') {
+        // Transform 'foo.bar.baz' -> ['foo', 'bar', 'baz']
+        path = path.split('.');
       }
       assert(
         Array.isArray(path),
@@ -67,6 +243,7 @@ function makeBuiltinOracle({
       }
       return result;
     },
+    // https://docs.chain.link/docs/adapters#multiply
     async multiply(input, { times }) {
       if (times === undefined) {
         return input;
@@ -82,7 +259,7 @@ function makeBuiltinOracle({
 
       // Convert the input decimal to a scaled natural.
       const sInputNat = match[1];
-      const sInputDecimals = match[3];
+      const sInputDecimals = match[3] || '';
       const bInScaled = BigInt(`${sInputNat}${sInputDecimals}`);
 
       // Actually multiply.
@@ -108,7 +285,7 @@ function makeBuiltinOracle({
 
   async function chainlinkSampleJob(params) {
     let result = '';
-    for (const task of ['httpget', 'jsonparse', 'multiply']) {
+    for (const task of ['agoricdwim', 'jsonparse', 'multiply']) {
       // eslint-disable-next-line no-await-in-loop
       result = await tasks[task](result, params);
     }
