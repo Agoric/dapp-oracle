@@ -17,7 +17,7 @@ import { assert, details } from '@agoric/assert/src/assert';
 /**
  * @typedef {Object} TestContext
  * @property {ZoeService} zoe
- * @property {(t: ExecutionContext) => Promise<OracleStartFnResult>} makePingOracle
+ * @property {(t: ExecutionContext) => Promise<OracleKit>} makePingOracle
  * @property {Amount} feeAmount
  * @property {IssuerKit} link
  *
@@ -47,7 +47,7 @@ test.before(
 
     const feeAmount = link.amountMath.make(1000);
     /**
-     * @returns {Promise<OracleStartFnResult>}
+     * @returns {Promise<OracleKit>}
      */
     const makePingOracle = async t => {
       /** @type {OracleHandler} */
@@ -64,6 +64,12 @@ test.before(
           const reply = { pong: query };
           return harden({ reply, requiredFee });
         },
+        async onError(_query, _reason) {
+          // do nothing
+        },
+        async onReply(_query, _reply, _fee) {
+          // do nothing
+        },
       });
 
       /** @type {OracleStartFnResult} */
@@ -72,15 +78,14 @@ test.before(
         { Fee: link.issuer },
         { oracleDescription: 'myOracle' },
       );
-      const creatorFacet = E(startResult.creatorFacet).initialize({
+      const creatorFacet = await E(startResult.creatorFacet).initialize({
         oracleHandler,
       });
 
       t.is(await E(startResult.publicFacet).getDescription(), 'myOracle');
       return harden({
+        ...startResult,
         creatorFacet,
-        publicFacet: startResult.publicFacet,
-        creatorInvitation: startResult.creatorInvitation,
       });
     };
 

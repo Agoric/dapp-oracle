@@ -30,11 +30,14 @@ import './types';
  */
 const start = async zcf => {
   const {
-    timer: oracleTimer,
+    timer: rawTimer,
     POLL_INTERVAL,
     brands: { Asset: assetBrand, Price: priceBrand },
     maths: { Asset: assetMath, Price: priceMath },
   } = zcf.getTerms();
+
+  /** @type {TimerService} */
+  const timer = rawTimer;
 
   /** @type {IssuerRecord & { mint: ERef<Mint> }} */
   let aggregatorQuoteKit;
@@ -71,7 +74,7 @@ const start = async zcf => {
   /** @type {Store<Instance, { querier: (timestamp: number) => void, lastSample: number }>} */
   const instanceToRecord = makeStore('oracleInstance');
 
-  let recentTimestamp = await E(oracleTimer).getCurrentTimestamp();
+  let recentTimestamp = await E(timer).getCurrentTimestamp();
 
   /** @type {PriceDescription} */
   let recentUnitQuote;
@@ -123,7 +126,7 @@ const start = async zcf => {
             {
               amountIn,
               amountOut,
-              timer: oracleTimer,
+              timer,
               timestamp,
             },
           ]),
@@ -161,13 +164,13 @@ const start = async zcf => {
     pendingTriggers.push(newTrigger);
 
     // See if this trigger needs to fire.
-    const timestamp = await E(oracleTimer).getCurrentTimestamp();
+    const timestamp = await E(timer).getCurrentTimestamp();
     fireTriggers(timestamp);
 
     return triggerPK.promise;
   };
 
-  const repeaterP = E(oracleTimer).createRepeater(0, POLL_INTERVAL);
+  const repeaterP = E(timer).createRepeater(0, POLL_INTERVAL);
   const handler = {
     async wake(timestamp) {
       // Run all the queriers.
@@ -208,7 +211,7 @@ const start = async zcf => {
     const quote = {
       amountIn: unitAsset,
       amountOut,
-      timer: oracleTimer,
+      timer,
       timestamp: recentTimestamp,
     };
 
@@ -278,13 +281,13 @@ const start = async zcf => {
         record.lastSample = sample;
         await updateQuote(timestamp);
       };
-      const now = await E(oracleTimer).getCurrentTimestamp();
+      const now = await E(timer).getCurrentTimestamp();
       await record.querier(now);
     },
     async dropOracle(oracleInstance) {
       // Just remove the map entries.
       instanceToRecord.delete(oracleInstance);
-      const now = await E(oracleTimer).getCurrentTimestamp();
+      const now = await E(timer).getCurrentTimestamp();
       await updateQuote(now);
     },
   });
@@ -293,6 +296,19 @@ const start = async zcf => {
   const priceAuthority = {
     getQuoteIssuer() {
       return aggregatorQuoteKit.issuer;
+    },
+    getTimerService(brandIn, brandOut) {
+      assert.equal(
+        brandIn,
+        assetBrand,
+        details`Desired brandIn ${brandIn} must match ${assetBrand}`,
+      );
+      assert.equal(
+        brandOut,
+        priceBrand,
+        details`Desired brandOut ${brandOut} must match ${priceBrand}`,
+      );
+      return timer;
     },
     getPriceNotifier(brandIn, brandOut) {
       assert.equal(
@@ -303,11 +319,11 @@ const start = async zcf => {
       assert.equal(
         brandOut,
         priceBrand,
-        details`Desired branOut ${brandOut} must match ${priceBrand}`,
+        details`Desired brandOut ${brandOut} must match ${priceBrand}`,
       );
       return notifier;
     },
-    async getAmountInQuote(amountIn, brandOut) {
+    async quoteGiven(amountIn, brandOut) {
       assetMath.coerce(amountIn);
       assert.equal(
         brandOut,
@@ -332,7 +348,7 @@ const start = async zcf => {
         },
       ]);
     },
-    async getAmountOutQuote(brandIn, amountOut) {
+    async quoteWanted(brandIn, amountOut) {
       priceMath.coerce(amountOut);
       assert.equal(
         assetBrand,
@@ -359,7 +375,7 @@ const start = async zcf => {
         },
       ]);
     },
-    async quoteAtTime(userTimer, deadline, amountIn, desiredPriceBrand) {
+    async quoteAtTime(deadline, amountIn, desiredPriceBrand) {
       assetMath.coerce(amountIn);
       assert.equal(priceBrand, desiredPriceBrand);
 
@@ -368,7 +384,7 @@ const start = async zcf => {
 
       const assetValue = assetMath.getValue(amountIn);
       const quotePK = makePromiseKit();
-      await E(userTimer).setWakeup(
+      await E(timer).setWakeup(
         deadline,
         harden({
           async wake(timestamp) {
@@ -387,7 +403,7 @@ const start = async zcf => {
                   {
                     amountIn,
                     amountOut,
-                    timer: userTimer,
+                    timer,
                     timestamp,
                   },
                 ]),

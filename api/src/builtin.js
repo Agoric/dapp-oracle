@@ -109,10 +109,8 @@ function makeBuiltinOracle({
   async function chainlinkSampleJob(params) {
     let result = '';
     for (const task of ['httpget', 'jsonparse', 'multiply']) {
-      console.error('begin', task);
       // eslint-disable-next-line no-await-in-loop
       result = await tasks[task](result, params);
-      console.error('end', task);
     }
     return result;
   }
