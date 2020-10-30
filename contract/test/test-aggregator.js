@@ -55,7 +55,7 @@ test.before(
     /**
      * @returns {Promise<OracleKit>}
      */
-    const makeFakePriceOracle = async (t, amountOut = 1000) => {
+    const makeFakePriceOracle = async (t, amountOut = undefined) => {
       /** @type {OracleHandler} */
       const oracleHandler = harden({
         async onQuery({ increment }, _fee) {
@@ -123,6 +123,7 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const price1000 = await makeFakePriceOracle(t, 1000);
   const price1300 = await makeFakePriceOracle(t, 1300);
   const price800 = await makeFakePriceOracle(t, 800);
+  const pricePush = await makeFakePriceOracle(t);
   const pa = E(aggregator.publicFacet).getPriceAuthority();
 
   const notifier = E(pa).getPriceNotifier(brandIn, brandOut);
@@ -181,13 +182,17 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
     return { timestamp, amountOut: valueOut };
   };
 
+  const pricePushAdmin = await E(aggregator.creatorFacet).initOracle(
+    pricePush.instance,
+  );
+
   const quote0 = await tickAndQuote();
   t.deepEqual(quote0, { amountOut: 1020, timestamp: 1 });
 
   const quote1 = await tickAndQuote();
   t.deepEqual(quote1, { amountOut: 1030, timestamp: 2 });
 
-  const price1300Deleter = await E(aggregator.creatorFacet).initOracle(
+  const price1300Admin = await E(aggregator.creatorFacet).initOracle(
     price1300.instance,
     {
       increment: 8,
@@ -210,10 +215,21 @@ test('median aggregator', /** @param {ExecutionContext} t */ async t => {
   const quote5 = await tickAndQuote();
   t.deepEqual(quote5, { amountOut: 1070, timestamp: 6 });
 
-  await E(price1300Deleter).delete();
+  // Push a price into the fray.
+  await E(pricePushAdmin).pushResult('1069');
 
   const quote6 = await tickAndQuote();
-  t.deepEqual(quote6, { amountOut: 974, timestamp: 7 });
+  t.deepEqual(quote6, { amountOut: 1074, timestamp: 7 });
+
+  await E(pricePushAdmin).delete();
+
+  const quote7 = await tickAndQuote();
+  t.deepEqual(quote7, { amountOut: 1090, timestamp: 8 });
+
+  await E(price1300Admin).delete();
+
+  const quote8 = await tickAndQuote();
+  t.deepEqual(quote8, { amountOut: 1001, timestamp: 9 });
 });
 
 test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
@@ -273,7 +289,7 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
   await E(oracleTimer).tick();
   await E(oracleTimer).tick();
 
-  const price1300Deleter = await E(aggregator.creatorFacet).initOracle(
+  const price1300Admin = await E(aggregator.creatorFacet).initOracle(
     price1300.instance,
     {
       increment: 8,
@@ -312,7 +328,7 @@ test('quoteAtTime', /** @param {ExecutionContext} t */ async t => {
 
   await E(oracleTimer).tick();
 
-  await E(price1300Deleter).delete();
+  await E(price1300Admin).delete();
 
   // Ensure our quote fires exactly now.
   t.falsy(priceQuote);
@@ -382,7 +398,7 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   await E(oracleTimer).tick();
   await E(oracleTimer).tick();
 
-  const price1300Deleter = await E(aggregator.creatorFacet).initOracle(
+  const price1300Admin = await E(aggregator.creatorFacet).initOracle(
     price1300.instance,
     {
       increment: 8,
@@ -421,7 +437,7 @@ test('quoteWhen', /** @param {ExecutionContext} t */ async t => {
   await E(oracleTimer).tick();
   await E(oracleTimer).tick();
 
-  await E(price1300Deleter).delete();
+  await E(price1300Admin).delete();
 
   // Below trigger has not yet fired.
   t.falsy(belowPriceQuote);

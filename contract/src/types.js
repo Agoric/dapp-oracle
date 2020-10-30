@@ -1,12 +1,14 @@
 /**
- * @typedef {Object} AsyncDeleter
- * @property {() => Promise<void>} delete
+ * @typedef {Object} OracleAdmin
+ * @property {() => Promise<void>} delete Remove the oracle from the aggregator
+ * @property {(result: any) => Promise<void>} pushResult rather than waiting for
+ * the polling query, push a result directly from this oracle
  */
 
 /**
  * @typedef {Object} PriceAggregatorCreatorFacet
  * @property {(quoteMint: Mint) => Promise<void>} initializeQuoteMint
- * @property {(oracleInstance: Instance, query: any) => Promise<AsyncDeleter>} initOracle
+ * @property {(oracleInstance: Instance, query: any=) => Promise<OracleAdmin>} initOracle
  */
 
 /**

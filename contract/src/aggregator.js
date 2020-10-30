@@ -83,20 +83,20 @@ const start = async zcf => {
 
   /**
    * @typedef {Object} OracleRecord
-   * @property {(timestamp: Timestamp) => void} querier
+   * @property {(timestamp: Timestamp) => Promise<void>} querier
    * @property {number} lastSample
    */
   /** @type {Store<Instance, Array<OracleRecord>>} */
   const instanceToRecords = makeStore('oracleInstance');
 
-  let recentTimestamp = await E(timer).getCurrentTimestamp();
+  let publishedTimestamp = await E(timer).getCurrentTimestamp();
 
   /** @type {PriceDescription} */
   let baseQuote;
 
   const ensureBaseQuote = async () => {
     await notifier.getUpdateSince();
-    assert(baseQuote, details`Could not find a recent quote`);
+    assert(baseQuote, details`Could not find a published base quote`);
   };
 
   /** @type {Array<AmountOutTrigger>} */
@@ -212,14 +212,20 @@ const start = async zcf => {
    */
   const updateQuote = async timestamp => {
     const sorted = instanceToRecords
-      .values() // Find all the instance records.
-      .flatMap(records => records.map(({ lastSample }) => lastSample)) // Get the last sample.
-      .filter(value => value > 0) // Only allow positive samples.
-      .sort((a, b) => a - b); // Sort ascending.
+      // Find all the instance records.
+      .values()
+      // Get the last sample.
+      .flatMap(records => records.map(({ lastSample }) => lastSample))
+      // Only allow positive samples.
+      .filter(sample => sample > 0 && Number.isSafeInteger(sample))
+      // Sort ascending.
+      .sort((a, b) => a - b);
+
     if (sorted.length === 0) {
       // No valid samples, don't report anything.
       return;
     }
+
     let median;
     if (sorted.length % 2 === 0) {
       // Even length, take the mean of the two middle values.
@@ -250,13 +256,13 @@ const start = async zcf => {
     // only if the limit has been met.
     fireTriggers(timestamp);
 
-    if (timestamp < recentTimestamp) {
+    if (timestamp < publishedTimestamp) {
       // A more recent timestamp has been published already, so we are too late.
       return;
     }
 
     // Publish a new authenticated quote.
-    recentTimestamp = timestamp;
+    publishedTimestamp = timestamp;
     baseQuote = quote;
     updater.updateState(authenticatedQuote);
   };
@@ -273,14 +279,16 @@ const start = async zcf => {
         mint: quoteMint,
       };
     },
-    async initOracle(oracleInstance, query) {
+    async initOracle(oracleInstance, query = undefined) {
       assert(
         quoteKit,
         details`Must initializeQuoteMint before adding an oracle`,
       );
 
-      // Register our record.
+      /** @type {OracleRecord} */
       const record = { querier: undefined, lastSample: NaN };
+
+      // Register our record.
       let records;
       if (instanceToRecords.has(oracleInstance)) {
         records = instanceToRecords.get(oracleInstance);
@@ -290,12 +298,52 @@ const start = async zcf => {
       }
       records.push(record);
 
-      // Obtain the oracle's publicFacet and schedule the repeater in the background.
+      const pushResult = result => {
+        // Sample of NaN, 0, or negative numbers are valid, they get culled in
+        // the median calculation.
+        const sample = parseInt(result, 10);
+        record.lastSample = sample;
+      };
+
+      // Obtain the oracle's publicFacet.
       const oracle = await E(zoe).getPublicFacet(oracleInstance);
       assert(
         records.includes(record),
         details`Oracle record is already deleted`,
       );
+
+      /** @type {OracleAdmin} */
+      const oracleAdmin = {
+        async delete() {
+          // The actual deletion is synchronous.
+          const index = records.indexOf(record);
+          assert(index >= 0, details`Oracle record is already deleted`);
+
+          records.splice(index, 1);
+          if (
+            records.length === 0 &&
+            instanceToRecords.has(oracleInstance) &&
+            instanceToRecords.get(oracleInstance) === records
+          ) {
+            // We should remove the entry entirely, as it is empty.
+            instanceToRecords.delete(oracleInstance);
+          }
+
+          // Delete complete, so try asynchronously updating the quote.
+          const deletedNow = await E(timer).getCurrentTimestamp();
+          await updateQuote(deletedNow);
+        },
+        async pushResult(result) {
+          // Sample of NaN, 0, or negative numbers are valid, they get culled in
+          // the median calculation.
+          pushResult(result);
+        },
+      };
+
+      if (query === undefined) {
+        // They don't want to be polled.
+        return harden(oracleAdmin);
+      }
 
       let lastWakeTimestamp = 0;
 
@@ -306,47 +354,19 @@ const start = async zcf => {
         // Submit the query.
         const result = await E(oracle).query(query);
         // Now that we've received the result, check if we're out of date.
-        if (
-          timestamp < lastWakeTimestamp ||
-          !instanceToRecords.has(oracleInstance)
-        ) {
+        if (timestamp < lastWakeTimestamp || records.indexOf(record) < 0) {
           return;
         }
         lastWakeTimestamp = timestamp;
 
-        // Sample of NaN, 0, or negative numbers are valid, they get culled in
-        // the median calculation.
-        const sample = parseInt(result, 10);
-        record.lastSample = sample;
+        pushResult(result);
         await updateQuote(timestamp);
       };
       const now = await E(timer).getCurrentTimestamp();
       await record.querier(now);
 
-      // Return the AsyncDeleter.
-      return harden({
-        async delete() {
-          // The actual deletion is synchronous.
-          assert.equal(
-            instanceToRecords.has(oracleInstance) &&
-              instanceToRecords.get(oracleInstance),
-            records,
-            details`Oracle record is already deleted`,
-          );
-
-          const index = records.indexOf(record);
-          assert(index >= 0, details`Oracle record is already deleted`);
-
-          records.splice(index, 1);
-          if (records.length === 0) {
-            instanceToRecords.delete(oracleInstance);
-          }
-
-          // Delete complete, so try asynchronously updating the quote.
-          const deletedNow = await E(timer).getCurrentTimestamp();
-          await updateQuote(deletedNow);
-        },
-      });
+      // Return the oracle admin object.
+      return harden(oracleAdmin);
     },
   });
 
