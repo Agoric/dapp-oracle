@@ -8,9 +8,61 @@ people to query.
 (See the [Chainlink integration details](#chainlink-integration) for instructions
 on how to use Chainlink specifically with this Dapp.)
 
-## Demo
+## Running a Local Builtin Oracle
 
-Start with https://agoric.com/documentation/getting-started/before-using-agoric.html
+This dapp provides a builtin oracle for testing, with a single configured job
+that implements a tiny subset of the adapters available via the flexible
+Chainlink Any API.
+
+Note that using this in production is not recommended: you will have to ensure
+your ag-solo as always available, or your contracts will not be able to query
+it.  Running a robust oracle is a detailed and time-consuming endeavour, and so
+we recommend instead that you use the Chainlink oracles already provided as a
+service on the Agoric chain.
+
+Start with
+https://agoric.com/documentation/getting-started/before-using-agoric.html
+
+Here is how you can install the builtin oracle on your existing `agoric start`
+client:
+
+```sh
+# Install the needed dependencies.
+agoric install
+# Deploy the oracle service contract.
+agoric deploy contract/deploy.js
+# Deploy the builtin oracle.
+agoric deploy --allow-unsafe-plugins api/deploy.js
+# Run the UI server.
+(cd ui && yarn start)
+```
+
+Go to the oracle client page at http://localhost:3000  Use this oracle client UI
+to experiment with simple Chainlink HTTP queries while you are defining your
+contract.
+
+You can modify the sample query to specify different parameters.  Leave the
+`jobId` as it is (literally, `jobId: "<chainlink-jobid>"`) to use the builtin
+oracle.  The parameters are taken from:
+
+1. [HttpGet](https://docs.chain.link/docs/adapters#httpget) or
+   [HttpPost](https://docs.chain.link/docs/adapters#httppost), as determined by
+   the presence of the `get` or `post` parameter respectively.
+2. An optional [JsonParse](https://docs.chain.link/docs/adapters#jsonparse), if
+   the `path` parameter is defined.  Set `path: []` if you want to parse but not
+   extract a specific path.
+3. An optional [Multiply](https://docs.chain.link/docs/adapters#multiply), if
+   the `times` parameter is defined.
+
+## Running a Local External Oracle
+
+The external oracle is used for integrating the oracle contract with a separate
+oracle node.  You will typically not do this unless you are a Chainlink oracle
+node operator who wants to test the [Chainlink
+integration](#chainlink-integration).
+
+Start with
+https://agoric.com/documentation/getting-started/before-using-agoric.html
 
 Then:
 
@@ -29,7 +81,7 @@ INSTALL_ORACLE='My Oracle' FEE_ISSUER_PETNAME='moola' agoric deploy \
 # Deploy the oracle query contract.
 agoric deploy api/deploy.js
 # Run the UI server.
-(cd ui && yarn install && yarn start)
+(cd ui && yarn start)
 ```
 
 Go to the oracle server page at http://localhost:3000?API_PORT=7999
