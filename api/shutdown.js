@@ -12,15 +12,18 @@ import { E } from '@agoric/eventual-send';
  * @param {DeployPowers} powers
  */
 export default async function deployShutdown(referencesPromise) {
-  const { scratch, wallet } = await referencesPromise;
-  const adminSeat = E(scratch).get('adminSeat');
+  const { scratch, wallet, zoe } = await referencesPromise;
 
-  await E(E(adminSeat).getOfferResult())
-    .exit()
-    .catch(e => console.log(e));
-  console.log('Contract is shut down.');
-  const payout = await E(adminSeat).getPayouts();
+  console.log('Getting oracleCreator');
+  /** @type {OracleCreatorFacet} */
+  const creatorFacet = await E(scratch).get('oracleCreator');
+  console.log('Shutting down contract.');
+
+  const shutdownInvitation = E(creatorFacet).makeShutdownInvitation();
+  const shutdownSeat = E(zoe).offer(shutdownInvitation);
+  const payout = await E(shutdownSeat).getPayouts();
   console.log('Got payouts', payout);
+
   await Promise.all(
     Object.values(payout).map(payment => E(wallet).addPayment(payment)),
   );

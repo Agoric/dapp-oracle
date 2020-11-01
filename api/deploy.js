@@ -5,6 +5,7 @@ import fs from 'fs';
 import { E } from '@agoric/eventual-send';
 import harden from '@agoric/harden';
 import '@agoric/zoe/exported';
+import '@agoric/zoe/src/contracts/exported';
 
 import installationConstants from '../ui/public/conf/installationConstants';
 
@@ -170,14 +171,14 @@ export default async function deployApi(
   if (INSTALL_ORACLE || httpClient) {
     console.log('Instantiating oracle contract');
     const issuerKeywordRecord = harden({ Fee: feeIssuer });
-    const {
-      creatorInvitation,
-      instance,
-      creatorFacet: initializationFacet,
-    } = await E(zoe).startInstance(contractInstallation, issuerKeywordRecord, {
+    const { instance, creatorFacet: initializationFacet } = await E(
+      zoe,
+    ).startInstance(contractInstallation, issuerKeywordRecord, {
       oracleDescription: INSTALL_ORACLE || 'Builtin Oracle',
     });
 
+    /** @type {OracleCreatorFacet} */
+    let creatorFacet;
     if (INSTALL_ORACLE) {
       // This clause is to install an external oracle (serviced by, say, a
       // separate oracle node).
@@ -195,28 +196,22 @@ export default async function deployApi(
         oracleAdmin,
         E(scratch).set('oracleAdmin', oracleAdmin),
       ]);
+
+      creatorFacet = await E(initializationFacet).initialize({ oracleHandler });
     } else {
       // Builtin oracle.
       console.log('Creating builtin oracle');
       const oracleHandler = await E(oracleCreator).makeBuiltinOracle({
         httpClient,
       });
-      await E(initializationFacet).initialize({ oracleHandler });
+      creatorFacet = await E(initializationFacet).initialize({ oracleHandler });
     }
 
     console.log('- SUCCESS! contract instance is running on Zoe');
 
-    // Let's use the adminInvitation to make an offer. Note that we aren't
-    // specifying any proposal, and we aren't escrowing any assets with
-    // Zoe in this offer. We are doing this so that Zoe will eventually
-    // give us a payout of all of the tips. We can trigger this payout
-    // by calling the `complete` function on the `completeObj`.
-    console.log('Retrieving admin');
-    const adminSeat = E(zoe).offer(creatorInvitation);
-
-    // We put the adminSeat in our scratch location so that we can share the
-    // live object with the shutdown.js script.
-    E(scratch).set('adminSeat', adminSeat);
+    // We put the oracleCreator in our scratch location for future use (such as
+    // in the shutdown.js script).
+    E(scratch).set('oracleCreator', creatorFacet);
 
     INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
   }

@@ -8,11 +8,10 @@ import bundleSource from '@agoric/bundle-source';
 import { E } from '@agoric/eventual-send';
 import { makeFakeVatAdmin } from '@agoric/zoe/src/contractFacet/fakeVatAdmin';
 import { makeZoe } from '@agoric/zoe';
-
-import '../src/types';
-import '@agoric/zoe/exported';
 import { makeIssuerKit } from '@agoric/ertp';
 import { assert, details } from '@agoric/assert/src/assert';
+
+import '@agoric/zoe/exported';
 
 /**
  * @typedef {Object} TestContext
@@ -49,7 +48,7 @@ test.before(
     /**
      * @returns {Promise<OracleKit>}
      */
-    const makePingOracle = async t => {
+    const makePingOracle = async _t => {
       /** @type {OracleHandler} */
       const oracleHandler = harden({
         async onQuery(query, fee) {
@@ -73,16 +72,13 @@ test.before(
       });
 
       /** @type {OracleStartFnResult} */
-      const startResult = await E(zoe).startInstance(
-        installation,
-        { Fee: link.issuer },
-        { oracleDescription: 'myOracle' },
-      );
+      const startResult = await E(zoe).startInstance(installation, {
+        Fee: link.issuer,
+      });
       const creatorFacet = await E(startResult.creatorFacet).initialize({
         oracleHandler,
       });
 
-      t.is(await E(startResult.publicFacet).getDescription(), 'myOracle');
       return harden({
         ...startResult,
         creatorFacet,
@@ -102,29 +98,7 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
   // Get the Zoe invitation issuer from Zoe.
   const invitationIssuer = E(zoe).getInvitationIssuer();
 
-  const {
-    publicFacet,
-    creatorFacet: pingCreator,
-    creatorInvitation: pingRevoke,
-  } = await makePingOracle(t);
-
-  const revokeOffer = E(zoe).offer(pingRevoke);
-
-  E(revokeOffer)
-    .getPayouts()
-    .then(payouts =>
-      Promise.all(
-        Object.entries(payouts).map(async ([keyword, payment]) => {
-          const amount = await link.issuer.getAmountOf(payment);
-          return [keyword, amount];
-        }),
-      ),
-    )
-    .then(kvals => {
-      t.deepEqual(kvals, [['Fee', link.amountMath.make(799)]]);
-    });
-
-  const completeObj = E(revokeOffer).getOfferResult();
+  const { publicFacet, creatorFacet: pingCreator } = await makePingOracle(t);
 
   const query1 = { kind: 'Free', data: 'foo' };
   const query2 = { kind: 'Paid', data: 'bar' };
@@ -162,8 +136,6 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
 
   const offer = E(zoe).offer(invitation1);
 
-  // Ensure our oracle handles $LINK.
-  await E(pingCreator).addFeeIssuer(link.issuer);
   const overAmount = link.amountMath.add(feeAmount, link.amountMath.make(799));
   const offer3 = E(zoe).offer(
     invitation3,
@@ -218,22 +190,33 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
       want: { Fee: link.amountMath.make(201) },
     }),
   );
-  t.is(await E(withdrawOffer).getOfferResult(), 'liquidated');
+  t.is(await E(withdrawOffer).getOfferResult(), `Successfully withdrawn`);
+
+  const shutdownInvitation = E(pingCreator).makeShutdownInvitation();
+  const shutdownSeat = E(zoe).offer(shutdownInvitation);
+
+  const payouts = await E(shutdownSeat).getPayouts();
+  const kvals = await Promise.all(
+    Object.entries(payouts).map(async ([keyword, payment]) => {
+      const amount = await link.issuer.getAmountOf(payment);
+      return [keyword, amount];
+    }),
+  );
+  t.deepEqual(kvals, [['Fee', link.amountMath.make(799)]]);
 
   const badInvitation = E(publicFacet).makeQueryInvitation({
     hello: 'nomore',
   });
-  t.is(await E(completeObj).exit(), 'liquidated');
   const badOffer = E(zoe).offer(badInvitation);
 
   // Ensure the oracle no longer functions after revocation.
   await t.throwsAsync(() => E(badOffer).getOfferResult(), {
     instanceOf: Error,
-    message: /^Oracle .* revoked$/,
+    message: `No further offers are accepted`,
   });
   await t.throwsAsync(() => E(publicFacet).query({ hello: 'not again' }), {
     instanceOf: Error,
-    message: /^Oracle .* revoked$/,
+    message: `Oracle revoked`,
   });
 
   t.deepEqual(
