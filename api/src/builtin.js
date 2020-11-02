@@ -5,6 +5,7 @@ import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
 
 import './types';
+import { makeLocalAmountMath } from '@agoric/ertp';
 
 /**
  * @param {string} url
@@ -181,13 +182,18 @@ const makeHttpPostTask = (httpClient, trusted = false) =>
  * @param {Object} param0
  * @param {HttpClient} param0.httpClient
  * @param {Amount} [param0.requiredFee]
- * @param {AmountMath} param0.feeAmountMath
+ * @param {Issuer} param0.feeIssuer
  */
-function makeBuiltinOracle({
+async function makeBuiltinOracle({
   httpClient,
-  feeAmountMath,
-  requiredFee = feeAmountMath.getEmpty(),
+  feeIssuer,
+  requiredFee = undefined,
 }) {
+  const feeAmountMath = await makeLocalAmountMath(feeIssuer);
+  if (requiredFee === undefined) {
+    requiredFee = feeAmountMath.getEmpty();
+  }
+
   /**
    * @type {{ [taskName: string]: (input: any, params: Record<string, any>) =>
    * Promise<any> }}
@@ -207,7 +213,6 @@ function makeBuiltinOracle({
       assert.fail(
         details`agoricdwim could not find "get" or "post" in the params ${params}`,
       );
-      return undefined;
     },
     // https://docs.chain.link/docs/adapters#jsonparse
     async jsonparse(input, { path }) {

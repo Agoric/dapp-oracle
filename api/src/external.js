@@ -1,16 +1,36 @@
 import { E } from '@agoric/eventual-send';
+import { makeLocalAmountMath } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
+import { makeNotifierKit } from '@agoric/notifier';
+import { makeStore } from '@agoric/store';
 
-async function makeExternalOracle({ http, feeAmountMath }) {
+import '../../contract/src/types';
+
+async function makeExternalOracle({ board, http, feeIssuer }) {
+  console.warn('got', feeIssuer);
+  const feeAmountMath = await makeLocalAmountMath(feeIssuer);
+
   const subChannelHandles = new Set();
-  const queryIdToData = new Map();
-  const queryIdToReplyPK = new Map();
-  const queryToData = new Map();
+  /** @type {Store<string, any>} */
+  const queryIdToData = makeStore('queryId');
+  /** @type {Store<string, PromiseRecord<any>} */
+  const queryIdToReplyPK = makeStore('queryId');
+  /** @type {Store<string, Updater<any>>} */
+  const queryIdToUpdater = makeStore('queryId');
 
-  const sendToSubscribers = obj => {
+  const sendToSubscribers = (
+    obj,
+    channelHandles = [...subChannelHandles.keys()],
+  ) => {
     E(http)
-      .send(obj, [...subChannelHandles.keys()])
+      .send(obj, channelHandles)
       .catch(e => console.error('cannot send', e));
+  };
+
+  const publishPending = (channelHandles = undefined) => {
+    const queries = Object.fromEntries(queryIdToData.entries());
+    const obj = { type: 'oracleServer/pendingQueries', data: { queries } };
+    sendToSubscribers(obj, channelHandles);
   };
 
   let lastQueryId = 0;
@@ -19,45 +39,23 @@ async function makeExternalOracle({ http, feeAmountMath }) {
   const oracleHandler = {
     async onQuery(query, fee) {
       lastQueryId += 1;
-      const queryId = lastQueryId;
-      const obj = {
-        type: 'oracleServer/onQuery',
-        data: {
-          queryId,
-          query,
-          fee: fee.value,
-        },
+      const queryId = `${lastQueryId}`;
+      const data = {
+        queryId,
+        query,
+        fee: fee.value,
       };
-      queryIdToData.set(queryId, obj.data);
-      sendToSubscribers(obj);
+      queryIdToData.init(queryId, data);
       const replyPK = makePromiseKit();
-      queryIdToReplyPK.set(queryId, replyPK);
-      queryToData.set(query, obj.data);
+      queryIdToReplyPK.init(queryId, replyPK);
+      publishPending();
       return replyPK.promise;
     },
-    async onReply(query, reply, fee) {
-      const data = queryToData.get(query);
-      if (data) {
-        queryIdToData.delete(data.queryId);
-        queryIdToReplyPK.delete(data.queryId);
-      }
-      queryToData.delete(query);
-      sendToSubscribers({
-        type: 'oracleServer/onReply',
-        data: { ...data, reply, fee: fee.value },
-      });
+    async onReply(_query, _reply, _fee) {
+      // do nothing
     },
-    async onError(query, e) {
-      const data = queryToData.get(query);
-      if (data) {
-        queryIdToData.delete(data.queryId);
-        queryIdToReplyPK.delete(data.queryId);
-      }
-      queryToData.delete(query);
-      sendToSubscribers({
-        type: 'oracleServer/onError',
-        data: { ...data, error: `${(e && e.stack) || e}` },
-      });
+    async onError(_query, _e) {
+      // do nothing
     },
   };
 
@@ -69,13 +67,9 @@ async function makeExternalOracle({ http, feeAmountMath }) {
         },
 
         onOpen(_obj, { channelHandle }) {
-          // Send all the pending requests to the new channel.
-          for (const obj of queryIdToData.values()) {
-            E(http)
-              .send(obj, [channelHandle])
-              .catch(e => console.error('cannot send', e));
-          }
           subChannelHandles.add(channelHandle);
+          // Send all the pending requests to the new channel.
+          publishPending([channelHandle]);
         },
 
         onClose(_obj, { channelHandle }) {
@@ -85,30 +79,79 @@ async function makeExternalOracle({ http, feeAmountMath }) {
         async onMessage(obj, { _channelHandle }) {
           // These are messages we receive from either POST or WebSocket.
           switch (obj.type) {
+            case 'oracleServer/createNotifier': {
+              const { notifier, updater } = makeNotifierKit();
+              lastQueryId += 1;
+
+              // Publish the notifier on the board.
+              const queryId = `push-${lastQueryId}`;
+              const boardId = await E(board).getId(notifier);
+
+              // Say that we have an updater for that query.
+              queryIdToUpdater.init(queryId, updater);
+              queryIdToData.init(queryId, { ...obj.data, queryId, boardId });
+
+              publishPending();
+
+              return harden({
+                type: 'oracleServer/createNotifierResponse',
+                data: { queryId, boardId },
+              });
+            }
+
             case 'oracleServer/reply': {
-              const { queryId, reply, requiredFee } = obj.data;
-              const replyPK = queryIdToReplyPK.get(queryId);
-              if (replyPK) {
+              const { queryId, reply, requiredFee, final = false } = obj.data;
+              if (queryIdToUpdater.has(queryId)) {
+                // We have an updater, so push the reply.
+                const updater = queryIdToUpdater.get(queryId);
+                if (final) {
+                  updater.finish(reply);
+                  queryIdToUpdater.delete(queryId);
+                } else {
+                  updater.updateState(reply);
+                }
+                return true;
+              }
+              if (queryIdToReplyPK.has(queryId)) {
+                const replyPK = queryIdToReplyPK.get(queryId);
                 replyPK.resolve({
                   reply,
                   requiredFee: feeAmountMath.make(requiredFee || 0),
                 });
+                queryIdToReplyPK.delete(queryId);
               }
-              queryIdToReplyPK.delete(queryId);
+
+              if (queryIdToData.has(queryId)) {
+                const data = queryIdToData.get(queryId);
+                queryIdToData.delete(queryId);
+                sendToSubscribers({
+                  type: 'oracleServer/onReply',
+                  data: { ...data, reply, fee: requiredFee },
+                });
+              }
               return true;
             }
 
             case 'oracleServer/error': {
               const { queryId, error } = obj.data;
-              const replyPK = queryIdToReplyPK.get(queryId);
-              if (replyPK) {
-                replyPK.reject(Error(error));
+              if (queryIdToUpdater.has(queryId)) {
+                const updater = queryIdToUpdater.get(queryId);
+                updater.fail(error);
+                queryIdToUpdater.delete(queryId);
               }
-              const oldData = queryIdToData.get(queryId);
-              queryIdToReplyPK.delete(queryId);
-              queryIdToData.delete(queryId);
-              if (oldData) {
-                queryToData.delete(oldData.query);
+              if (queryIdToReplyPK.has(queryId)) {
+                const replyPK = queryIdToReplyPK.get(queryId);
+                replyPK.reject(Error(error));
+                queryIdToReplyPK.delete(queryId);
+              }
+
+              if (queryIdToData.has(queryId)) {
+                const data = queryIdToData.get(queryId);
+                queryIdToData.delete(queryId);
+                sendToSubscribers({
+                  type: 'oracleServer/onError',
+                  data: { ...data, error },
+                });
               }
               return true;
             }

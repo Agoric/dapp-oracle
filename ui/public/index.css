@@ -20,6 +20,11 @@ body {
   display: none;
 }
 
+.queryButtons {
+  display: flex;
+  flex-direction: row;
+}
+
 .query, .reply {
   overflow-wrap: anywhere;
   flex-basis: 40%;

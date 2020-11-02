@@ -51,66 +51,152 @@ export default async function main() {
     }
   }
 
+  const notifiers = new Map();
+  const publishNotifier = (queryId, boardId) => {
+    notifiers.set(queryId, boardId)
+    /** @type {HTMLSpanElement} */
+    const el = document.querySelector(`#notifier-${queryId}`);
+    if (el) {
+      el.innerText = `board:${boardId}`;
+    }
+  };
+
   const oracleSend = await connect(
     '/api/oracle', 
     obj => {
       switch (obj.type) {
-        case 'oracleServer/onQuery': {
-          const { queryId, query, fee, replyId } = obj.data;
-          const el = document.createElement('li');
-          $oracleRequests.appendChild(el);
-          if (!el.querySelector('.query')) {
-            const ql = document.createElement('code');
-            ql.innerText = JSON.stringify(query, null, 2);
-            ql.setAttribute('class', 'query');
-            el.appendChild(ql);
-          }
-          let actions = el.querySelector('.actions');
-          if (!actions) {
-            actions = document.createElement('div');
-            actions.setAttribute('class', 'actions');
-            el.appendChild(actions);
-          }
-          actions.innerHTML = `\
-Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
-<textarea placeholder="JSON reply">null</textarea><br />
-<button class="reply">Reply and Collect</button> <button class="cancel">Cancel</button>
-`;
-          const $fee = actions.querySelector('input');
-          actions.querySelector('button.cancel').addEventListener('click', _ev => {
-            oracleSend({
-              type: 'oracleServer/error',
-              data: {
-                queryId,
-                error: 'cancelled',
-              },
-            });
-            $oracleRequests.removeChild(el);
-          });
-          const $txt = actions.querySelector('textarea');
-          actions.querySelector('button.reply').addEventListener('click', _ev => {
-            let reply;
-            try {
-              reply = JSON5.parse($txt.value);
-            } catch (e) {
-              alert(`Cannot parse reply: ${e && e.stack || e}`);
-              return;
+        case 'oracleServer/pendingQueries': {
+          const { queries } = obj.data;
+          Object.entries(queries).sort(([a], [b]) => {
+            if (a < b) {
+              return -1;
+            } else if (a > b) {
+              return 1;
             }
-            oracleSend({
-              type: 'oracleServer/reply',
-              data: {
-                queryId,
-                reply,
-                requiredFee: $fee.valueAsNumber,
-              },
-            });
-            $oracleRequests.removeChild(el);
-          });
+            return 0;
+          }).map(([_key, data]) => data).forEach(processPendingQueryData);
+          break;
+        }
+        case 'oracleServer/createNotifierResponse': {
+          const { queryId, boardId } = obj.data;
+          publishNotifier(queryId, boardId);
           break;
         }
       }
     },
   );
+
+  const $createNotifier = document.getElementById('createNotifier');
+  if ($createNotifier) {
+    $createNotifier.addEventListener('click', ev => {
+      let query;
+      try {
+        query = JSON5.parse($oracleQuery.value);
+        if (Object(query) !== query) {
+          throw Error(`Not a JSON object`);
+        }
+      } catch (e) {
+        alert(`Query is invalid: ${e}`);
+        return;
+      }
+      oracleSend({
+        type: 'oracleServer/createNotifier',
+        data: { query, fee: 0 },
+      });
+    });
+    $createNotifier.removeAttribute('disabled');
+  }
+
+  const processPendingQueryData = ({ queryId, query, fee }) => {
+    const qid = `query-${queryId}`;
+    if ($oracleRequests.querySelector(`.${qid}`)) {
+      // Nothing needs doing.
+      return;
+    }
+    const el = document.createElement('li');
+    if (queryId.startsWith('push-')) {
+      const notifier = document.createElement('div');
+      const boardId = notifiers.get(queryId);
+      const display = boardId ? `board:${boardId}` : 'unknown';
+      notifier.innerHTML = `\
+Notifier: <span id="notifier-${queryId}">${display}</span>
+`;
+      el.appendChild(notifier);
+    }
+    el.classList.add(qid);
+    $oracleRequests.appendChild(el);
+    if (!el.querySelector('.query')) {
+      const ql = document.createElement('code');
+      ql.innerText = JSON.stringify(query, null, 2);
+      ql.setAttribute('class', 'query');
+      el.appendChild(ql);
+    }
+    let actions = el.querySelector('.actions');
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.setAttribute('class', 'actions');
+      el.appendChild(actions);
+    }
+    if (queryId.startsWith('push-')) {
+      actions.innerHTML = `\
+<textarea placeholder="JSON push">null</textarea><br />
+<button class="push">Push</button> <button class="cancel">Cancel</button>
+`;
+      const $txt = actions.querySelector('textarea');
+      actions.querySelector('button.push').addEventListener('click', _ev => {
+        let reply;
+        try {
+          reply = JSON5.parse($txt.value);
+        } catch (e) {
+          alert(`Cannot parse push: ${e && e.stack || e}`);
+          return;
+        }
+        oracleSend({
+          type: 'oracleServer/reply',
+          data: {
+            queryId,
+            reply,
+          },
+        });
+      });
+    } else {
+      actions.innerHTML = `\
+Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
+<textarea placeholder="JSON reply">null</textarea><br />
+<button class="reply">Reply and Collect</button> <button class="cancel">Cancel</button>
+`;
+      const $fee = actions.querySelector('input');
+      const $txt = actions.querySelector('textarea');
+      actions.querySelector('button.reply').addEventListener('click', _ev => {
+        let reply;
+        try {
+          reply = JSON5.parse($txt.value);
+        } catch (e) {
+          alert(`Cannot parse reply: ${e && e.stack || e}`);
+          return;
+        }
+        oracleSend({
+          type: 'oracleServer/reply',
+          data: {
+            queryId,
+            reply,
+            requiredFee: $fee.valueAsNumber,
+          },
+        });
+        $oracleRequests.removeChild(el);
+      });
+    }
+    actions.querySelector('button.cancel').addEventListener('click', _ev => {
+      oracleSend({
+        type: 'oracleServer/error',
+        data: {
+          queryId,
+          error: 'cancelled',
+        },
+      });
+      $oracleRequests.removeChild(el);
+    });
+  };
 
   const $queryOracle = /** @type {HTMLInputElement} */ (document.getElementById('queryOracle'));
   
@@ -182,32 +268,31 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
       }
     },
     '?suggestedDappPetname=Oracle',
-  ).then(walletSend => {
-    walletSend({ type: 'walletGetPurses'});
-    walletSend({ type: 'walletGetDepositFacetId', brandBoardId: INVITE_BRAND_BOARD_ID });
-    if (INSTALLATION_HANDLE_BOARD_ID) {
-      walletSend({
-        type: 'walletSuggestInstallation',
-        petname: 'Installation',
-        boardId: INSTALLATION_HANDLE_BOARD_ID,
-      });
-    }
-    if (INSTANCE_HANDLE_BOARD_ID) {
-      walletSend({
-        type: 'walletSuggestInstance',
-        petname: 'Instance',
-        boardId: INSTANCE_HANDLE_BOARD_ID,
-      });
-    }
-    if (FEE_ISSUER_BOARD_ID) {
-      walletSend({
-        type: 'walletSuggestIssuer',
-        petname: 'Fee',
-        boardId: FEE_ISSUER_BOARD_ID,
-      });
-    }
-    return walletSend;
-  });
+  );
+
+  walletSend({ type: 'walletGetPurses'});
+  walletSend({ type: 'walletGetDepositFacetId', brandBoardId: INVITE_BRAND_BOARD_ID });
+  if (INSTALLATION_HANDLE_BOARD_ID) {
+    walletSend({
+      type: 'walletSuggestInstallation',
+      petname: 'Installation',
+      boardId: INSTALLATION_HANDLE_BOARD_ID,
+    });
+  }
+  if (INSTANCE_HANDLE_BOARD_ID) {
+    walletSend({
+      type: 'walletSuggestInstance',
+      petname: 'Instance',
+      boardId: INSTANCE_HANDLE_BOARD_ID,
+    });
+  }
+  if (FEE_ISSUER_BOARD_ID) {
+    walletSend({
+      type: 'walletSuggestIssuer',
+      petname: 'Fee',
+      boardId: FEE_ISSUER_BOARD_ID,
+    });
+  }
 
   /**
    * @param {{ type: string; data: any; }} obj

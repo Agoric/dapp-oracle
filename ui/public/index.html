@@ -41,8 +41,11 @@
  }
 }
 </textarea><br/>
-      <input type="submit" value="Query Oracle!" id="queryOracle" disabled="disabled" />
-      <span><iframe id="walletBridgeIFrame" width="100" height="21"></iframe></span>
+      <div class="queryButtons"><input type="submit" value="Query Oracle!" id="queryOracle"
+      disabled="disabled" />
+      <input class="visibleOnlyToOracleService" type="submit" value="Create Notifier"
+       id="createNotifier" disabled="disabled" />
+      <iframe id="walletBridgeIFrame" width="100" height="21"></iframe></div>
     </form>
 
     <ul id="oracleReplies">

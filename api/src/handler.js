@@ -1,5 +1,4 @@
 // @ts-check
-import { makeLocalAmountMath } from '@agoric/ertp';
 import { E } from '@agoric/eventual-send';
 import { makeExternalOracle } from './external';
 import { makeBuiltinOracle } from './builtin';
@@ -94,16 +93,14 @@ const startSpawn = async (
     },
   };
 
-  const feeAmountMath = await makeLocalAmountMath(feeIssuer);
-
   return harden({
     handler,
     oracleCreator: {
       makeExternalOracle() {
-        return makeExternalOracle({ http, feeAmountMath });
+        return makeExternalOracle({ board, http, feeIssuer });
       },
       makeBuiltinOracle({ httpClient, requiredFee }) {
-        return makeBuiltinOracle({ httpClient, requiredFee, feeAmountMath });
+        return makeBuiltinOracle({ httpClient, requiredFee, feeIssuer });
       },
     },
   });

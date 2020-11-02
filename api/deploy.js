@@ -165,7 +165,7 @@ export default async function deployApi(
 
   let INSTANCE_HANDLE_BOARD_ID;
   if (INSTALL_ORACLE || httpClient) {
-    console.log('Instantiating contract');
+    console.log('Instantiating oracle contract');
     const issuerKeywordRecord = harden({ Fee: feeIssuer });
     const {
       creatorInvitation,
@@ -178,16 +178,24 @@ export default async function deployApi(
     if (INSTALL_ORACLE) {
       // This clause is to install an external oracle (serviced by, say, a
       // separate oracle node).
-      const { oracleURLHandler, oracleHandler } = await E(
+      console.log('Creating external oracle', INSTALL_ORACLE);
+      const { oracleHandler, oracleURLHandler } = await E(
         oracleCreator,
       ).makeExternalOracle();
+      const oracleAdmin = E(initializationFacet).initialize({ oracleHandler });
 
       // Install this oracle on the ag-solo.
       await E(http).registerURLHandler(oracleURLHandler, '/api/oracle');
-      await E(initializationFacet).initialize({ oracleHandler });
+
+      // Stash the oracleAdmin.
+      await Promise.all([
+        oracleAdmin,
+        E(scratch).set('oracleAdmin', oracleAdmin),
+      ]);
     } else {
       // Builtin oracle.
-      const { oracleHandler } = await E(oracleCreator).makeBuiltinOracle({
+      console.log('Creating builtin oracle');
+      const oracleHandler = await E(oracleCreator).makeBuiltinOracle({
         httpClient,
       });
       await E(initializationFacet).initialize({ oracleHandler });
