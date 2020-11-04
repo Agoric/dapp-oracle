@@ -97,17 +97,11 @@ oracle result.
 The `E(publicFacet).query(query)` call creates an unpaid query.
 
 Queries are answered by the oracle handler provided to the contract.  Each query
-calls `E(oracleHandler).onQuery(query, actions)` which returns a promise for the
-reply.
-
-The `actions` additionally allow the oracle to call:
-
-* `E(actions).assertDeposit(depositAmountRecord)` which throws if the caller did
-  not provide a large enough deposit.  The oracle should call this before
-  engaging in the actual resolution of the query.
-* `E(actions).collectFee(desiredFeeAmountRecord)` which only resolves after the
-  reply has been returned, and then it resolves to the lesser of the actual
-  payment (which is guaranteed to be more than the assertDeposit amount), or the desired fee.
+calls `E(oracleHandler).onQuery(query, feeAmount)` which returns a promise for
+the `{ reply, requiredFee }`.  If the oracle rejects the promise or the caller
+did not pay the `requiredFee`, the caller just gets a rejection, and their fee
+is refunded.  Otherwise, the `reply` is returned to the caller as the result of
+the query.
 
 ## WebSocket Oracle API
 
