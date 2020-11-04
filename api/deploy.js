@@ -157,6 +157,9 @@ export default async function deployApi(
     // The function is named installUnsafePlugin because, unlike any vat or
     // contract, the plugin will get full access to the OS-level account in
     // which the ag-solo is running.
+    console.info(
+      'Please allow our unsafe plugin to enable builtin oracle HTTP client access',
+    );
     httpClient = await installUnsafePlugin(
       './src/http-client.js',
       {},
