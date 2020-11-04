@@ -48,6 +48,11 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
       queryIdToData.init(queryId, data);
       const replyPK = makePromiseKit();
       queryIdToReplyPK.init(queryId, replyPK);
+      const obj = {
+        type: 'oracleServer/onQuery',
+        data,
+      };
+      sendToSubscribers(harden(obj));
       publishPending();
       return replyPK.promise;
     },
