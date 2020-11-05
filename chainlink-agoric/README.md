@@ -19,9 +19,9 @@ cd ..
 # Install the needed dependencies.
 agoric install
 # Start local chain implementation.
-agoric start --reset local-chain >& chain.log &
+AGORIC_CLI_OPTS="" agoric start --reset local-chain >& chain.log &
 # Start a solo for the oracle client.
-agoric start --reset local-solo 8000 >& 8000.log &
+AGORIC_CLI_OPTS="" agoric start --reset local-solo 8000 >& 8000.log &
 # Deploy the oracle client.
 agoric deploy contract/deploy.js api/deploy.js
 ```
