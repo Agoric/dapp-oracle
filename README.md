@@ -32,7 +32,7 @@ agoric install
 # Deploy the oracle service contract.
 agoric deploy contract/deploy.js
 # Deploy the builtin oracle.
-agoric deploy api/deploy.js
+agoric deploy --allow-unsafe-plugins api/deploy.js
 # Run the UI server.
 (cd ui && yarn start)
 ```
