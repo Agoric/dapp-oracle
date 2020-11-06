@@ -3,9 +3,11 @@
 
 import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
+import { makeLocalAmountMath } from '@agoric/ertp';
 
 import './types';
-import { makeLocalAmountMath } from '@agoric/ertp';
+
+const CHAINLINK_SIM_JOB = 'b0b5cafec0ffeeee';
 
 /**
  * @param {string} url
@@ -306,7 +308,7 @@ async function makeBuiltinOracle({
     },
   };
 
-  async function chainlinkSampleJob(params) {
+  async function chainlinkSimulatedJob(params) {
     let result = '';
     for (const task of ['AgoricDwim', 'JsonParse', 'Multiply']) {
       // eslint-disable-next-line no-await-in-loop
@@ -325,8 +327,8 @@ async function makeBuiltinOracle({
 
       // Decide how to handle the query.
       let replyP;
-      if (query.jobId === '<chainlink-jobid>') {
-        replyP = chainlinkSampleJob(query.params);
+      if (query.jobId === CHAINLINK_SIM_JOB) {
+        replyP = chainlinkSimulatedJob(query.params);
       }
 
       assert(replyP, details`Unimplemented builtin oracle query ${query}`);

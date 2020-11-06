@@ -17,7 +17,7 @@ import installationConstants from '../ui/public/conf/installationConstants';
 const { INSTALL_ORACLE } = process.env;
 
 // The deployer's wallet's petname for the tip issuer.
-const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'moola';
+const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'Testnet.$LINK';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
@@ -201,7 +201,7 @@ export default async function deployApi(
     } else {
       // Builtin oracle.
       console.log('Creating builtin oracle');
-      const oracleHandler = await E(oracleCreator).makeBuiltinOracle({
+      const { oracleHandler } = await E(oracleCreator).makeBuiltinOracle({
         httpClient,
       });
       creatorFacet = await E(initializationFacet).initialize({ oracleHandler });
