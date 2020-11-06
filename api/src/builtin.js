@@ -3,9 +3,11 @@
 
 import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
+import { makeLocalAmountMath } from '@agoric/ertp';
 
 import './types';
-import { makeLocalAmountMath } from '@agoric/ertp';
+
+const CHAINLINK_SIM_JOB = 'b0b5cafec0ffeeee';
 
 /**
  * @param {string} url
@@ -176,6 +178,18 @@ const makeHttpPostTask = (httpClient, trusted = false) =>
   };
 
 /**
+ * Convert the template to lowercase.
+ *
+ * @param {TemplateStringsArray} template
+ * @param {any[]} args
+ * @returns {string}
+ */
+const l = (template, ...args) =>
+  args
+    .reduce((prior, arg, i) => `${prior}${arg}${template[i + 1]}`, template[0])
+    .toLowerCase();
+
+/**
  * Create a builtin oracle handler.  This is used for testing (such as on the
  * simulated chain) when decentralized oracles cannot be used.
  *
@@ -199,23 +213,29 @@ async function makeBuiltinOracle({
    * Promise<any> }}
    */
   const tasks = {
-    httpget: makeHttpGetTask(httpClient),
-    httpgetwithunrestrictednetworkaccess: makeHttpGetTask(httpClient, true),
-    httppost: makeHttpPostTask(httpClient),
-    httppostwithunrestrictednetworkaccess: makeHttpPostTask(httpClient, true),
-    async agoricdwim(input, params) {
+    async [l`AgoricDwim`](input, params) {
       if (params.get) {
-        return tasks.httpget(input, params);
+        return tasks[l`HttpGet`](input, params);
       }
       if (params.post) {
-        return tasks.httppost(input, params);
+        return tasks[l`HttpPost`](input, params);
       }
-      assert.fail(
+      return assert.fail(
         details`agoricdwim could not find "get" or "post" in the params ${params}`,
       );
     },
+    [l`HttpGet`]: makeHttpGetTask(httpClient),
+    [l`HttpGetWithUnrestrictedNetworkAccess`]: makeHttpGetTask(
+      httpClient,
+      true,
+    ),
+    [l`HttpPost`]: makeHttpPostTask(httpClient),
+    [l`HttpPostWithUnrestrictedNetworkAccess`]: makeHttpPostTask(
+      httpClient,
+      true,
+    ),
     // https://docs.chain.link/docs/adapters#jsonparse
-    async jsonparse(input, { path }) {
+    async [l`JsonParse`](input, { path }) {
       if (path === undefined) {
         return input;
       }
@@ -249,7 +269,7 @@ async function makeBuiltinOracle({
       return result;
     },
     // https://docs.chain.link/docs/adapters#multiply
-    async multiply(input, { times }) {
+    async [l`Multiply`](input, { times }) {
       if (times === undefined) {
         return input;
       }
@@ -288,11 +308,11 @@ async function makeBuiltinOracle({
     },
   };
 
-  async function chainlinkSampleJob(params) {
+  async function chainlinkSimulatedJob(params) {
     let result = '';
-    for (const task of ['agoricdwim', 'jsonparse', 'multiply']) {
+    for (const task of ['AgoricDwim', 'JsonParse', 'Multiply']) {
       // eslint-disable-next-line no-await-in-loop
-      result = await tasks[task](result, params);
+      result = await tasks[l`${task}`](result, params);
     }
     return result;
   }
@@ -307,8 +327,8 @@ async function makeBuiltinOracle({
 
       // Decide how to handle the query.
       let replyP;
-      if (query.jobId === '<chainlink-jobid>') {
-        replyP = chainlinkSampleJob(query.params);
+      if (query.jobId === CHAINLINK_SIM_JOB) {
+        replyP = chainlinkSimulatedJob(query.params);
       }
 
       assert(replyP, details`Unimplemented builtin oracle query ${query}`);

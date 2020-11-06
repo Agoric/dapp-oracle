@@ -4,7 +4,7 @@ import { makePromiseKit } from '@agoric/promise-kit';
 import { makeNotifierKit } from '@agoric/notifier';
 import { makeStore } from '@agoric/store';
 
-import '../../contract/src/types';
+import '@agoric/zoe/src/contracts/exported';
 
 async function makeExternalOracle({ board, http, feeIssuer }) {
   console.warn('got', feeIssuer);
