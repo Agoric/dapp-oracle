@@ -42,8 +42,7 @@ to experiment with simple Chainlink HTTP queries while you are defining your
 contract.
 
 You can modify the sample query to specify different parameters.  Leave the
-`jobId` as it is (literally, `jobId: "<chainlink-jobid>"`) to use the builtin
-oracle.  The parameters are taken from:
+`jobId` as it is to use the builtin oracle.  The parameters are taken from:
 
 1. [HttpGet](https://docs.chain.link/docs/adapters#httpget) or
    [HttpPost](https://docs.chain.link/docs/adapters#httppost), as determined by
