@@ -51,16 +51,6 @@ export default async function main() {
     }
   }
 
-  const notifiers = new Map();
-  const publishNotifier = (queryId, boardId) => {
-    notifiers.set(queryId, boardId)
-    /** @type {HTMLSpanElement} */
-    const el = document.querySelector(`#notifier-${queryId}`);
-    if (el) {
-      el.innerText = `board:${boardId}`;
-    }
-  };
-
   const oracleSend = await connect(
     '/api/oracle', 
     obj => {
@@ -79,7 +69,11 @@ export default async function main() {
         }
         case 'oracleServer/createNotifierResponse': {
           const { queryId, boardId } = obj.data;
-          publishNotifier(queryId, boardId);
+          /** @type {HTMLSpanElement} */
+          const el = document.querySelector(`#notifier-${queryId}`);
+          if (el) {
+            el.innerText = `board:${boardId}`;
+          }
           break;
         }
       }
@@ -96,7 +90,7 @@ export default async function main() {
     $createNotifier.removeAttribute('disabled');
   }
 
-  const processPendingQueryData = ({ queryId, query, fee }) => {
+  const processPendingQueryData = ({ queryId, boardId, query, fee }) => {
     const qid = `query-${queryId}`;
     if ($oracleRequests.querySelector(`.${qid}`)) {
       // Nothing needs doing.
@@ -104,9 +98,8 @@ export default async function main() {
     }
     const el = document.createElement('li');
     el.classList.add(qid);
-    if (queryId.startsWith('push-')) {
+    if (boardId) {
       const notifier = document.createElement('div');
-      const boardId = notifiers.get(queryId);
       const display = boardId ? `board:${boardId}` : 'unknown';
       notifier.innerHTML = `\
 Notifier: <span id="notifier-${queryId}">${display}</span>
@@ -114,7 +107,7 @@ Notifier: <span id="notifier-${queryId}">${display}</span>
       el.appendChild(notifier);
     }
     $oracleRequests.appendChild(el);
-    if (!queryId.startsWith('push-') && !el.querySelector('.query')) {
+    if (!boardId && !el.querySelector('.query')) {
       const ql = document.createElement('code');
       ql.innerText = JSON.stringify(query, null, 2);
       ql.setAttribute('class', 'query');
@@ -126,9 +119,9 @@ Notifier: <span id="notifier-${queryId}">${display}</span>
       actions.setAttribute('class', 'actions');
       el.appendChild(actions);
     }
-    if (queryId.startsWith('push-')) {
+    if (boardId) {
       actions.innerHTML = `\
-request_id: ${JSON.stringify(queryId)}<br />
+queryId: ${JSON.stringify(queryId)}<br />
 <textarea placeholder="JSON push">null</textarea><br />
 <button class="push">Push</button> <button class="cancel">Cancel</button>
 `;
@@ -151,6 +144,7 @@ request_id: ${JSON.stringify(queryId)}<br />
       });
     } else {
       actions.innerHTML = `\
+queryId: ${JSON.stringify(queryId)}<br />
 Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
 <textarea placeholder="JSON reply">null</textarea><br />
 <button class="reply">Reply and Collect</button> <button class="cancel">Cancel</button>
