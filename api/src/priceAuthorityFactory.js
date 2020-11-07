@@ -1,8 +1,8 @@
 // @ts-check
 import { E } from '@agoric/eventual-send';
 import { makeLocalAmountMath } from '@agoric/ertp';
-import { makeFungiblePriceAuthority } from '@agoric/zoe/src/contracts/priceAuthority';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
+import { makeFungiblePriceAuthority } from './priceAuthority';
 
 const startSpawn = async (_terms, _invitationMaker) => {
   const factory = {

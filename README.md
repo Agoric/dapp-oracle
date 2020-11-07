@@ -96,10 +96,8 @@ If you want to publish a scheduled query on the chain:
    the push `queryId`.  For prices in `"Testnet.$USD"` be sure to scale the
    resulting floating point dollar value up to mills (multiply by 1000)
    
-For Chainlink, ensure your `"request_id"` param is set to the `queryId` and use
-the Agoric external adapter to submit your job's results.
-
-As an example:
+An at example for Chainlink, ensure your `"request_id"` param is set to the
+`queryId` and use the Agoric external adapter to submit your job's results:
 
 ```json
 {
@@ -140,7 +138,8 @@ input issuer, you can create a price authority from it.
 
 1. Find out your wallet petnames for the input and output issuers (for example,
    `"Testnet.$LINK"` to `"Testnet.$USD"`).
-2. Create a public price authority for your push query:
+2. Create a public price authority for your push query (you will need to push at
+   least one result):
 ```sh
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
 IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
@@ -153,6 +152,17 @@ agoric deploy --hostport=127.0.0.1:7999 api/from-notifier.js
 PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
 IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
 agoric deploy --hostport=127.0.0.1:7999 api/register.js
+```
+
+Here is a session testing the `priceAuthority`:
+
+```js
+home.wallet~.getIssuer('Testnet.$LINK')~.getBrand()
+history[3] [Alleged: presence o-82]{}
+home.wallet~.getIssuer('Testnet.$USD')~.getBrand()
+history[4] = [Alleged: presence o-81]{}
+home.priceAuthority~.getQuoteNotifier(history[3], history[4])~.getUpdateSince()
+> {"value":{"quotePayment":[Promise],"quoteAmount":{"brand":[Alleged: presence o-132]{},"value":[{"amountIn":{"brand":[Alleged: presence o-82]{},"value":1000000},"amountOut":{"brand":[Alleged: presence o-81]{},"value":1191},"timer":[Alleged: presence o-68]{},"timestamp":1604759700}]}},"updateCount":2}
 ```
 
 ## Single-query Usage

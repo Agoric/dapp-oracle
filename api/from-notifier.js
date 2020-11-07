@@ -97,7 +97,7 @@ export default async function priceAuthorityfromNotifier(
     console.log('Stored priceAuthorityFactory in scratch');
   }
 
-  console.log('Waiting for first valid quote from notifier...');
+  console.log('Waiting for first valid quote from push notifier...');
   const priceAuthority = await E(
     priceAuthorityFactory,
   ).makeNotifierPriceAuthority({
