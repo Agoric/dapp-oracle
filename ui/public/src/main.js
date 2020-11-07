@@ -74,7 +74,7 @@ export default async function main() {
               return 1;
             }
             return 0;
-          }).map(([_key, data]) => data).forEach(processPendingQueryData);
+          }).map(([_key, data]) => data || {}).forEach(processPendingQueryData);
           break;
         }
         case 'oracleServer/createNotifierResponse': {
@@ -89,19 +89,8 @@ export default async function main() {
   const $createNotifier = document.getElementById('createNotifier');
   if ($createNotifier) {
     $createNotifier.addEventListener('click', ev => {
-      let query;
-      try {
-        query = JSON5.parse($oracleQuery.value);
-        if (Object(query) !== query) {
-          throw Error(`Not a JSON object`);
-        }
-      } catch (e) {
-        alert(`Query is invalid: ${e}`);
-        return;
-      }
       oracleSend({
         type: 'oracleServer/createNotifier',
-        data: { query, fee: 0 },
       });
     });
     $createNotifier.removeAttribute('disabled');
@@ -114,6 +103,7 @@ export default async function main() {
       return;
     }
     const el = document.createElement('li');
+    el.classList.add(qid);
     if (queryId.startsWith('push-')) {
       const notifier = document.createElement('div');
       const boardId = notifiers.get(queryId);
@@ -123,9 +113,8 @@ Notifier: <span id="notifier-${queryId}">${display}</span>
 `;
       el.appendChild(notifier);
     }
-    el.classList.add(qid);
     $oracleRequests.appendChild(el);
-    if (!el.querySelector('.query')) {
+    if (!queryId.startsWith('push-') && !el.querySelector('.query')) {
       const ql = document.createElement('code');
       ql.innerText = JSON.stringify(query, null, 2);
       ql.setAttribute('class', 'query');
@@ -139,6 +128,7 @@ Notifier: <span id="notifier-${queryId}">${display}</span>
     }
     if (queryId.startsWith('push-')) {
       actions.innerHTML = `\
+request_id: ${JSON.stringify(queryId)}<br />
 <textarea placeholder="JSON push">null</textarea><br />
 <button class="push">Push</button> <button class="cancel">Cancel</button>
 `;
