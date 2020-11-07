@@ -87,6 +87,84 @@ Go to the oracle server page at http://localhost:3000?API_PORT=7999
 
 Go to the oracle query page at http://localhost:3000
 
+### Publishing a scheduled query
+
+If you want to publish a scheduled query on the chain:
+
+1. Create a push query in the dapp-oracle server page.
+2. Create an external oracle job that posts back to Agoric with the results and
+   the push `queryId`.  For prices in `"Testnet.$USD"` be sure to scale the
+   resulting floating point dollar value up to mills (multiply by 1000)
+   
+An at example for Chainlink, ensure your `"request_id"` param is set to the
+`queryId` and use the Agoric external adapter to submit your job's results:
+
+```json
+{
+  "initiators": [
+    {
+      "type": "cron",
+      "params": {
+          "schedule": "CRON_TZ=UTC */10 * * *"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "HTTPGet",
+      "confirmations": 0,
+      "params": { "get": "https://bitstamp.net/api/ticker/" }
+    },
+    {
+      "type": "JSONParse",
+      "params": { "path": [ "last" ] }
+    },
+    {
+      "type": "Multiply",
+      "params": { "times": 1000 }
+    },
+    {
+      "type": "Agoric",
+      "params": { "request_id": "<your queryId>" }
+    }
+  ]
+}
+```
+
+### Publishing a price authority
+
+If your scheduled query returns a numeric string as the price of a unit of your
+input issuer, you can create a price authority from it.
+
+1. Find out your wallet petnames for the input and output issuers (for example,
+   `"Testnet.$LINK"` to `"Testnet.$USD"`).
+2. Create a public price authority for your push query (you will need to push at
+   least one result):
+```sh
+NOTIFIER_BOARD_ID=<boardId of push notifier> \
+IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
+agoric deploy --hostport=127.0.0.1:7999 api/from-notifier.js
+```
+3. Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
+   `agoric.priceAuthority`.  If you want to publish to the testnet you will need
+   to ask for somebody privileged to do this for you.
+```sh
+PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
+IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
+agoric deploy --hostport=127.0.0.1:7999 api/register.js
+```
+
+Here is a session testing the `priceAuthority`:
+
+```js
+home.wallet~.getIssuer('Testnet.$LINK')~.getBrand()
+history[3] [Alleged: presence o-82]{}
+home.wallet~.getIssuer('Testnet.$USD')~.getBrand()
+history[4] = [Alleged: presence o-81]{}
+home.priceAuthority~.getQuoteNotifier(history[3], history[4])~.getUpdateSince()
+> {"value":{"quotePayment":[Promise],"quoteAmount":{"brand":[Alleged: presence o-132]{},"value":[{"amountIn":{"brand":[Alleged: presence o-82]{},"value":1000000},"amountOut":{"brand":[Alleged: presence o-81]{},"value":1191},"timer":[Alleged: presence o-68]{},"timestamp":1604759700}]}},"updateCount":2}
+```
+
 ## Single-query Usage
 
 The `E(publicFacet).makeQueryInvitation(query)` call creates a query invitation,
