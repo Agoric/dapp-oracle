@@ -15,7 +15,7 @@ run_setup() {
   export AG_NETWORK_CONFIG=${1-"/usr/src/dapp-oracle/chainlink-agoric/etc/network-config.json"}
   echo "Network config: $AG_NETWORK_CONFIG"
 
-  start_docker 300
+  start_docker 300 1
 
   source ./internal-scripts/add-dapp-oracle.sh
 
@@ -35,7 +35,14 @@ run_setup() {
   add_jobspec "1" "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c"
   ./show-jobs.js
 
+  read -n 1 -p 'Start oracles 2 and 3 (y/N)? ' yesno
+  case $yesno in
+  [yY]*) ;;
+  *) exit 1 ;;
+  esac
+
   # Repeat for oracle 2
+  start_docker 300 2 3
   add_dapp_oracle "2"
   add_ei "2"
   add_bridge "2"

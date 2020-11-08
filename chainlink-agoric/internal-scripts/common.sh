@@ -68,15 +68,21 @@ run_ei() {
 }
 
 start_docker() {
-  title "Starting Chainlink Docker containers"
+  TIMEOUT=$1
+  shift
+  title "Starting Chainlink Docker containers $@"
 
-  docker-compose up -d chainlink-node1 chainlink-node2 chainlink-node3 agoric-adapter1 agoric-adapter2 agoric-adapter3
+  containers=
+  for i in ${1+"$@"}; do
+    containers="$containers chainlink-node$i agoric-adapter$i"
+  done
+  docker-compose up -d $containers
+  
+  for i in ${1+"$@"}; do
+    launch_chainlink "http://localhost:669$i/" $TIMEOUT
+  done
 
-  launch_chainlink "http://localhost:6691/" $1
-  launch_chainlink "http://localhost:6692/" $1
-  launch_chainlink "http://localhost:6693/" $1
-
-  title "Done starting Chainlink Docker containers"
+  title "Done starting Chainlink Docker containers $@"
 }
 
 stop_docker() {
