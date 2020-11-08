@@ -12,6 +12,7 @@ const startSpawn = async (_terms, _invitationMaker) => {
       issuerOut,
       timer,
       unitValueIn = 1,
+      scaleValueOut = 1,
       quoteMint,
     }) {
       const [mathIn, mathOut] = await Promise.all([
@@ -25,7 +26,10 @@ const startSpawn = async (_terms, _invitationMaker) => {
           /** @type {number} */
           let valueOutForUnitIn;
           try {
-            valueOutForUnitIn = parseInt(sample, 10);
+            // Scale the sample to the specifiec valueOut.
+            valueOutForUnitIn = Math.floor(
+              parseInt(sample, 10) * scaleValueOut,
+            );
             mathOut.make(valueOutForUnitIn);
           } catch (e) {
             console.error(`Cannot parse ${JSON.stringify(sample)}:`, e);

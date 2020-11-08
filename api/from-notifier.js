@@ -31,6 +31,7 @@ export default async function priceAuthorityfromNotifier(
     FORCE_SPAWN = 'true',
     IN_ISSUER_JSON = JSON.stringify('Testnet.$LINK'),
     OUT_ISSUER_JSON = JSON.stringify('Testnet.$USD'),
+    PRICE_DECIMALS = '0',
     NOTIFIER_BOARD_ID,
   } = process.env;
 
@@ -70,10 +71,17 @@ export default async function priceAuthorityfromNotifier(
     process.exit(1);
   }
 
-  const displayInfo = await E(E(issuerIn).getBrand()).getDisplayInfo();
-  const { decimalPlaces = 0 } = displayInfo || {};
+  const displayInfoIn = await E(E(issuerIn).getBrand()).getDisplayInfo();
+  const { decimalPlaces: decimalPlacesIn = 0 } = displayInfoIn || {};
 
-  const unitValueIn = 10 ** decimalPlaces;
+  const unitValueIn = 10 ** decimalPlacesIn;
+
+  const displayInfoOut = await E(E(issuerOut).getBrand()).getDisplayInfo();
+  const { decimalPlaces: decimalPlacesOut = 0 } = displayInfoOut || {};
+
+  // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut.
+  const priceDecimalPlaces = JSON.parse(PRICE_DECIMALS);
+  const scaleValueOut = 10 ** (decimalPlacesOut - priceDecimalPlaces);
 
   // Get the notifier.
   const notifierId = NOTIFIER_BOARD_ID.replace(/^board:/, '');
@@ -106,6 +114,7 @@ export default async function priceAuthorityfromNotifier(
     issuerOut,
     timer,
     unitValueIn,
+    scaleValueOut,
   });
 
   const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);

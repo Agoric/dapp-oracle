@@ -93,11 +93,13 @@ If you want to publish a scheduled query on the chain:
 
 1. Create a push query in the dapp-oracle server page.
 2. Create an external oracle job that posts back to Agoric with the results and
-   the push `queryId`.  For prices in `"Testnet.$USD"` be sure to scale the
-   resulting floating point dollar value up to mills (multiply by 1000)
+   the push `queryId`.  You will need to identify the number of decimal places
+   in your resulting price `PRICE_DECIMALS`.
    
 An at example for Chainlink, ensure your `"request_id"` param is set to the
-`queryId` and use the Agoric external adapter to submit your job's results:
+`queryId` and use the Agoric external adapter to submit your job's results.
+`PRICE_DECIMALS=2` because of the multiplication of the unit price by 100 (which
+is `10^2`):
 
 ```json
 {
@@ -121,7 +123,7 @@ An at example for Chainlink, ensure your `"request_id"` param is set to the
     },
     {
       "type": "Multiply",
-      "params": { "times": 1000 }
+      "params": { "times": 100 }
     },
     {
       "type": "Agoric",
@@ -139,10 +141,11 @@ input issuer, you can create a price authority from it.
 1. Find out your wallet petnames for the input and output issuers (for example,
    `"Testnet.$LINK"` to `"Testnet.$USD"`).
 2. Create a public price authority for your push query (you will need to push at
-   least one result):
+   least one result before the deployment will complete):
 ```sh
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
 IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
+PRICE_DECIMALS=2 \
 agoric deploy --hostport=127.0.0.1:7999 api/from-notifier.js
 ```
 3. Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
