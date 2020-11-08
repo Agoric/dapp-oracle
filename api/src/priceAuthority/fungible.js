@@ -218,6 +218,20 @@ export async function makeFungiblePriceAuthority(options) {
     return promiseKit.promise;
   }
 
+  const getLatestTimestamp = async () => {
+    // Get the first price quote, waiting for it to
+    // be published if it hasn't been already.
+    const priceQuote = await notifier.getUpdateSince();
+    const {
+      value: {
+        quoteAmount: {
+          value: [{ timestamp }],
+        },
+      },
+    } = priceQuote;
+    return timestamp;
+  };
+
   /** @type {PriceAuthority} */
   const priceAuthority = {
     async getQuoteIssuer(brandIn, brandOut) {
@@ -247,12 +261,14 @@ export async function makeFungiblePriceAuthority(options) {
     },
     async quoteGiven(amountIn, brandOut) {
       assertBrands(amountIn.brand, brandOut);
-      const timestamp = await E(timer).getCurrentTimestamp();
+
+      const timestamp = await getLatestTimestamp();
       return quoteGivenAtMost(amountIn, brandOut, timestamp);
     },
     async quoteWanted(brandIn, amountOut) {
       assertBrands(brandIn, amountOut.brand);
-      const timestamp = await E(timer).getCurrentTimestamp();
+
+      const timestamp = await getLatestTimestamp();
       return quoteWantedAtLeast(brandIn, amountOut, timestamp);
     },
     async quoteWhenGTE(amountIn, amountOutLimit) {
@@ -268,10 +284,6 @@ export async function makeFungiblePriceAuthority(options) {
       return resolveQuoteWhen(isLT, amountIn, amountOutLimit);
     },
   };
-
-  // Wait for the first quote.  This is essential so that there is at least one
-  // quote to base the others on.
-  await notifier.getUpdateSince();
 
   return priceAuthority;
 }

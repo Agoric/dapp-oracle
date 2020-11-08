@@ -1,11 +1,10 @@
 // @ts-check
-import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
 
 import { makeFungiblePriceAuthority } from './fungible';
 import {
   makeScriptedAsyncIterable,
-  makeRepeaterAsyncIterableKit,
+  makeTimerAsyncIterableKit,
 } from '../asyncIterableKit';
 
 import '@agoric/zoe/exported';
@@ -16,7 +15,8 @@ import '@agoric/zoe/exported';
  * @property {AmountMath} mathOut
  * @property {Array<number>} [priceList]
  * @property {Array<[number, number]>} [tradeList]
- * @property {ERef<TimerService>} timer
+ * @property {TimerService} timer
+ * @property {RelativeTime} [quoteDelay]
  * @property {RelativeTime} [quoteInterval]
  * @property {ERef<Mint>} [quoteMint]
  * @property {Amount} [unitAmountIn]
@@ -38,34 +38,35 @@ export async function makeFakePriceAuthority(options) {
     tradeList,
     timer,
     unitAmountIn = mathIn.make(1),
+    quoteDelay = 0,
     quoteInterval = 1,
     repeat = true,
     quoteMint,
   } = options;
 
-  assert(
-    tradeList || priceList,
-    details`One of priceList or tradeList must be specified`,
-  );
-
+  /** @type {number} */
   const unitValueIn = mathIn.getValue(unitAmountIn);
 
   /** @type {Array<[number, number]>} */
-  const trades = priceList
-    ? priceList.map(price => [unitValueIn, price])
-    : tradeList;
+  let trades;
+  if (tradeList) {
+    trades = tradeList;
+  } else {
+    assert(priceList, details`One of tradeList or priceList must be specified`);
+    trades = priceList.map(price => [unitValueIn, price]);
+  }
 
-  // Create a repeater for our timer.
-  const repeater = E(timer).createRepeater(0, quoteInterval);
-  const {
-    asyncIterable: repeaterAsyncIterable,
-  } = await makeRepeaterAsyncIterableKit(repeater);
+  // Create a timer iterator.
+  const timerAsyncIteratorKit = await makeTimerAsyncIterableKit(
+    timer,
+    quoteDelay,
+    quoteInterval,
+  );
 
   // Do the trades over the repeater.
   const quotes = makeScriptedAsyncIterable(
     trades,
-    repeaterAsyncIterable,
-    timer,
+    timerAsyncIteratorKit,
     repeat,
   );
 

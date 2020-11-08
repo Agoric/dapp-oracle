@@ -15,7 +15,7 @@ run_setup() {
   export AG_NETWORK_CONFIG=${1-"/usr/src/dapp-oracle/chainlink-agoric/etc/network-config.json"}
   echo "Network config: $AG_NETWORK_CONFIG"
 
-  start_docker 180
+  start_docker 300
 
   source ./internal-scripts/add-dapp-oracle.sh
 

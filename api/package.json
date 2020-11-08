@@ -5,14 +5,20 @@
   "description": "dapp-oracle Agoric Dapp web server handler",
   "scripts": {
     "build": "exit 0",
-    "test": "tape -r esm 'test/**/*.js'",
-    "lint": "eslint '**/*.{js,jsx}'",
-    "lint-fix": "eslint --fix '**/*.{js,jsx}'",
-    "lint-check": "eslint '**/*.{js,jsx}'",
+    "test": "ava",
+    "test:nyc": "nyc ava",
+    "lint": "yarn lint:types && yarn lint:eslint",
+    "lint:eslint": "eslint '**/*.{js,jsx}'",
+    "lint:types": "tsc -p jsconfig.json",
+    "lint-fix": "yarn lint --fix",
+    "lint-check": "yarn lint",
     "lint-fix-jessie": "eslint -c '.eslintrc-jessie.js' --fix '**/*.{js,jsx}'",
     "lint-check-jessie": "eslint -c '.eslintrc-jessie.js' '**/*.{js,jsx}'"
   },
   "devDependencies": {
+    "ava": "^3.12.1",
+    "nyc": "^15.1.0",
+    "typescript": "^3.9.3",
     "eslint": "^6.1.0",
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-config-jessie": "0.0.3",
@@ -78,5 +84,14 @@
   "bugs": {
     "url": "https://github.com/Agoric/agoric/issues"
   },
-  "homepage": "https://github.com/Agoric/agoric#readme"
+  "homepage": "https://github.com/Agoric/agoric#readme",
+  "ava": {
+    "files": [
+      "test/**/test-*.js"
+    ],
+    "require": [
+      "esm"
+    ],
+    "timeout": "10m"
+  }
 }

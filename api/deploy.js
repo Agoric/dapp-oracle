@@ -142,13 +142,6 @@ export default async function deployApi(
 
   await E(http).registerURLHandler(handler, '/api/oracle-client');
 
-  // To get the backend of our dapp up and running, first we need to
-  // grab the installationHandle that our contract deploy script put
-  // in the public board.
-  const contractInstallation = await E(board).getValue(
-    INSTALLATION_HANDLE_BOARD_ID,
-  );
-
   let httpClient;
   if (!INSTALL_ORACLE) {
     // For the builtin oracle, we ask the agoric deploy command to install an
@@ -169,6 +162,13 @@ export default async function deployApi(
 
   let INSTANCE_HANDLE_BOARD_ID;
   if (INSTALL_ORACLE || httpClient) {
+    // To get the backend of our dapp up and running, first we need to
+    // grab the installationHandle that our contract deploy script put
+    // in the public board.
+    const contractInstallation = await E(board).getValue(
+      INSTALLATION_HANDLE_BOARD_ID,
+    );
+
     console.log('Instantiating oracle contract');
     const issuerKeywordRecord = harden({ Fee: feeIssuer });
     const { instance, creatorFacet: initializationFacet } = await E(

@@ -1,7 +1,8 @@
 version: "3.6"
 x-chainlink-def:
   &chainlink-def
-  image: smartcontract/chainlink:latest
+  # image: smartcontract/chainlink:latest
+  image: agoric/chainlink:hacktheorb
   restart: on-failure
   secrets:
     - node_password

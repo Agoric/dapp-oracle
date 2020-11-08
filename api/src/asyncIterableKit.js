@@ -14,10 +14,10 @@ import '@agoric/zoe/exported';
  */
 
 /**
- * @template T
- * @typedef {Object} AsyncIterableKit
- * @property {AsyncIterable<T>} asyncIterable
+ * @typedef {Object} TimerAsyncIterableKit
+ * @property {AsyncIterable<Timestamp>} asyncIterable
  * @property {CancelFunction} cancel
+ * @property {TimerService} timer
  */
 
 /**
@@ -25,19 +25,17 @@ import '@agoric/zoe/exported';
  *
  * @template T
  * @param {Array<T>} script
- * @param {AsyncIterable<Timestamp>} timerAsyncIterable
- * @param {ERef<TimerService>} timerP
+ * @param {TimerAsyncIterableKit} timerAsyncIterableKit
  * @param {boolean} [repeat=true]
  * @returns {AsyncIterable<{ timer: TimerService, timestamp: Timestamp, item: T }>}
  */
 export async function* makeScriptedAsyncIterable(
   script,
-  timerAsyncIterable,
-  timerP,
+  timerAsyncIterableKit,
   repeat = true,
 ) {
   let index = 0;
-  const timer = await timerP;
+  const { timer, asyncIterable: timerAsyncIterable } = timerAsyncIterableKit;
   for await (const timestamp of timerAsyncIterable) {
     yield { timer, timestamp, item: script[index] };
     index += 1;
@@ -53,21 +51,14 @@ export async function* makeScriptedAsyncIterable(
 /**
  * Create an asyncIterable kit from a timer repeater.
  *
- * @param {ERef<TimerRepeater>} repeater
- * @param {Timestamp} [initialTimestamp]
- * @returns {Promise<AsyncIterableKit<Timestamp>>}
+ * @param {TimerService} timer
+ * @param {RelativeTime} delay
+ * @param {RelativeTime} interval
+ * @returns {Promise<TimerAsyncIterableKit>}
  */
-export const makeRepeaterAsyncIterableKit = async (
-  repeater,
-  initialTimestamp = undefined,
-) => {
-  /** @type {NotifierRecord<Timestamp>} */
+export const makeTimerAsyncIterableKit = async (timer, delay, interval) => {
   const { notifier, updater } = makeNotifierKit();
-
-  if (initialTimestamp !== undefined) {
-    // Prime the pump.
-    updater.updateState(initialTimestamp);
-  }
+  const repeater = E(timer).createRepeater(delay, interval);
 
   /** @type {TimerWaker} */
   await E(repeater).schedule({
@@ -83,7 +74,8 @@ export const makeRepeaterAsyncIterableKit = async (
   /** @type {CancelFunction} */
   const cancel = (reason = Error(`timerAsyncIterable was cancelled`)) => {
     updater.fail(reason);
+    E(repeater).disable();
   };
 
-  return { asyncIterable, cancel };
+  return { asyncIterable, cancel, timer };
 };
