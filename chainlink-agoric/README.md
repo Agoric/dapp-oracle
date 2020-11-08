@@ -5,7 +5,8 @@ This tool automates the setup and running of Chainlink components to read/write 
 ## Prerequisites
 
 The Chainlink components assume that you already have an Agoric chain running.
-This can either be a public chain or a local chain.
+This can either be a public chain or a local chain **BUT NOT the simulated
+chain**.
 
 To start a local chain, do the following:
 
@@ -18,11 +19,11 @@ Then:
 cd ..
 # Install the needed dependencies.
 agoric install
-# Start local chain implementation in one terminal
-AGORIC_CLI_OPTS="" agoric start --reset local-chain
-# Start a solo for the oracle client in another terminal
-AGORIC_CLI_OPTS="" agoric start --reset local-solo 8000
-# Deploy the oracle client in a third terminal
+# Start local chain implementation
+AGORIC_CLI_OPTS="" agoric start --reset local-chain >& chain.log &
+# Start a solo for the oracle client
+AGORIC_CLI_OPTS="" agoric start --reset local-solo 8000 >& 8000.log &
+# Deploy the oracle client
 agoric deploy api/deploy.js
 ```
 
