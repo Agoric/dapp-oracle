@@ -12,23 +12,23 @@ x-chainlink-def:
   command: 'node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials'
 x-postgres-def:
   &postgres-def
-  image: postgres
+  image: agoric/postgres:hacktheorb
   restart: on-failure
   environment:
     - "POSTGRES_MULTIPLE_DATABASES=chainlink,ei"
     - "POSTGRES_HOST_AUTH_METHOD=trust"
 x-ag-solo-node-def:
   &ag-solo-node-def
-  image: agoric/cosmic-swingset-solo
+  image: agoric/cosmic-swingset-solo:hacktheorb
   restart: on-failure
 x-external-initiator-def:
   &external-initiator-def
   # image: smartcontract/external-initiator
-  image: agoric/chainlink-external-initiator
+  image: agoric/chainlink-external-initiator:hacktheorb
 x-agoric-adapter-def:
   &agoric-adapter-def
   # image: smartcontract/agoric-adapter
-  image: agoric/chainlink-adapter
+  image: agoric/chainlink-adapter:hacktheorb
   restart: on-failure
   env_file:
     - ./adapter.env
