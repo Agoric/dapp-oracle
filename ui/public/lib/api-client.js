@@ -12,8 +12,12 @@ const { API_URL } = dappConstants;
 function getWebSocketEndpoint(endpoint) {
   // TODO proxy socket.
   const search = new URLSearchParams(window.location.search);
-  let apiUrl = search.get('API_URL') || API_URL;
-  const url = new URL(endpoint, apiUrl || window.origin);
+  const apiUrl = new URL(search.get('API_URL') || API_URL || window.origin);
+  const apiPort = search.get('API_PORT');
+  if (apiPort) {
+    apiUrl.port = apiPort;
+  }
+  const url = new URL(endpoint, apiUrl);
   url.protocol = url.protocol.replace(/^http/, 'ws');
   return url.href;
 }

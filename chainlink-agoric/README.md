@@ -81,12 +81,12 @@ Your `setup` script invocation produced a set of oracle descriptions, something
 like:
 
 ```
-board:<board-id> jobId:<chainlink-jobid> http://localhost:<port>
+board:<board-id> jobId:<chainlink-jobid> ?API_URL=<backend url> CL=<chainlink url>
 ```
 
-Now you visit `http://localhost:3000?API_URL=ws://localhost:<port>` to interact
-with the oracle's private API server.  Fill out the `jobId` and `board` in the
-UI corresponding to that oracle.
+Now you visit `http://localhost:3000?API_URL=<backend url>` to interact with the
+oracle's private API server.  Fill out the `jobId` and `board` in the UI
+corresponding to that oracle.
 
 Queries you submit will be routed over the chain to the specified on-chain
 oracle contract (designated by `board`), to the Chainlink node and back, and you
