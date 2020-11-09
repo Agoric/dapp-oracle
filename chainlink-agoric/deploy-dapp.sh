@@ -3,7 +3,7 @@ set -e
 
 # Create the Agoric CLI in $HOME/bin/agoric.
 export PATH=$HOME/bin:$PATH
-(cd /usr/src/agoric-sdk && yarn create-agoric-cli $HOME/bin/agoric)
+test -f $HOME/bin/agoric || (cd /usr/src/agoric-sdk && yarn create-agoric-cli $HOME/bin/agoric)
 
 case $AG_NETWORK_CONFIG in
 /*) ncf=$(cat "$AG_NETWORK_CONFIG") ;;
