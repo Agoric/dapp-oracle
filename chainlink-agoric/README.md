@@ -40,7 +40,8 @@ If you are running the Agoric chain externally, run something like:
 AG_COSMOS_HELPER_OPTS="--from=<your-keyname>" ./setup "https://testnet.agoric.com/network-config"
 ```
 
-This will create and start up to 3 Chainlink nodes, with an adapter and EI connected to each.
+This will create and start up to 3 Chainlink nodes, with an adapter and EI
+connected to each.  Read further to see how to query the nodes.
 
 It will attempt to provision separate Agoric addresses for each node, which if
 you used a non-local chain you can do manually via `ag-cosmos-helper tx swingset
@@ -72,9 +73,16 @@ To start the oracle client UI, run:
 (cd ../ui && yarn start) &
 ```
 
-and visit `http://localhost:3000?API_PORT=6891` to interact with the first
-oracle's private API server.  You can specify `6892` or `6893` for the second or
-third oracles.
+Your `setup` script invocation produced a set of oracle descriptions, something
+like:
+
+```
+board:<board-id> jobId:"<chainlink-jobid>" http://localhost:<port>
+```
+
+Now you visit `http://localhost:3000?API_PORT=<port>` to interact with the
+oracle's private API server.  Fill out the `jobId` and `board` in the UI
+corresponding to that oracle.
 
 Queries you submit will be routed over the chain to the specified on-chain
 oracle contract (designated by `board`), to the Chainlink node and back, and you
@@ -82,8 +90,9 @@ should see the replies.
 
 ### Independent client
 
-If you want to fully test the end-to-end, you can deploy an independent client
-that is not associated with a specific oracle node, and has its own wallet:
+The above instructions test the integration, but don't allow you to submit paid
+queries or use a non-privileged oracle client instead of setting the `API_PORT`.
+To use a completely decoupled oracle client and a fresh wallet, run the following:
 
 ```sh
 # Start a solo for the oracle client
@@ -92,16 +101,6 @@ AGORIC_CLI_OPTS="" agoric start --reset local-solo 8000 >& 8000.log &
 agoric deploy api/deploy.js
 ```
 
-then visit `http://localhost:3000` and submit queries as above.  You'll notice
-that the server control panel is missing because there is no specific server in
-the local solo (no `API_PORT` specifieed).
-
-You will need to use one of the pair of `board` and `jobId` identifiers printed
-out at the end of the `setup` script's execution, which looks something like:
-
-```
-board:<board-id> jobId:"<chainlink-jobid>" http://localhost:<port>
-```
-
-That's how your oracle client identifies which on-chain oracle contract to use
-(without cheating and directly talking to the `API_PORT`).
+then visit `http://localhost:3000` and submit queries as above (you still need
+to fill out the board and `jobId`s).  You'll notice that the oracle server
+control panel is missing because there is no specific server in the local solo.

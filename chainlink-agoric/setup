@@ -33,12 +33,15 @@ run_setup() {
 
   : > jobids.txt
   add_jobspec "1" "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c"
-  ./show-jobs.js
 
   read -n 1 -p 'Start oracles 2 and 3 (y/N)? ' yesno
+  echo
+
+  ./show-jobs.js
+
   case $yesno in
   [yY]*) ;;
-  *) exit 1 ;;
+  *) exit 0 ;;
   esac
 
   # Repeat for oracle 2
