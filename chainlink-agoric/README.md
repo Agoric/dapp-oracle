@@ -24,6 +24,10 @@ AGORIC_CLI_OPTS="" agoric start --reset local-chain >& chain.log &
 
 ## Running
 
+To complete these steps, you need:
+- [Docker](https://docker.io)
+- [jq](https://stedolan.github.io/jq/download/)
+
 ### Initial setup
 
 _Note: Make sure you have cd-ed into this directory_
@@ -80,9 +84,9 @@ like:
 board:<board-id> jobId:<chainlink-jobid> http://localhost:<port>
 ```
 
-Now you visit `http://localhost:3000?API_PORT=<port>` to interact with the
-oracle's private API server.  Fill out the `jobId` and `board` in the UI
-corresponding to that oracle.
+Now you visit `http://localhost:3000?API_URL=ws://localhost:<port>` to interact
+with the oracle's private API server.  Fill out the `jobId` and `board` in the
+UI corresponding to that oracle.
 
 Queries you submit will be routed over the chain to the specified on-chain
 oracle contract (designated by `board`), to the Chainlink node and back, and you
