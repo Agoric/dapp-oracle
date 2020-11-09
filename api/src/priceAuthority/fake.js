@@ -1,7 +1,7 @@
 // @ts-check
 import { assert, details } from '@agoric/assert';
 
-import { makeFungiblePriceAuthority } from './fungible';
+import { makeLinearPriceAuthority } from './linear';
 import {
   makeScriptedAsyncIterable,
   makeTimerAsyncIterableKit,
@@ -15,6 +15,7 @@ import '@agoric/zoe/exported';
  * @property {AmountMath} mathOut
  * @property {Array<number>} [priceList]
  * @property {Array<[number, number]>} [tradeList]
+ * @property {QuoteStream} [quotes]
  * @property {TimerService} timer
  * @property {RelativeTime} [quoteDelay]
  * @property {RelativeTime} [quoteInterval]
@@ -36,41 +37,45 @@ export async function makeFakePriceAuthority(options) {
     mathOut,
     priceList,
     tradeList,
+    quotes: overrideQuotes,
     timer,
     unitAmountIn = mathIn.make(1),
     quoteDelay = 0,
     quoteInterval = 1,
-    repeat = true,
     quoteMint,
   } = options;
 
-  /** @type {number} */
-  const unitValueIn = mathIn.getValue(unitAmountIn);
+  let quotes = overrideQuotes;
+  if (!quotes) {
+    let trades;
+    if (tradeList) {
+      trades = tradeList.map(([valueIn, valueOut]) => ({
+        amountIn: mathIn.make(valueIn),
+        amountOut: mathOut.make(valueOut),
+      }));
+    } else {
+      assert(
+        priceList,
+        details`Either quotes, priceList, or tradeList must be specified`,
+      );
+      trades = priceList.map(price => ({
+        amountIn: unitAmountIn,
+        amountOut: mathOut.make(price),
+      }));
+    }
 
-  /** @type {Array<[number, number]>} */
-  let trades;
-  if (tradeList) {
-    trades = tradeList;
-  } else {
-    assert(priceList, details`One of tradeList or priceList must be specified`);
-    trades = priceList.map(price => [unitValueIn, price]);
+    // Create a timer iterator.
+    const timerAsyncIteratorKit = await makeTimerAsyncIterableKit(
+      timer,
+      quoteDelay,
+      quoteInterval,
+    );
+
+    // Do the repeated trades.
+    quotes = makeScriptedAsyncIterable(trades, timerAsyncIteratorKit, true);
   }
 
-  // Create a timer iterator.
-  const timerAsyncIteratorKit = await makeTimerAsyncIterableKit(
-    timer,
-    quoteDelay,
-    quoteInterval,
-  );
-
-  // Do the trades over the repeater.
-  const quotes = makeScriptedAsyncIterable(
-    trades,
-    timerAsyncIteratorKit,
-    repeat,
-  );
-
-  const priceAuthority = await makeFungiblePriceAuthority({
+  const priceAuthority = await makeLinearPriceAuthority({
     mathIn,
     mathOut,
     quotes,

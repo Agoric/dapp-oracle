@@ -1,3 +1,5 @@
 export * from './fake';
-export * from './fungible';
+export * from './linear';
+export * from './inverse';
 export * from './registry';
+export * from './single';

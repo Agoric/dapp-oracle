@@ -10,11 +10,19 @@ import buildManualTimer from '@agoric/zoe/tools/manualTimer';
 import { makeFakePriceAuthority } from '../src/priceAuthority/fake';
 import { setup } from './setupBasicMints';
 
-const makeTestPriceAuthority = (amountMaths, priceList, timer) =>
+/**
+ * @param {Object} param0
+ * @param {Map<string, AmountMath>} param0.amountMaths
+ * @param {Array<number>} [param0.priceList]
+ * @param {Array<[number, number]>} [param0.tradeList]
+ * @param {TimerService} param0.timer
+ */
+const makeTestPriceAuthority = ({ amountMaths, priceList, tradeList, timer }) =>
   makeFakePriceAuthority({
     mathIn: amountMaths.get('moola'),
     mathOut: amountMaths.get('bucks'),
     priceList,
+    tradeList,
     timer,
   });
 
@@ -22,11 +30,11 @@ test('priceAuthority quoteAtTime', async t => {
   const { moola, bucks, amountMaths, brands } = setup();
   const bucksBrand = brands.get('bucks');
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [20, 55],
-    manualTimer,
-  );
+    priceList: [20, 55],
+    timer: manualTimer,
+  });
 
   const done = E(priceAuthority)
     .quoteAtTime(3, moola(5), bucksBrand)
@@ -51,11 +59,11 @@ test('priceAuthority quoteGiven', async t => {
   const { moola, amountMaths, brands, bucks } = setup();
   const bucksBrand = brands.get('bucks');
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [20, 55],
-    manualTimer,
-  );
+    priceList: [20, 55],
+    timer: manualTimer,
+  });
 
   await E(manualTimer).tick();
   const quote = await E(priceAuthority).quoteGiven(moola(37), bucksBrand);
@@ -68,11 +76,11 @@ test('priceAuthority quoteWanted', async t => {
   const { moola, bucks, amountMaths, brands } = setup();
   const moolaBrand = brands.get('moola');
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [20, 55],
-    manualTimer,
-  );
+    priceList: [20, 55],
+    timer: manualTimer,
+  });
 
   await E(manualTimer).tick();
   const quote = await E(priceAuthority).quoteWanted(moolaBrand, bucks(400));
@@ -87,18 +95,21 @@ test('priceAuthority paired quotes', async t => {
   const moolaBrand = brands.get('moola');
   const bucksBrand = brands.get('bucks');
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [20, 55],
-    manualTimer,
-  );
+    tradeList: [
+      [2, 40],
+      [1, 55],
+    ],
+    timer: manualTimer,
+  });
 
   await E(manualTimer).tick();
 
   const quoteOut = await E(priceAuthority).quoteWanted(moolaBrand, bucks(400));
   const quoteOutAmount = quoteOut.quoteAmount.value[0];
   t.is(1, quoteOutAmount.timestamp);
-  t.deepEqual(bucks(400), quoteOutAmount.amountOut);
+  t.deepEqual(bucks((20 * 40) / 2), quoteOutAmount.amountOut);
   t.deepEqual(moola(20), quoteOutAmount.amountIn);
 
   const quoteIn = await E(priceAuthority).quoteGiven(moola(22), bucksBrand);
@@ -111,13 +122,13 @@ test('priceAuthority paired quotes', async t => {
 test('priceAuthority quoteWhenGTE', async t => {
   const { moola, bucks, amountMaths } = setup();
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [20, 30, 25, 40],
-    manualTimer,
-  );
+    priceList: [20, 30, 25, 40],
+    timer: manualTimer,
+  });
 
-  E(priceAuthority)
+  const expected = E(priceAuthority)
     .quoteWhenGTE(moola(1), bucks(40))
     .then(quote => {
       const quoteInAmount = quote.quoteAmount.value[0];
@@ -131,19 +142,19 @@ test('priceAuthority quoteWhenGTE', async t => {
   await E(manualTimer).tick();
   await E(manualTimer).tick();
   await E(manualTimer).tick();
-  // await E(manualTimer).tick();
+  await expected;
 });
 
 test('priceAuthority quoteWhenLT', async t => {
   const { moola, bucks, amountMaths } = setup();
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [40, 30, 29],
-    manualTimer,
-  );
+    priceList: [40, 30, 29],
+    timer: manualTimer,
+  });
 
-  E(priceAuthority)
+  const expected = E(priceAuthority)
     .quoteWhenLT(moola(1), bucks(30))
     .then(quote => {
       const quoteInAmount = quote.quoteAmount.value[0];
@@ -156,19 +167,19 @@ test('priceAuthority quoteWhenLT', async t => {
   await E(manualTimer).tick();
   await E(manualTimer).tick();
   await E(manualTimer).tick();
-  // await E(manualTimer).tick();
+  await expected;
 });
 
 test('priceAuthority quoteWhenGT', async t => {
   const { moola, bucks, amountMaths } = setup();
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [40, 30, 41],
-    manualTimer,
-  );
+    priceList: [40, 30, 41],
+    timer: manualTimer,
+  });
 
-  E(priceAuthority)
+  const expected = E(priceAuthority)
     .quoteWhenGT(moola(1), bucks(40))
     .then(quote => {
       const quoteInAmount = quote.quoteAmount.value[0];
@@ -181,19 +192,19 @@ test('priceAuthority quoteWhenGT', async t => {
   await E(manualTimer).tick();
   await E(manualTimer).tick();
   await E(manualTimer).tick();
-  // await E(manualTimer).tick();
+  await expected;
 });
 
 test('priceAuthority quoteWhenLTE', async t => {
   const { moola, bucks, amountMaths } = setup();
   const manualTimer = buildManualTimer(console.log, 0);
-  const priceAuthority = await makeTestPriceAuthority(
+  const priceAuthority = await makeTestPriceAuthority({
     amountMaths,
-    [40, 26, 50, 25],
-    manualTimer,
-  );
+    priceList: [40, 26, 50, 25],
+    timer: manualTimer,
+  });
 
-  E(priceAuthority)
+  const expected = E(priceAuthority)
     .quoteWhenLTE(moola(1), bucks(25))
     .then(quote => {
       const quoteInAmount = quote.quoteAmount.value[0];
@@ -207,4 +218,5 @@ test('priceAuthority quoteWhenLTE', async t => {
   await E(manualTimer).tick();
   await E(manualTimer).tick();
   await E(manualTimer).tick();
+  await expected;
 });

@@ -2,10 +2,55 @@
 import { E } from '@agoric/eventual-send';
 import { makeLocalAmountMath } from '@agoric/ertp';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
-import { makeFungiblePriceAuthority } from './priceAuthority';
+import {
+  makeLinearPriceAuthority,
+  makeInverseQuoteStream,
+} from './priceAuthority';
 
 const startSpawn = async (_terms, _invitationMaker) => {
   const factory = {
+    /**
+     * Adapt a price authority into its inverse (quotes sales of issuerOut for
+     * receipts of issuerIn).
+     *
+     * @param {Object} param0
+     * @param {ERef<Issuer>} param0.issuerIn
+     * @param {ERef<Issuer>} param0.issuerOut
+     * @param {ERef<PriceAuthority>} param0.inOutPriceAuthority
+     * @param {ERef<Mint>} [param0.quoteMint]
+     * @param {ERef<TimerService>} [param0.timer]
+     * @returns {Promise<PriceAuthority>}
+     */
+    async makeInversePriceAuthority({
+      issuerIn,
+      issuerOut,
+      inOutPriceAuthority,
+      quoteMint,
+      timer,
+    }) {
+      const [mathIn, mathOut] = await Promise.all([
+        makeLocalAmountMath(issuerIn),
+        makeLocalAmountMath(issuerOut),
+      ]);
+
+      const quotes = makeInverseQuoteStream({
+        mathIn,
+        mathOut,
+        inOutPriceAuthority,
+      });
+      return makeLinearPriceAuthority({
+        mathIn,
+        mathOut,
+        quotes,
+        timer:
+          timer ||
+          E(inOutPriceAuthority).getTimerService(
+            mathIn.getBrand(),
+            mathOut.getBrand(),
+          ),
+        quoteMint,
+      });
+    },
     async makeNotifierPriceAuthority({
       notifier,
       issuerIn,
@@ -19,34 +64,32 @@ const startSpawn = async (_terms, _invitationMaker) => {
         makeLocalAmountMath(issuerIn),
         makeLocalAmountMath(issuerOut),
       ]);
-      mathIn.make(unitValueIn);
+      const amountIn = mathIn.make(unitValueIn);
 
       async function* makeQuotes() {
         for await (const sample of makeAsyncIterableFromNotifier(notifier)) {
-          /** @type {number} */
-          let valueOutForUnitIn;
+          /** @type {Amount} */
+          let amountOut;
           try {
             // Scale the sample to the specifiec valueOut.
-            valueOutForUnitIn = Math.floor(
+            const valueOutForUnitIn = Math.floor(
               parseInt(sample, 10) * scaleValueOut,
             );
-            mathOut.make(valueOutForUnitIn);
+            amountOut = mathOut.make(valueOutForUnitIn);
           } catch (e) {
             console.error(`Cannot parse ${JSON.stringify(sample)}:`, e);
             // eslint-disable-next-line no-continue
             continue;
           }
           const timestamp = await E(timer).getCurrentTimestamp();
-          /** @type {[number, number]} */
-          const item = [unitValueIn, valueOutForUnitIn];
-          const quote = { timestamp, timer, item };
+          const quote = { timestamp, timer, item: { amountIn, amountOut } };
           // console.error('quoting', quote);
           yield quote;
         }
       }
 
       const quotes = makeQuotes();
-      return makeFungiblePriceAuthority({
+      return makeLinearPriceAuthority({
         mathIn,
         mathOut,
         quotes,

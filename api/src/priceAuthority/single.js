@@ -5,33 +5,28 @@ import { updateFromIterable, makeNotifierKit } from '@agoric/notifier';
 import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
 
-import { natSafeMath } from '@agoric/zoe/src/contractSupport';
-
 import '@agoric/zoe/exported';
 
 /**
- * @typedef {number} ValueIn
- * @typedef {number} ValueOut
- * @typedef {AsyncIterable<{ timestamp: Timestamp, timer: TimerService, item: [ValueIn, ValueOut] }>} QuoteStream
+ * @typedef {Object} SinglePriceAuthorityOptions
+ * @property {(amountIn: Amount) => Amount} expectedAmountOut calculate the
+ * amountOut that would be received if somebody sold amountIn
+ * @property {(amountOut: Amount) => Amount} neededAmountIn calculate the
+ * amountIn needed to sell to received amountOut
  */
 
 /**
- * @typedef {Object} FungiblePriceAuthorityOptions
- * @property {AmountMath} mathIn
- * @property {AmountMath} mathOut
- * @property {QuoteStream} quotes
- * @property {ERef<TimerService>} timer
- * @property {ERef<Mint>} [quoteMint]
- */
-
-/**
- * @param {FungiblePriceAuthorityOptions} options
+ * Create a price authority for a single direction (e.g. `moola -> simolean`).
+ *
+ * @param {SinglePriceAuthorityOptions & BasePriceAuthorityOptions} options
  * @returns {Promise<PriceAuthority>}
  */
-export async function makeFungiblePriceAuthority(options) {
+export async function makeSinglePriceAuthority(options) {
   const {
     mathIn,
     mathOut,
+    neededAmountIn,
+    expectedAmountOut,
     quotes,
     timer: timerP,
     quoteMint = makeIssuerKit('quote', MathKind.SET).mint,
@@ -40,23 +35,23 @@ export async function makeFungiblePriceAuthority(options) {
   const timer = await timerP;
 
   /**
-   * @typedef {(a: number, b: number) => boolean} Operator
+   * @typedef {(a: Amount, b: Amount) => boolean} AmountComparator
    */
 
-  /** @type {Operator} */
-  const isGTE = (a, b) => a >= b;
-  /** @type {Operator} */
-  const isGT = (a, b) => a > b;
-  /** @type {Operator} */
-  const isLTE = (a, b) => a <= b;
-  /** @type {Operator} */
-  const isLT = (a, b) => a < b;
+  /** @type {AmountComparator} */
+  const isGTE = (a, b) => mathOut.isGTE(a, b);
+  /** @type {AmountComparator} */
+  const isGT = (a, b) => !mathOut.isGTE(b, a);
+  /** @type {AmountComparator} */
+  const isLTE = (a, b) => mathOut.isGTE(b, a);
+  /** @type {AmountComparator} */
+  const isLT = (a, b) => !mathOut.isGTE(a, b);
 
   /**
    * @typedef {Object} Trigger
-   * @property {Operator} operator
-   * @property {ValueIn} valueIn
-   * @property {ValueOut} valueOutLimit
+   * @property {AmountComparator} amountComparator
+   * @property {Amount} amountIn
+   * @property {Amount} amountOutLimit
    * @property {(quote: PriceQuote) => void} resolve
    */
 
@@ -87,17 +82,17 @@ export async function makeFungiblePriceAuthority(options) {
   const { notifier, updater } = makeNotifierKit();
 
   /**
-   * @param {ValueIn} valueIn
-   * @param {ValueOut} valueOut
+   * @param {Amount} amountIn
+   * @param {Amount} amountOut
    * @param {Timestamp} quoteTime
    * @returns {PriceQuote}
    */
-  const makeQuote = (valueIn, valueOut, quoteTime) => {
+  const makeQuote = (amountIn, amountOut, quoteTime) => {
     const quoteAmount = quoteMath.make(
       harden([
         {
-          amountIn: mathIn.make(valueIn),
-          amountOut: mathOut.make(valueOut),
+          amountIn,
+          amountOut,
           timer,
           timestamp: quoteTime,
         },
@@ -110,15 +105,6 @@ export async function makeFungiblePriceAuthority(options) {
     return quote;
   };
 
-  /** @type {PriceQuote} */
-  let latestQuote;
-
-  /** @type {ValueIn} */
-  let latestValueIn;
-
-  /** @type {ValueOut} */
-  let latestValueOut;
-
   /**
    * See which triggers have fired.
    *
@@ -127,44 +113,45 @@ export async function makeFungiblePriceAuthority(options) {
   const checkTriggers = timestamp => {
     let i = 0;
     while (i < triggerQueue.length) {
-      const { valueIn, operator, resolve, valueOutLimit } = triggerQueue[i];
-      const valueOut = natSafeMath.floorDivide(
-        natSafeMath.multiply(valueIn, latestValueOut),
-        latestValueIn,
-      );
-
-      if (operator(valueOut, valueOutLimit)) {
+      const {
+        amountIn,
+        amountComparator,
+        amountOutLimit,
+        resolve,
+      } = triggerQueue[i];
+      const amountOut = expectedAmountOut(amountIn);
+      if (amountComparator(amountOut, amountOutLimit)) {
         // Fire the trigger!
         triggerQueue.splice(i, 1);
-        resolve(makeQuote(valueIn, valueOut, timestamp));
+        resolve(makeQuote(amountIn, amountOut, timestamp));
       } else {
         i += 1;
       }
     }
   };
 
+  /** @type {PriceQuote} */
+  let latestQuote;
+
   /** Update from the latest quote. */
   updateFromIterable(
     {
-      async finish(_ignore) {
-        updater.finish(latestQuote);
-      },
-      fail(reason) {
-        if (latestQuote) {
-          // We don't fail the updater, just finish with the latest state.
-          updater.finish(latestQuote);
-        }
-        // Failed to produce any values.
-        updater.fail(reason);
-      },
-      updateState({ timestamp, item: [valueIn, valueOut] }) {
-        latestQuote = makeQuote(valueIn, valueOut, timestamp);
-        latestValueIn = valueIn;
-        latestValueOut = valueOut;
+      updateState({ timestamp, item: { amountIn, amountOut } }) {
+        latestQuote = makeQuote(amountIn, amountOut, timestamp);
         updater.updateState(latestQuote);
 
         // Check the triggers with the new quote.
         checkTriggers(timestamp);
+      },
+      finish(_ignored) {
+        if (!latestQuote) {
+          updater.fail(Error(`No quotes were generated`));
+          return;
+        }
+        updater.finish(latestQuote);
+      },
+      fail(reason) {
+        updater.fail(reason);
       },
     },
     quotes,
@@ -180,12 +167,8 @@ export async function makeFungiblePriceAuthority(options) {
    */
   function quoteGivenAtMost(amountIn, brandOut, quoteTime) {
     assertBrands(amountIn.brand, brandOut);
-    const valueIn = mathIn.getValue(amountIn);
-    const valueOut = natSafeMath.floorDivide(
-      natSafeMath.multiply(amountIn.value, latestValueOut),
-      latestValueIn,
-    );
-    return makeQuote(valueIn, valueOut, quoteTime);
+    const amountOut = expectedAmountOut(amountIn);
+    return makeQuote(amountIn, amountOut, quoteTime);
   }
 
   /**
@@ -198,30 +181,34 @@ export async function makeFungiblePriceAuthority(options) {
    */
   function quoteWantedAtLeast(brandIn, amountOut, quoteTime) {
     assertBrands(brandIn, amountOut.brand);
-    const valueOut = mathOut.getValue(amountOut);
-    const valueIn = natSafeMath.ceilDivide(
-      natSafeMath.multiply(valueOut, latestValueIn),
-      latestValueOut,
-    );
-    return quoteGivenAtMost(mathIn.make(valueIn), amountOut.brand, quoteTime);
+    const amountIn = neededAmountIn(amountOut);
+    return quoteGivenAtMost(amountIn, amountOut.brand, quoteTime);
   }
 
-  function resolveQuoteWhen(operator, amountIn, amountOutLimit) {
+  /**
+   * @param {AmountComparator} amountComparator
+   * @param {Amount} amountIn
+   * @param {Amount} amountOutLimit
+   */
+  function resolveQuoteWhen(amountComparator, amountIn, amountOutLimit) {
     assertBrands(amountIn.brand, amountOutLimit.brand);
+    mathOut.coerce(amountOutLimit);
+    mathIn.coerce(amountIn);
     const promiseKit = makePromiseKit();
     triggerQueue.push({
-      operator,
-      valueIn: mathIn.getValue(amountIn),
-      valueOutLimit: mathOut.getValue(amountOutLimit),
+      amountComparator,
+      amountIn,
+      amountOutLimit,
       resolve: promiseKit.resolve,
     });
     return promiseKit.promise;
   }
 
   const getLatestTimestamp = async () => {
-    // Get the first price quote, waiting for it to
-    // be published if it hasn't been already.
+    // Get the latest price quote, waiting for it to be published if it hasn't
+    // been already.
     const priceQuote = await notifier.getUpdateSince();
+    // Extract its timestamp.
     const {
       value: {
         quoteAmount: {
