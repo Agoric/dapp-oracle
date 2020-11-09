@@ -1,13 +1,18 @@
+// @ts-nocheck
 import { E } from '@agoric/eventual-send';
 import { makeLocalAmountMath } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
-import { makeNotifierKit } from '@agoric/notifier';
+import {
+  makeNotifierKit,
+  makeAsyncIterableFromNotifier,
+  observeIteration,
+} from '@agoric/notifier';
 import { makeStore } from '@agoric/store';
 
 import '@agoric/zoe/src/contracts/exported';
 
 async function makeExternalOracle({ board, http, feeIssuer }) {
-  console.warn('got', feeIssuer);
+  // console.warn('got', feeIssuer);
   const feeAmountMath = await makeLocalAmountMath(feeIssuer);
 
   const subChannelHandles = new Set();
@@ -94,9 +99,30 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
 
               // Say that we have an updater for that query.
               queryIdToUpdater.init(queryId, updater);
-              queryIdToData.init(queryId, { ...obj.data, queryId, boardId });
+              const data = { ...obj.data, queryId, boardId };
+              queryIdToData.init(queryId, data);
 
               publishPending();
+              observeIteration(makeAsyncIterableFromNotifier(notifier), {
+                updateState(reply) {
+                  sendToSubscribers({
+                    type: 'oracleServer/onPush',
+                    data: { ...data, reply },
+                  });
+                },
+                finish(final) {
+                  sendToSubscribers({
+                    type: 'oracleServer/onPush',
+                    data: { ...data, reply: final },
+                  });
+                },
+                fail(error) {
+                  sendToSubscribers({
+                    type: 'oracleServer/onPush',
+                    data: { ...data, error },
+                  });
+                },
+              });
 
               return harden({
                 type: 'oracleServer/createNotifierResponse',

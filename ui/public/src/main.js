@@ -67,6 +67,11 @@ export default async function main() {
           }).map(([_key, data]) => data || {}).forEach(processPendingQueryData);
           break;
         }
+        case 'oracleServer/onPush': {
+          const { queryId, reply, error } = obj.data;
+          answer({ replyId: queryId, reply, error });
+          break;
+        }
         case 'oracleServer/createNotifierResponse': {
           const { queryId, boardId } = obj.data;
           /** @type {HTMLSpanElement} */
@@ -102,14 +107,16 @@ export default async function main() {
       const notifier = document.createElement('div');
       const display = boardId ? `board:${boardId}` : 'unknown';
       notifier.innerHTML = `\
-Notifier: <span id="notifier-${queryId}">${display}</span>
+Notifier: <span id="notifier-${queryId}">${display}</span><br />
+<div id="reply-${queryId}">Last push: <code class="reply">Waiting...</code></div>
+queryId: ${JSON.stringify(queryId)}<br />
 `;
       el.appendChild(notifier);
     }
     $oracleRequests.appendChild(el);
     if (!boardId && !el.querySelector('.query')) {
       const ql = document.createElement('code');
-      ql.innerText = JSON.stringify(query, null, 2);
+      format(ql, query);
       ql.setAttribute('class', 'query');
       el.appendChild(ql);
     }
@@ -121,7 +128,6 @@ Notifier: <span id="notifier-${queryId}">${display}</span>
     }
     if (boardId) {
       actions.innerHTML = `\
-queryId: ${JSON.stringify(queryId)}<br />
 <textarea placeholder="JSON push">null</textarea><br />
 <button class="push">Push</button> <button class="cancel">Cancel</button>
 `;
