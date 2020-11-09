@@ -37,7 +37,7 @@ If you are running the Agoric local-chain, simply run:
 If you are running the Agoric chain externally, run something like:
 
 ```bash
-AG_COSMOS_HELPER_OPTS="--from=<your-keyname>" ./setup "https://testnet.agoric.com/network-config"
+AG_COSMOS_HELPER_OPTS=--from=<your-keyname> ./setup "https://testnet.agoric.com/network-config"
 ```
 
 This will create and start up to 3 Chainlink nodes, with an adapter and EI
@@ -77,7 +77,7 @@ Your `setup` script invocation produced a set of oracle descriptions, something
 like:
 
 ```
-board:<board-id> jobId:"<chainlink-jobid>" http://localhost:<port>
+board:<board-id> jobId:<chainlink-jobid> http://localhost:<port>
 ```
 
 Now you visit `http://localhost:3000?API_PORT=<port>` to interact with the
@@ -91,12 +91,12 @@ should see the replies.
 ### Independent client
 
 The above instructions test the integration, but don't allow you to submit paid
-queries or use a non-privileged oracle client instead of setting the `API_PORT`.
-To use a completely decoupled oracle client and a fresh wallet, run the following:
+queries or avoid contacting the private `API_PORT` of an oracle.  To use a
+completely decoupled oracle client and a fresh wallet, run the following:
 
 ```sh
 # Start a solo for the oracle client
-AGORIC_CLI_OPTS="" agoric start --reset local-solo 8000 >& 8000.log &
+AGORIC_CLI_OPTS="" agoric start --reset local-solo 8000 agoric.priceAuthorityAdmin >& 8000.log &
 # Deploy the oracle client (DON'T allow unsafe plugins)
 agoric deploy api/deploy.js
 ```

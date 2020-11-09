@@ -75,13 +75,11 @@ If you want to publish a scheduled query on the chain:
 
 1. Create a push query in the dapp-oracle server page.
 2. Create an external oracle job that posts back to Agoric with the results and
-   the push `queryId`.  You will need to identify the number of decimal places
-   in your resulting price `PRICE_DECIMALS`.
+   the push `queryId`.
    
-An example for Chainlink, ensure your `"request_id"` param is set to the
-`queryId` and use the Agoric external adapter to submit your job's results.
-`PRICE_DECIMALS=2` because of the multiplication of the unit price by 100 (which
-is `10^2`):
+As an example for Chainlink, ensure your `"request_id"` param is set to the push
+query's `queryId` and use the Agoric external adapter to submit your job's
+results.
 
 ```json
 {
@@ -89,7 +87,7 @@ is `10^2`):
     {
       "type": "cron",
       "params": {
-          "schedule": "CRON_TZ=UTC */10 * * *"
+          "schedule": "CRON_TZ=UTC */1 * * * *"
       }
     }
   ],
@@ -109,7 +107,7 @@ is `10^2`):
     },
     {
       "type": "Agoric",
-      "params": { "request_id": "<your queryId>" }
+      "params": { "request_id": <push queryId> }
     }
   ]
 }
@@ -122,8 +120,10 @@ input issuer, you can create a price authority from it.
 
 1. Find out your wallet petnames for the input and output issuers (for example,
    `"Testnet.$LINK"` to `"Testnet.$USD"`).
-2. Create a public price authority for your push query (you will need to push at
-   least one result before the deployment will complete):
+2. Create a public price authority for your push query.  Set `PRICE_DECIMALS=2`
+   because of the scaling factor `"times": 100` in the above `Multiply` task,
+   (which is `10^2`). (you will need to push at least one result before the
+   deployment will complete):
 ```sh
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
 IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
@@ -142,12 +142,12 @@ agoric deploy --hostport=127.0.0.1:7999 api/register.js
 Here is a session testing the `priceAuthority`:
 
 ```js
-home.wallet~.getIssuer('Testnet.$LINK')~.getBrand()
-history[3] [Alleged: presence o-82]{}
-home.wallet~.getIssuer('Testnet.$USD')~.getBrand()
-history[4] = [Alleged: presence o-81]{}
-home.priceAuthority~.getQuoteNotifier(history[3], history[4])~.getUpdateSince()
-> {"value":{"quotePayment":[Promise],"quoteAmount":{"brand":[Alleged: presence o-132]{},"value":[{"amountIn":{"brand":[Alleged: presence o-82]{},"value":1000000},"amountOut":{"brand":[Alleged: presence o-81]{},"value":1191},"timer":[Alleged: presence o-68]{},"timestamp":1604759700}]}},"updateCount":2}
+home.wallet~.getIssuer('Testnet.$LINK')~.getBrand().then(brand => link = brand)
+// -> [Alleged: presence o-82]{}
+home.wallet~.getIssuer('Testnet.$USD')~.getBrand().then(brand => usd = brand)
+// -> [Alleged: presence o-81]{}
+home.priceAuthority~.getQuoteNotifier(link, usd)~.getUpdateSince()
+// {"value":{"quotePayment":[Promise],"quoteAmount":{"brand":[Alleged: presence o-132]{},"value":[{"amountIn":{"brand":[Alleged: presence o-82]{},"value":1000000},"amountOut":{"brand":[Alleged: presence o-81]{},"value":1191},"timer":[Alleged: presence o-68]{},"timestamp":1604759700}]}},"updateCount":2}
 ```
 
 ## Single-query Usage
