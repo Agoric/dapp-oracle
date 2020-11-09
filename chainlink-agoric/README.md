@@ -2,16 +2,25 @@
 
 This tool automates the setup and running of Chainlink components to read/write from an Agoric chain.
 
-## Prerequisites
+# Prerequisites 
+
+- [Docker](https://docker.io)
+- [jq](https://stedolan.github.io/jq/download/)
+- [yarn](https://classic.yarnpkg.com/en/docs/install/#mac-stable)
+- [nodejs](https://nodejs.org/en/download/)
+
+## 1. Set up the `agoric` command
+
+### Set up the `agoric` command in your shell for you. To do this follow: 
+
+https://agoric.com/documentation/getting-started/before-using-agoric.html
+
+You don't need to proceed to the next page. 
 
 The Chainlink components assume that you already have an Agoric chain running.
 This can either be a public chain or a local chain **BUT NOT the simulated chain**.
 
-To start a local chain, do the following:
-
-Start with https://agoric.com/documentation/getting-started/before-using-agoric.html
-
-Then:
+## 2. Start a local agoric chain
 
 ```sh
 # Go to the parent directory.
@@ -22,21 +31,19 @@ agoric install
 AGORIC_CLI_OPTS="" agoric start --reset local-chain >& chain.log &
 ```
 
-## Running
+This will run a job in the background, and when it's complete, you'll see a new docker container running. You can check it out with `docker ps`
 
-To complete these steps, you need:
-- [Docker](https://docker.io)
-- [jq](https://stedolan.github.io/jq/download/)
-
-### Initial setup
+## 3. Setup Chainlink node, external adapter, and external initiator
 
 _Note: Make sure you have cd-ed into this directory_
 
-If you are running the Agoric local-chain, simply run:
+Once you are running the Agoric local-chain, simply run:
 
 ```bash
 ./setup
 ```
+
+This will take a few minutes.
 
 If you are running the Agoric chain externally, run something like:
 
@@ -47,10 +54,30 @@ AG_COSMOS_HELPER_OPTS=--from=<your-keyname> ./setup "https://testnet.agoric.com/
 This will create and start up to 3 Chainlink nodes, with an adapter and EI
 connected to each.  Read further to see how to query the nodes.
 
+### Say `n` to 2 and 3 oracles & copy output
+
+If you want to test with multiple oracles, feel free to say `y`. Copy the output from the setup script. It will look something like:
+```
+board:1202180815 jobId:"32eb0ee3d28549c189996fba9a420bc1" ?API_URL=http://localhost:6891 CL=http://localhost:6691
+```
+
+If you forget or lose the above, run `node show-jobs.js`
+
+### Once it's up, sign into the chainlink node
+
+Go to [`http://localhost:6691/signin`](http://localhost:6691/signin) (or whatever port the node you'd like to connect to is on, if you started up multiple nodes)
+
+The username and password are:
+```
+notreal@fakeemail.ch
+twochains
+```
+
 It will attempt to provision separate Agoric addresses for each node, which if
 you used a non-local chain you can do manually via `ag-cosmos-helper tx swingset
 provision-one <node-name> <addr>`.
 
+## For reference
 ### Start/stop
 
 To stop the nodes, run:
@@ -68,9 +95,9 @@ docker-compose up
 The env var `AG_NETWORK_CONFIG` needs to be set before bringing the services up.
 `./setup` will default to `$PWD/network-config.json`, but you need to set this again if it is unset.
 
-## Testing end-to-end
+## 4. Start up the UI (testing end-to-end)
 
-To start the oracle client UI, run:
+Once the setup is done, start the oracle client UI, run:
 
 ```sh
 # Set up the client UI.
@@ -86,12 +113,17 @@ board:<board-id> jobId:<chainlink-jobid> ?API_URL=<backend url> CL=<chainlink ur
 
 Now you visit `http://localhost:3000?API_URL=<backend url>` to interact with the
 oracle's private API server.  Fill out the `jobId` and `board` in the UI
-corresponding to that oracle.
+corresponding to that oracle, given by the `node show-jobs.js` script or output of the `./setup` command.
 
 Queries you submit will be routed over the chain to the specified on-chain
 oracle contract (designated by `board`), to the Chainlink node and back, and you
-should see the replies.
+should see the replies. You will also see the job runs in the Chainlink Oracle
 
+## Summary 
+
+This is how you can test sending jobs to a chainlink node on the agoric chain. The syntax of the job will be how you define a job in your agoric smart contract. 
+
+## Additional 
 ### Independent client
 
 The above instructions test the integration, but don't allow you to submit paid

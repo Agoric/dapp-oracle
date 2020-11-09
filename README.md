@@ -8,9 +8,9 @@ people to query.
 # Chainlink Integration
 
 There are three basic components to a given Chainlink integration:
-1. an External Initiator which monitors the Agoric chain for events indicating
+1. An [External Initiator](https://github.com/smartcontractkit/external-initiator) which monitors the Agoric chain for events indicating
    an oracle request is being made.
-2. an External Adapter which accepts requests from the
+2. An [External Adapter](https://github.com/thodges-gh/CL-EA-NodeJS-Template) which accepts requests from the
    Chainlink node and translates them into Agoric transactions.
 3. $LINK, a token which secures the oracle network.
 
@@ -21,8 +21,7 @@ Javascript](https://github.com/smartcontractkit/external-adapters-js/pull/114) a
 "external initiator" is [in
 Golang](https://github.com/smartcontractkit/external-initiator/pull/73).
 
-See the `chainlink-agoric` subdirectory for [more
-instructions](chainlink-agoric/README.md) on how to run the Chainlink nodes.
+## See the [`chainlink-agoric` subdirectory for more instructions](chainlink-agoric/README.md) on how to get started with Chainlink nodes.
 
 ## Running a Local Builtin Oracle
 
