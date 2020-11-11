@@ -106,7 +106,10 @@ results.
     },
     {
       "type": "Agoric",
-      "params": { "request_id": <push queryId> }
+      "params": {
+        "request_id": <push queryId>,
+        "payment": "0"
+      }
     }
   ]
 }
