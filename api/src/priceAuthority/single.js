@@ -1,7 +1,10 @@
 // @ts-check
 import { makeIssuerKit, MathKind, makeLocalAmountMath } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
-import { updateFromIterable, makeNotifierKit } from '@agoric/notifier';
+import {
+  makeNotifierKit,
+  makeNotifierFromAsyncIterable,
+} from '@agoric/notifier';
 import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
 
@@ -78,8 +81,8 @@ export async function makeSinglePriceAuthority(options) {
   const quoteIssuer = E(quoteMint).getIssuer();
   const quoteMath = await makeLocalAmountMath(quoteIssuer);
 
-  /** @type {NotifierRecord<PriceQuote>} */
-  const { notifier, updater } = makeNotifierKit();
+  /** @type {NotifierRecord<Timestamp>} */
+  const { notifier: ticker, updater } = makeNotifierKit();
 
   /**
    * @param {Amount} amountIn
@@ -130,32 +133,18 @@ export async function makeSinglePriceAuthority(options) {
     }
   };
 
-  /** @type {PriceQuote} */
-  let latestQuote;
+  /* Fire the triggers when the quotes move. */
+  // FIXME: implement with just a ticker source.
+  async function runTriggers() {
+    const quoteTicker = await quotes;
+    for await (const { timestamp } of quoteTicker) {
+      updater.updateState(timestamp);
+      checkTriggers(timestamp);
+    }
+  }
 
-  /** Update from the latest quote. */
-  updateFromIterable(
-    {
-      updateState({ timestamp, item: { amountIn, amountOut } }) {
-        latestQuote = makeQuote(amountIn, amountOut, timestamp);
-        updater.updateState(latestQuote);
-
-        // Check the triggers with the new quote.
-        checkTriggers(timestamp);
-      },
-      finish(_ignored) {
-        if (!latestQuote) {
-          updater.fail(Error(`No quotes were generated`));
-          return;
-        }
-        updater.finish(latestQuote);
-      },
-      fail(reason) {
-        updater.fail(reason);
-      },
-    },
-    quotes,
-  );
+  // Start the triggers in the background.
+  runTriggers().catch(e => console.error('Ticker failed', e));
 
   /**
    * Get a quote for at most the given amountIn
@@ -207,17 +196,19 @@ export async function makeSinglePriceAuthority(options) {
   const getLatestTimestamp = async () => {
     // Get the latest price quote, waiting for it to be published if it hasn't
     // been already.
-    const priceQuote = await notifier.getUpdateSince();
-    // Extract its timestamp.
-    const {
-      value: {
-        quoteAmount: {
-          value: [{ timestamp }],
-        },
-      },
-    } = priceQuote;
+    const { value: timestamp } = await ticker.getUpdateSince();
     return timestamp;
   };
+
+  async function* makeQuoteStream(amountIn, brandOut) {
+    let record = await ticker.getUpdateSince();
+    while (record.updateCount) {
+      const { value: timestamp } = record;
+      yield quoteGivenAtMost(amountIn, brandOut, timestamp);
+      // eslint-disable-next-line no-await-in-loop
+      record = await ticker.getUpdateSince(record.updateCount);
+    }
+  }
 
   /** @type {PriceAuthority} */
   const priceAuthority = {
@@ -229,9 +220,9 @@ export async function makeSinglePriceAuthority(options) {
       assertBrands(brandIn, brandOut);
       return timer;
     },
-    async getQuoteNotifier(brandIn, brandOut) {
-      assertBrands(brandIn, brandOut);
-      return notifier;
+    async makeQuoteNotifier(amountIn, brandOut) {
+      assertBrands(amountIn.brand, brandOut);
+      return makeNotifierFromAsyncIterable(makeQuoteStream(amountIn, brandOut));
     },
     async quoteAtTime(timeStamp, amountIn, brandOut) {
       assertBrands(amountIn.brand, brandOut);

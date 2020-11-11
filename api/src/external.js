@@ -152,38 +152,42 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
                 queryIdToReplyPK.delete(queryId);
               }
 
-              if (queryIdToData.has(queryId)) {
-                const data = queryIdToData.get(queryId);
-                queryIdToData.delete(queryId);
-                sendToSubscribers({
-                  type: 'oracleServer/onReply',
-                  data: { ...data, reply, fee: requiredFee },
-                });
+              if (!queryIdToData.has(queryId)) {
+                throw Error(`unrecognized queryId ${queryId}`);
               }
+              const data = queryIdToData.get(queryId);
+              queryIdToData.delete(queryId);
+              sendToSubscribers({
+                type: 'oracleServer/onReply',
+                data: { ...data, reply, fee: requiredFee },
+              });
               return true;
             }
 
             case 'oracleServer/error': {
               const { queryId, error } = obj.data;
+              const e = Error(error);
               if (queryIdToUpdater.has(queryId)) {
                 const updater = queryIdToUpdater.get(queryId);
-                updater.fail(error);
+                updater.fail(e);
                 queryIdToUpdater.delete(queryId);
               }
               if (queryIdToReplyPK.has(queryId)) {
                 const replyPK = queryIdToReplyPK.get(queryId);
-                replyPK.reject(Error(error));
+                replyPK.reject(e);
                 queryIdToReplyPK.delete(queryId);
               }
 
-              if (queryIdToData.has(queryId)) {
-                const data = queryIdToData.get(queryId);
-                queryIdToData.delete(queryId);
-                sendToSubscribers({
-                  type: 'oracleServer/onError',
-                  data: { ...data, error },
-                });
+              if (!queryIdToData.has(queryId)) {
+                throw Error()`unrecognized queryId ${queryId}`);
               }
+
+              const data = queryIdToData.get(queryId);
+              queryIdToData.delete(queryId);
+              sendToSubscribers({
+                type: 'oracleServer/onError',
+                data: { ...data, error },
+              });
               return true;
             }
 

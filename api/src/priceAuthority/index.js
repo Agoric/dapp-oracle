@@ -1,5 +1,5 @@
 export * from './fake';
 export * from './linear';
-export * from './inverse';
+export * from './inverseQuotes';
 export * from './registry';
 export * from './single';

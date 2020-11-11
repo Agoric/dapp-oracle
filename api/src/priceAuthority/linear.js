@@ -1,6 +1,6 @@
 // @ts-check
-import { assert, details } from '@agoric/assert';
-
+import { assert, details, quote as q } from '@agoric/assert';
+import { MathKind } from '@agoric/ertp';
 import { natSafeMath } from '@agoric/zoe/src/contractSupport';
 
 import { makeSinglePriceAuthority } from './single';
@@ -29,13 +29,13 @@ export async function makeLinearPriceAuthority(options) {
   // We only support nat math for now.
   assert.equal(
     mathKindIn,
-    'nat',
-    details`Linear input math kind ${mathKindIn} is not "nat"`,
+    MathKind.NAT,
+    details`Linear input math kind ${mathKindIn} is not ${q(MathKind.NAT)}`,
   );
   assert.equal(
     mathKindOut,
-    'nat',
-    details`Linear output math kind ${mathKindOut} is not "nat"`,
+    MathKind.NAT,
+    details`Linear output math kind ${mathKindOut} is not ${q(MathKind.NAT)}`,
   );
 
   /** @type {number} */

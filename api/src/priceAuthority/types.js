@@ -25,6 +25,7 @@
  * @property {AmountMath} mathOut the output amount math (for amounts received
  * from sales)
  * @property {ERef<QuoteStream>} quotes an async iterator of the underlying stream
+ * FIXME: Don't use a quote stream, just a ticker.
  * @property {ERef<TimerService>} timer the timer that stamps the quotes
  * @property {ERef<Mint>} [quoteMint] the mint used to create quotes
  */
