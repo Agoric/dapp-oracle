@@ -179,7 +179,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
               }
 
               if (!queryIdToData.has(queryId)) {
-                throw Error()`unrecognized queryId ${queryId}`);
+                throw Error(`unrecognized queryId ${queryId}`);
               }
 
               const data = queryIdToData.get(queryId);

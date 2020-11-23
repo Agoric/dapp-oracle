@@ -195,7 +195,7 @@ const l = (template, ...args) =>
  *
  * @param {Object} param0
  * @param {HttpClient} param0.httpClient
- * @param {Amount} [param0.requiredFee]
+ * @param {Amount=} [param0.requiredFee]
  * @param {Issuer} param0.feeIssuer
  */
 async function makeBuiltinOracle({

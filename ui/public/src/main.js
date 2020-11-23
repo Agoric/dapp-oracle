@@ -218,13 +218,15 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
    * @param {any} obj
    */
   const format = (codeTag, obj) => {
-    codeTag.innerHTML = linesToHTML(JSON.stringify(obj, null, 2));
+    const str = obj ? JSON.stringify(obj, null, 2) : `${obj}`;
+    codeTag.innerHTML = linesToHTML(str);
   };
 
   const answer = ({ replyId, reply, error }) => {
+    /** @type {HTMLElement} */
     const $reply = document.querySelector(`#reply-${replyId} .reply`);
     if (error) {
-      $reply.innerHTML = error;
+      format($reply, error);
     } else {
       const $code = document.createElement('code');
       $code.className = 'reply';

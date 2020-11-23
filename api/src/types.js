@@ -6,7 +6,7 @@
 
 /**
  * @typedef {Object} HttpClientOptions
- * @property {Record<string, string>} [headers]
+ * @property {Record<string, string>=} headers
  * @property {boolean} [trusted=false]
  */
 
