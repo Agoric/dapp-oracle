@@ -3,6 +3,7 @@
 
 import fs from 'fs';
 import { E } from '@agoric/eventual-send';
+import { makeLocalAmountMath } from '@agoric/ertp';
 import harden from '@agoric/harden';
 import '@agoric/zoe/exported';
 import '@agoric/zoe/src/contracts/exported';
@@ -18,6 +19,9 @@ const { INSTALL_ORACLE } = process.env;
 
 // The deployer's wallet's petname for the tip issuer.
 const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'Testnet.$LINK';
+
+// The minimum required fee for builtin oracles.
+const MINIMUM_FEE_JSON = process.env.MINIMUM_FEE_JSON || '0';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
@@ -200,9 +204,13 @@ export default async function deployApi(
       creatorFacet = await E(initializationFacet).initialize({ oracleHandler });
     } else {
       // Builtin oracle.
-      console.log('Creating builtin oracle');
+      const MINUMUM_FEE = JSON.parse(MINIMUM_FEE_JSON);
+      console.log('Creating builtin oracle with MINIMUM_FEE', MINUMUM_FEE);
+      const feeMath = await makeLocalAmountMath(feeIssuer);
+      const requiredFee = feeMath.make(MINUMUM_FEE);
       const { oracleHandler } = await E(oracleCreator).makeBuiltinOracle({
         httpClient,
+        requiredFee,
       });
       creatorFacet = await E(initializationFacet).initialize({ oracleHandler });
     }
