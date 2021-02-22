@@ -40,8 +40,8 @@ export async function makeFakePriceAuthority(options) {
     quotes: overrideQuotes,
     timer,
     unitAmountIn = mathIn.make(1),
-    quoteDelay = 0,
-    quoteInterval = 1,
+    quoteDelay = 0n,
+    quoteInterval = 1n,
     quoteMint,
   } = options;
 
