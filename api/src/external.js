@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { E } from '@agoric/eventual-send';
-import { makeLocalAmountMath } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
+import { amountMath } from '@agoric/ertp';
 import {
   makeNotifierKit,
   makeAsyncIterableFromNotifier,
@@ -13,7 +13,7 @@ import '@agoric/zoe/src/contracts/exported';
 
 async function makeExternalOracle({ board, http, feeIssuer }) {
   // console.warn('got', feeIssuer);
-  const feeAmountMath = await makeLocalAmountMath(feeIssuer);
+  const feeBrand = await E(feeIssuer).getBrand();
 
   const subChannelHandles = new Set();
   /** @type {Store<string, any>} */
@@ -147,7 +147,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
                 const replyPK = queryIdToReplyPK.get(queryId);
                 replyPK.resolve({
                   reply,
-                  requiredFee: feeAmountMath.make(requiredFee || 0),
+                  requiredFee: amountMath.make(feeBrand, requiredFee || 0n),
                 });
                 queryIdToReplyPK.delete(queryId);
               }
@@ -179,7 +179,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
               }
 
               if (!queryIdToData.has(queryId)) {
-                throw Error()`unrecognized queryId ${queryId}`);
+                throw Error(`unrecognized queryId ${queryId}`);
               }
 
               const data = queryIdToData.get(queryId);

@@ -1,7 +1,6 @@
 // @ts-check
-import { assert, details, quote as q } from '@agoric/assert';
-import { MathKind } from '@agoric/ertp';
 import { natSafeMath } from '@agoric/zoe/src/contractSupport';
+import { amountMath } from '@agoric/ertp';
 
 import { makeSinglePriceAuthority } from './single';
 
@@ -19,28 +18,29 @@ import '@agoric/zoe/exported';
  * @returns {Promise<PriceAuthority>}
  */
 export async function makeLinearPriceAuthority(options) {
-  const { mathIn, mathOut, quotes, timer: timerP, quoteMint } = options;
+  const { brandIn, brandOut, quotes, timer: timerP, quoteMint } = options;
 
   const timer = await timerP;
 
-  const mathKindIn = mathIn.getAmountMathKind();
-  const mathKindOut = mathOut.getAmountMathKind();
+  // Note: cannot currently be gotten from the brand alone
+  // const mathKindIn = brandIn.getAmountMathKind();
+  // const mathKindOut = brandOut.getAmountMathKind();
 
-  // We only support nat math for now.
-  assert.equal(
-    mathKindIn,
-    MathKind.NAT,
-    details`Linear input math kind ${mathKindIn} is not ${q(MathKind.NAT)}`,
-  );
-  assert.equal(
-    mathKindOut,
-    MathKind.NAT,
-    details`Linear output math kind ${mathKindOut} is not ${q(MathKind.NAT)}`,
-  );
+  // // We only support nat math for now.
+  // assert.equal(
+  //   mathKindIn,
+  //   MathKind.NAT,
+  //   details`Linear input math kind ${mathKindIn} is not ${q(MathKind.NAT)}`,
+  // );
+  // assert.equal(
+  //   mathKindOut,
+  //   MathKind.NAT,
+  //   details`Linear output math kind ${mathKindOut} is not ${q(MathKind.NAT)}`,
+  // );
 
-  /** @type {number} */
+  /** @type {bigint} */
   let latestValueIn;
-  /** @type {number} */
+  /** @type {bigint} */
   let latestValueOut;
 
   /**
@@ -48,12 +48,12 @@ export async function makeLinearPriceAuthority(options) {
    * @returns {Amount} How much amountOut we expect to get for amountIn
    */
   const expectedAmountOut = amountIn => {
-    const valueIn = mathIn.getValue(amountIn);
+    const valueIn = amountMath.getValue(brandIn, amountIn);
     const valueOut = natSafeMath.floorDivide(
       natSafeMath.multiply(valueIn, latestValueOut),
       latestValueIn,
     );
-    return mathOut.make(valueOut);
+    return amountMath.make(brandOut, BigInt(valueOut));
   };
 
   /**
@@ -61,12 +61,12 @@ export async function makeLinearPriceAuthority(options) {
    * @returns {Amount} How much amountIn we need in order to get amountOut
    */
   const neededAmountIn = amountOut => {
-    const valueOut = mathOut.getValue(amountOut);
+    const valueOut = amountMath.getValue(brandOut, amountOut);
     const valueIn = natSafeMath.ceilDivide(
       natSafeMath.multiply(valueOut, latestValueIn),
       latestValueOut,
     );
-    return mathIn.make(valueIn);
+    return amountMath.make(brandIn, BigInt(valueIn));
   };
 
   /**
@@ -80,8 +80,8 @@ export async function makeLinearPriceAuthority(options) {
       const {
         item: { amountIn: quotedAmountIn, amountOut: quotedAmountOut },
       } = quote;
-      const quotedValueIn = mathIn.getValue(quotedAmountIn);
-      const quotedValueOut = mathOut.getValue(quotedAmountOut);
+      const quotedValueIn = amountMath.getValue(brandIn, quotedAmountIn);
+      const quotedValueOut = amountMath.getValue(brandOut, quotedAmountOut);
 
       // Update our cached values before we wait.
       latestValueIn = quotedValueIn;
@@ -93,8 +93,8 @@ export async function makeLinearPriceAuthority(options) {
   }
 
   const priceAuthority = await makeSinglePriceAuthority({
-    mathIn,
-    mathOut,
+    brandIn,
+    brandOut,
     quotes: makeQuoteFollower(quotes),
     quoteMint,
     timer,

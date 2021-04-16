@@ -3,7 +3,7 @@
 
 import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
-import { makeLocalAmountMath } from '@agoric/ertp';
+import { amountMath } from '@agoric/ertp';
 
 import './types';
 
@@ -203,9 +203,9 @@ async function makeBuiltinOracle({
   feeIssuer,
   requiredFee = undefined,
 }) {
-  const feeAmountMath = await makeLocalAmountMath(feeIssuer);
+  const feeBrand = await E(feeIssuer).getBrand();
   if (requiredFee === undefined) {
-    requiredFee = feeAmountMath.getEmpty();
+    requiredFee = amountMath.makeEmpty(feeBrand);
   }
 
   /**
@@ -321,7 +321,7 @@ async function makeBuiltinOracle({
   const oracleHandler = {
     async onQuery(query, fee) {
       assert(
-        !requiredFee || feeAmountMath.isGTE(fee, requiredFee),
+        !requiredFee || amountMath.isGTE(fee, requiredFee),
         details`Minimum fee of ${requiredFee} has not been supplied`,
       );
 

@@ -1,5 +1,5 @@
 // @ts-check
-import { makeLocalAmountMath } from '@agoric/ertp';
+import { amountMath } from '@agoric/ertp';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
 import { E } from '@agoric/eventual-send';
 
@@ -9,8 +9,8 @@ import './types';
 
 /**
  * @typedef {Object} InverseQuoteStreamOptions
- * @property {AmountMath} mathIn
- * @property {AmountMath} mathOut
+ * @property {Brand} brandIn
+ * @property {Brand} brandOut
  * @property {ERef<PriceAuthority>} inOutPriceAuthority
  * @property {boolean} [VERIFY_QUOTE_PAYMENTS=true]
  */
@@ -24,20 +24,17 @@ import './types';
  */
 export async function makeInverseQuoteStream(options) {
   const {
-    mathIn: theirMathIn,
-    mathOut: theirMathOut,
+    brandIn: theirBrandIn,
+    brandOut: theirBrandOut,
     inOutPriceAuthority: theirPa,
     VERIFY_QUOTE_PAYMENTS = true,
   } = options;
-
-  const theirBrandIn = theirMathIn.getBrand();
-  const theirBrandOut = theirMathOut.getBrand();
 
   const theirQuoteIssuer = E(theirPa).getQuoteIssuer(
     theirBrandIn,
     theirBrandOut,
   );
-  const theirQuoteMath = await makeLocalAmountMath(theirQuoteIssuer);
+  const theirQuoteBrand = await E(theirQuoteIssuer).getBrand();
   const theirNotifierP = E(theirPa).getQuoteNotifier(
     theirBrandIn,
     theirBrandOut,
@@ -59,7 +56,10 @@ export async function makeInverseQuoteStream(options) {
       }
 
       /** @type {PriceQuoteValue} */
-      const theirQuoteValue = theirQuoteMath.getValue(theirQuoteAmount);
+      const theirQuoteValue = amountMath.getValue(
+        theirQuoteBrand,
+        theirQuoteAmount,
+      );
       const [
         {
           amountIn: theirAmountIn,
@@ -70,8 +70,8 @@ export async function makeInverseQuoteStream(options) {
       ] = theirQuoteValue;
 
       // Ensure the amounts are correct.
-      const amountIn = theirMathOut.coerce(theirAmountOut);
-      const amountOut = theirMathIn.coerce(theirAmountIn);
+      const amountIn = amountMath.coerce(theirBrandOut, theirAmountOut);
+      const amountOut = amountMath.coerce(theirBrandIn, theirAmountIn);
 
       // Feed the inverse quote.
       yield { timer, timestamp, item: { amountIn, amountOut } };

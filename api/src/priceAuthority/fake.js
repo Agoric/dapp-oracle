@@ -1,5 +1,6 @@
 // @ts-check
 import { assert, details } from '@agoric/assert';
+import { amountMath } from '@agoric/ertp';
 
 import { makeLinearPriceAuthority } from './linear';
 import {
@@ -11,10 +12,10 @@ import '@agoric/zoe/exported';
 
 /**
  * @typedef {Object} FakePriceAuthorityOptions
- * @property {AmountMath} mathIn
- * @property {AmountMath} mathOut
- * @property {Array<number>} [priceList]
- * @property {Array<[number, number]>} [tradeList]
+ * @property {Brand} brandIn
+ * @property {Brand} brandOut
+ * @property {Array<bigint>} [priceList]
+ * @property {Array<[bigint, bigint]>} [tradeList]
  * @property {QuoteStream} [quotes]
  * @property {TimerService} timer
  * @property {RelativeTime} [quoteDelay]
@@ -33,13 +34,13 @@ import '@agoric/zoe/exported';
  */
 export async function makeFakePriceAuthority(options) {
   const {
-    mathIn,
-    mathOut,
+    brandIn,
+    brandOut,
     priceList,
     tradeList,
     quotes: overrideQuotes,
     timer,
-    unitAmountIn = mathIn.make(1),
+    unitAmountIn = amountMath.make(brandIn, 1n),
     quoteDelay = 0n,
     quoteInterval = 1n,
     quoteMint,
@@ -50,8 +51,8 @@ export async function makeFakePriceAuthority(options) {
     let trades;
     if (tradeList) {
       trades = tradeList.map(([valueIn, valueOut]) => ({
-        amountIn: mathIn.make(valueIn),
-        amountOut: mathOut.make(valueOut),
+        amountIn: amountMath.make(brandIn, valueIn),
+        amountOut: amountMath.make(brandOut, valueOut),
       }));
     } else {
       assert(
@@ -60,7 +61,7 @@ export async function makeFakePriceAuthority(options) {
       );
       trades = priceList.map(price => ({
         amountIn: unitAmountIn,
-        amountOut: mathOut.make(price),
+        amountOut: amountMath.make(brandOut, price),
       }));
     }
 
@@ -76,8 +77,8 @@ export async function makeFakePriceAuthority(options) {
   }
 
   const priceAuthority = await makeLinearPriceAuthority({
-    mathIn,
-    mathOut,
+    brandIn,
+    brandOut,
     quotes,
     quoteMint,
     timer,
