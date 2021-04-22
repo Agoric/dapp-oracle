@@ -57,6 +57,7 @@ const startSpawn = async (
                   invitationP,
                 );
                 const {
+                  // @ts-ignore - this is known to be an invitation value
                   value: [{ handle }],
                 } = invitationAmount;
                 const invitationHandleBoardId = await E(board).getId(handle);

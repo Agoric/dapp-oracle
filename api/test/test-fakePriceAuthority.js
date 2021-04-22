@@ -12,27 +12,27 @@ import { setup } from './setupBasicMints';
 
 /**
  * @param {Object} param0
- * @param {Map<string, AmountMath>} param0.amountMaths
- * @param {Array<number>} [param0.priceList]
- * @param {Array<[number, number]>} [param0.tradeList]
+ * @param {Map<string, Brand>} param0.brands
+ * @param {Array<bigint>} [param0.priceList]
+ * @param {Array<[bigint, bigint]>} [param0.tradeList]
  * @param {TimerService} param0.timer
  */
-const makeTestPriceAuthority = ({ amountMaths, priceList, tradeList, timer }) =>
+const makeTestPriceAuthority = ({ brands, priceList, tradeList, timer }) =>
   makeFakePriceAuthority({
-    mathIn: amountMaths.get('moola'),
-    mathOut: amountMaths.get('bucks'),
+    brandIn: brands.get('moola'),
+    brandOut: brands.get('bucks'),
     priceList,
     tradeList,
     timer,
   });
 
 test('priceAuthority quoteAtTime', async t => {
-  const { moola, bucks, amountMaths, brands } = setup();
+  const { moola, bucks, brands } = setup();
   const bucksBrand = brands.get('bucks');
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
-    priceList: [20, 55],
+    brands,
+    priceList: [20n, 55n],
     timer: manualTimer,
   });
 
@@ -56,12 +56,12 @@ test('priceAuthority quoteAtTime', async t => {
 });
 
 test('priceAuthority quoteGiven', async t => {
-  const { moola, amountMaths, brands, bucks } = setup();
+  const { moola, brands, bucks } = setup();
   const bucksBrand = brands.get('bucks');
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
-    priceList: [20, 55],
+    brands,
+    priceList: [20n, 55n],
     timer: manualTimer,
   });
 
@@ -69,16 +69,16 @@ test('priceAuthority quoteGiven', async t => {
   const quote = await E(priceAuthority).quoteGiven(moola(37), bucksBrand);
   const quoteAmount = quote.quoteAmount.value[0];
   t.is(1n, quoteAmount.timestamp);
-  t.deepEqual(bucks(37 * 20), quoteAmount.amountOut);
+  t.deepEqual(bucks(37n * 20n), quoteAmount.amountOut);
 });
 
 test('priceAuthority quoteWanted', async t => {
-  const { moola, bucks, amountMaths, brands } = setup();
+  const { moola, bucks, brands } = setup();
   const moolaBrand = brands.get('moola');
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
-    priceList: [20, 55],
+    brands,
+    priceList: [20n, 55n],
     timer: manualTimer,
   });
 
@@ -86,45 +86,45 @@ test('priceAuthority quoteWanted', async t => {
   const quote = await E(priceAuthority).quoteWanted(moolaBrand, bucks(400));
   const quoteAmount = quote.quoteAmount.value[0];
   t.is(1n, quoteAmount.timestamp);
-  t.deepEqual(bucks(400), quoteAmount.amountOut);
-  t.deepEqual(moola(20), quoteAmount.amountIn);
+  t.deepEqual(bucks(400n), quoteAmount.amountOut);
+  t.deepEqual(moola(20n), quoteAmount.amountIn);
 });
 
 test('priceAuthority paired quotes', async t => {
-  const { moola, bucks, amountMaths, brands } = setup();
+  const { moola, bucks, brands } = setup();
   const moolaBrand = brands.get('moola');
   const bucksBrand = brands.get('bucks');
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
+    brands,
     tradeList: [
-      [2, 40],
-      [1, 55],
+      [2n, 40n],
+      [1n, 55n],
     ],
     timer: manualTimer,
   });
 
   await E(manualTimer).tick();
 
-  const quoteOut = await E(priceAuthority).quoteWanted(moolaBrand, bucks(400));
+  const quoteOut = await E(priceAuthority).quoteWanted(moolaBrand, bucks(400n));
   const quoteOutAmount = quoteOut.quoteAmount.value[0];
   t.is(1n, quoteOutAmount.timestamp);
-  t.deepEqual(bucks((20 * 40) / 2), quoteOutAmount.amountOut);
-  t.deepEqual(moola(20), quoteOutAmount.amountIn);
+  t.deepEqual(bucks((20n * 40n) / 2n), quoteOutAmount.amountOut);
+  t.deepEqual(moola(20n), quoteOutAmount.amountIn);
 
-  const quoteIn = await E(priceAuthority).quoteGiven(moola(22), bucksBrand);
+  const quoteIn = await E(priceAuthority).quoteGiven(moola(22n), bucksBrand);
   const quoteInAmount = quoteIn.quoteAmount.value[0];
   t.is(1n, quoteInAmount.timestamp);
-  t.deepEqual(bucks(20 * 22), quoteInAmount.amountOut);
-  t.deepEqual(moola(22), quoteInAmount.amountIn);
+  t.deepEqual(bucks(20n * 22n), quoteInAmount.amountOut);
+  t.deepEqual(moola(22n), quoteInAmount.amountIn);
 });
 
 test('priceAuthority quoteWhenGTE', async t => {
-  const { moola, bucks, amountMaths } = setup();
+  const { moola, bucks, brands } = setup();
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
-    priceList: [20, 30, 25, 40],
+    brands,
+    priceList: [20n, 30n, 25n, 40n],
     timer: manualTimer,
   });
 
@@ -146,11 +146,11 @@ test('priceAuthority quoteWhenGTE', async t => {
 });
 
 test('priceAuthority quoteWhenLT', async t => {
-  const { moola, bucks, amountMaths } = setup();
+  const { moola, bucks, brands } = setup();
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
-    priceList: [40, 30, 29],
+    brands,
+    priceList: [40n, 30n, 29n],
     timer: manualTimer,
   });
 
@@ -171,22 +171,22 @@ test('priceAuthority quoteWhenLT', async t => {
 });
 
 test('priceAuthority quoteWhenGT', async t => {
-  const { moola, bucks, amountMaths } = setup();
+  const { moola, bucks, brands } = setup();
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
-    priceList: [40, 30, 41],
+    brands,
+    priceList: [40n, 30n, 41n],
     timer: manualTimer,
   });
 
   const expected = E(priceAuthority)
-    .quoteWhenGT(moola(1), bucks(40))
+    .quoteWhenGT(moola(1n), bucks(40n))
     .then(quote => {
       const quoteInAmount = quote.quoteAmount.value[0];
       t.is(3n, manualTimer.getCurrentTimestamp());
       t.is(3n, quoteInAmount.timestamp);
-      t.deepEqual(bucks(41), quoteInAmount.amountOut);
-      t.deepEqual(moola(1), quoteInAmount.amountIn);
+      t.deepEqual(bucks(41n), quoteInAmount.amountOut);
+      t.deepEqual(moola(1n), quoteInAmount.amountIn);
     });
 
   await E(manualTimer).tick();
@@ -196,22 +196,22 @@ test('priceAuthority quoteWhenGT', async t => {
 });
 
 test('priceAuthority quoteWhenLTE', async t => {
-  const { moola, bucks, amountMaths } = setup();
+  const { moola, bucks, brands } = setup();
   const manualTimer = buildManualTimer(console.log, 0n);
   const priceAuthority = await makeTestPriceAuthority({
-    amountMaths,
-    priceList: [40, 26, 50, 25],
+    brands,
+    priceList: [40n, 26n, 50n, 25n],
     timer: manualTimer,
   });
 
   const expected = E(priceAuthority)
-    .quoteWhenLTE(moola(1), bucks(25))
+    .quoteWhenLTE(moola(1n), bucks(25n))
     .then(quote => {
       const quoteInAmount = quote.quoteAmount.value[0];
       t.is(4n, quoteInAmount.timestamp);
       t.is(4n, manualTimer.getCurrentTimestamp());
-      t.deepEqual(bucks(25), quoteInAmount.amountOut);
-      t.deepEqual(moola(1), quoteInAmount.amountIn);
+      t.deepEqual(bucks(25n), quoteInAmount.amountOut);
+      t.deepEqual(moola(1n), quoteInAmount.amountIn);
     });
 
   await E(manualTimer).tick();

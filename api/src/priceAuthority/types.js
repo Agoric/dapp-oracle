@@ -21,8 +21,8 @@
 /**
  * @typedef {Object} BasePriceAuthorityOptions options needed by all price
  * authorities
- * @property {AmountMath} mathIn the input amount math (for amounts to sell)
- * @property {AmountMath} mathOut the output amount math (for amounts received
+ * @property {Brand} brandIn the input brand(for amounts to sell)
+ * @property {Brand} brandOut the output brand (for amounts received
  * from sales)
  * @property {ERef<QuoteStream>} quotes an async iterator of the underlying stream
  * FIXME: Don't use a quote stream, just a ticker.

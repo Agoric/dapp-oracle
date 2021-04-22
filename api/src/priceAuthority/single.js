@@ -1,5 +1,5 @@
 // @ts-check
-import { makeIssuerKit, MathKind, makeLocalAmountMath } from '@agoric/ertp';
+import { makeIssuerKit, MathKind, amountMath } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
 import {
   makeNotifierKit,
@@ -26,8 +26,8 @@ import '@agoric/zoe/exported';
  */
 export async function makeSinglePriceAuthority(options) {
   const {
-    mathIn,
-    mathOut,
+    brandIn: actualBrandIn,
+    brandOut: actualBrandOut,
     neededAmountIn,
     expectedAmountOut,
     quotes,
@@ -42,13 +42,13 @@ export async function makeSinglePriceAuthority(options) {
    */
 
   /** @type {AmountComparator} */
-  const isGTE = (a, b) => mathOut.isGTE(a, b);
+  const isGTE = (a, b) => amountMath.isGTE(a, b);
   /** @type {AmountComparator} */
-  const isGT = (a, b) => !mathOut.isGTE(b, a);
+  const isGT = (a, b) => !amountMath.isGTE(b, a);
   /** @type {AmountComparator} */
-  const isLTE = (a, b) => mathOut.isGTE(b, a);
+  const isLTE = (a, b) => amountMath.isGTE(b, a);
   /** @type {AmountComparator} */
-  const isLT = (a, b) => !mathOut.isGTE(a, b);
+  const isLT = (a, b) => !amountMath.isGTE(a, b);
 
   /**
    * @typedef {Object} Trigger
@@ -68,18 +68,18 @@ export async function makeSinglePriceAuthority(options) {
   const assertBrands = (brandIn, brandOut) => {
     assert.equal(
       brandIn,
-      mathIn.getBrand(),
+      actualBrandIn,
       details`${brandIn} is not an expected input brand`,
     );
     assert.equal(
       brandOut,
-      mathOut.getBrand(),
+      actualBrandOut,
       details`${brandOut} is not an expected output brand`,
     );
   };
 
   const quoteIssuer = E(quoteMint).getIssuer();
-  const quoteMath = await makeLocalAmountMath(quoteIssuer);
+  const quoteBrand = await E(quoteIssuer).getBrand();
 
   /** @type {NotifierRecord<Timestamp>} */
   const { notifier: ticker, updater } = makeNotifierKit();
@@ -91,16 +91,14 @@ export async function makeSinglePriceAuthority(options) {
    * @returns {PriceQuote}
    */
   const makeQuote = (amountIn, amountOut, quoteTime) => {
-    const quoteAmount = quoteMath.make(
-      harden([
-        {
-          amountIn,
-          amountOut,
-          timer,
-          timestamp: quoteTime,
-        },
-      ]),
-    );
+    const quoteAmount = amountMath.make(quoteBrand, [
+      {
+        amountIn,
+        amountOut,
+        timer,
+        timestamp: quoteTime,
+      },
+    ]);
     const quote = harden({
       quotePayment: E(quoteMint).mintPayment(quoteAmount),
       quoteAmount,
@@ -181,8 +179,8 @@ export async function makeSinglePriceAuthority(options) {
    */
   function resolveQuoteWhen(amountComparator, amountIn, amountOutLimit) {
     assertBrands(amountIn.brand, amountOutLimit.brand);
-    mathOut.coerce(amountOutLimit);
-    mathIn.coerce(amountIn);
+    amountMath.coerce(actualBrandOut, amountOutLimit);
+    amountMath.coerce(actualBrandIn, amountIn);
     const promiseKit = makePromiseKit();
     triggerQueue.push({
       amountComparator,

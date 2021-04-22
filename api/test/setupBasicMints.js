@@ -1,4 +1,4 @@
-import { makeIssuerKit } from '@agoric/ertp';
+import { makeIssuerKit, amountMath } from '@agoric/ertp';
 import { makeZoe } from '@agoric/zoe/src/zoeService/zoe';
 import fakeVatAdmin from '@agoric/zoe/src/contractFacet/fakeVatAdmin';
 
@@ -11,11 +11,9 @@ const setup = () => {
     simoleans: simoleanBundle,
     bucks: bucksBundle,
   };
-  const amountMaths = new Map();
   const brands = new Map();
 
   for (const k of Object.getOwnPropertyNames(allBundles)) {
-    amountMaths.set(k, allBundles[k].amountMath);
     brands.set(k, allBundles[k].brand);
   }
 
@@ -34,11 +32,10 @@ const setup = () => {
     bucksMint: bucksBundle.mint,
     bucksR: bucksBundle,
     bucksKit: bucksBundle,
-    amountMaths,
     brands,
-    moola: moolaBundle.amountMath.make,
-    simoleans: simoleanBundle.amountMath.make,
-    bucks: bucksBundle.amountMath.make,
+    moola: value => amountMath.make(moolaBundle.brand, value),
+    simoleans: value => amountMath.make(simoleanBundle.brand, value),
+    bucks: value => amountMath.make(bucksBundle.brand, value),
     zoe,
   });
 };
