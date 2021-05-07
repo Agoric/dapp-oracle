@@ -1,5 +1,5 @@
 // @ts-check
-import { makeIssuerKit, MathKind, amountMath } from '@agoric/ertp';
+import { makeIssuerKit, AssetKind, amountMath } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
 import {
   makeNotifierKit,
@@ -32,7 +32,7 @@ export async function makeSinglePriceAuthority(options) {
     expectedAmountOut,
     quotes,
     timer: timerP,
-    quoteMint = makeIssuerKit('quote', MathKind.SET).mint,
+    quoteMint = makeIssuerKit('quote', AssetKind.SET).mint,
   } = options;
 
   const timer = await timerP;
