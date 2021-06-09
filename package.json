@@ -4,6 +4,9 @@
   "private": true,
   "useWorkspaces": true,
   "main": "index.js",
+  "parsers": {
+    "js": "mjs"
+  },
   "workspaces": [
     "api",
     "contract",

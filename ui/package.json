@@ -5,6 +5,9 @@
   "author": "Agoric",
   "license": "Apache-2.0",
   "homepage": ".",
+  "parsers": {
+    "js": "mjs"
+  },
   "scripts": {
     "build": "parcel build public/index.html",
     "lint-check": "eslint '**/*.{js,jsx}'",
