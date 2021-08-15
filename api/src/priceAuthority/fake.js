@@ -1,6 +1,6 @@
 // @ts-check
 import { assert, details } from '@agoric/assert';
-import { amountMath } from '@agoric/ertp';
+import { AmountMath } from '@agoric/ertp';
 
 import { makeLinearPriceAuthority } from './linear';
 import {
@@ -40,7 +40,7 @@ export async function makeFakePriceAuthority(options) {
     tradeList,
     quotes: overrideQuotes,
     timer,
-    unitAmountIn = amountMath.make(brandIn, 1n),
+    unitAmountIn = AmountMath.make(brandIn, 1n),
     quoteDelay = 0n,
     quoteInterval = 1n,
     quoteMint,
@@ -51,8 +51,8 @@ export async function makeFakePriceAuthority(options) {
     let trades;
     if (tradeList) {
       trades = tradeList.map(([valueIn, valueOut]) => ({
-        amountIn: amountMath.make(brandIn, valueIn),
-        amountOut: amountMath.make(brandOut, valueOut),
+        amountIn: AmountMath.make(brandIn, valueIn),
+        amountOut: AmountMath.make(brandOut, valueOut),
       }));
     } else {
       assert(
@@ -61,7 +61,7 @@ export async function makeFakePriceAuthority(options) {
       );
       trades = priceList.map(price => ({
         amountIn: unitAmountIn,
-        amountOut: amountMath.make(brandOut, price),
+        amountOut: AmountMath.make(brandOut, price),
       }));
     }
 

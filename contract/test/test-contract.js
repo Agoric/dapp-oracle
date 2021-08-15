@@ -7,8 +7,8 @@ import bundleSource from '@agoric/bundle-source';
 
 import { E } from '@agoric/eventual-send';
 import { makeFakeVatAdmin } from '@agoric/zoe/tools/fakeVatAdmin';
-import { makeZoe } from '@agoric/zoe';
-import { makeIssuerKit, amountMath } from '@agoric/ertp';
+import { makeZoeKit } from '@agoric/zoe';
+import { makeIssuerKit, AmountMath } from '@agoric/ertp';
 import { assert, details } from '@agoric/assert/src/assert';
 
 import '@agoric/zoe/exported';
@@ -30,7 +30,9 @@ test.before(
   /** @param {ExecutionContext} ot */ async ot => {
     // Outside of tests, we should use the long-lived Zoe on the
     // testnet. In this test, we must create a new Zoe.
-    const zoe = makeZoe(makeFakeVatAdmin().admin);
+    const { zoeService } = makeZoeKit(makeFakeVatAdmin().admin);
+    const feePurse = E(zoeService).makeFeePurse();
+    const zoe = E(zoeService).bindDefaultFeePurse(feePurse);
 
     // Pack the contract.
     const contractBundle = await bundleSource(contractPath);
@@ -44,7 +46,7 @@ test.before(
     // using the same code.
     const installation = await E(zoe).install(contractBundle);
 
-    const feeAmount = amountMath.make(link.brand, 1000n);
+    const feeAmount = AmountMath.make(link.brand, 1000n);
     /**
      * @returns {Promise<OracleKit>}
      */
@@ -56,7 +58,7 @@ test.before(
           if (query.kind === 'Paid') {
             requiredFee = feeAmount;
             assert(
-              amountMath.isGTE(fee, requiredFee),
+              AmountMath.isGTE(fee, requiredFee),
               details`Minimum fee of ${feeAmount} not met; have ${fee}`,
             );
           }
@@ -136,7 +138,7 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
 
   const offer = E(zoe).offer(invitation1);
 
-  const overAmount = amountMath.add(feeAmount, amountMath.make(link.brand, 799n));
+  const overAmount = AmountMath.add(feeAmount, AmountMath.make(link.brand, 799n));
   const offer3 = E(zoe).offer(
     invitation3,
     harden({ give: { Fee: overAmount } }),
@@ -160,14 +162,14 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
   });
   t.deepEqual(
     await link.issuer.getAmountOf(E(offer3).getPayout('Fee')),
-    amountMath.subtract(overAmount, feeAmount),
+    AmountMath.subtract(overAmount, feeAmount),
   );
 
   // Check the unpaid result.
   const offer2 = E(zoe).offer(invitation2);
 
   // Check the underpaid result.
-  const underAmount = amountMath.make(link.brand, 500n);
+  const underAmount = AmountMath.make(link.brand, 500n);
   const offer4 = E(zoe).offer(
     invitation4,
     harden({ give: { Fee: underAmount } }),
@@ -187,7 +189,7 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
   const withdrawOffer = E(zoe).offer(
     withdrawSome,
     harden({
-      want: { Fee: amountMath.make(link.brand, 201n) },
+      want: { Fee: AmountMath.make(link.brand, 201n) },
     }),
   );
   t.is(await E(withdrawOffer).getOfferResult(), `Successfully withdrawn`);
@@ -202,7 +204,7 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
       return [keyword, amount];
     }),
   );
-  t.deepEqual(kvals, [['Fee', amountMath.make(link.brand, 799n)]]);
+  t.deepEqual(kvals, [['Fee', AmountMath.make(link.brand, 799n)]]);
 
   const badInvitation = E(publicFacet).makeQueryInvitation({
     hello: 'nomore',
@@ -221,6 +223,6 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
 
   t.deepEqual(
     await link.issuer.getAmountOf(E(withdrawOffer).getPayout('Fee')),
-    amountMath.make(link.brand, 201n),
+    AmountMath.make(link.brand, 201n),
   );
 });

@@ -1,6 +1,6 @@
 // @ts-check
 import { natSafeMath } from '@agoric/zoe/src/contractSupport';
-import { amountMath } from '@agoric/ertp';
+import { AmountMath } from '@agoric/ertp';
 
 import { makeSinglePriceAuthority } from './single';
 
@@ -48,12 +48,12 @@ export async function makeLinearPriceAuthority(options) {
    * @returns {Amount} How much amountOut we expect to get for amountIn
    */
   const expectedAmountOut = amountIn => {
-    const valueIn = amountMath.getValue(brandIn, amountIn);
+    const valueIn = AmountMath.getValue(brandIn, amountIn);
     const valueOut = natSafeMath.floorDivide(
       natSafeMath.multiply(valueIn, latestValueOut),
       latestValueIn,
     );
-    return amountMath.make(brandOut, BigInt(valueOut));
+    return AmountMath.make(brandOut, BigInt(valueOut));
   };
 
   /**
@@ -61,12 +61,12 @@ export async function makeLinearPriceAuthority(options) {
    * @returns {Amount} How much amountIn we need in order to get amountOut
    */
   const neededAmountIn = amountOut => {
-    const valueOut = amountMath.getValue(brandOut, amountOut);
+    const valueOut = AmountMath.getValue(brandOut, amountOut);
     const valueIn = natSafeMath.ceilDivide(
       natSafeMath.multiply(valueOut, latestValueIn),
       latestValueOut,
     );
-    return amountMath.make(brandIn, BigInt(valueIn));
+    return AmountMath.make(brandIn, BigInt(valueIn));
   };
 
   /**
@@ -80,8 +80,8 @@ export async function makeLinearPriceAuthority(options) {
       const {
         item: { amountIn: quotedAmountIn, amountOut: quotedAmountOut },
       } = quote;
-      const quotedValueIn = amountMath.getValue(brandIn, quotedAmountIn);
-      const quotedValueOut = amountMath.getValue(brandOut, quotedAmountOut);
+      const quotedValueIn = AmountMath.getValue(brandIn, quotedAmountIn);
+      const quotedValueOut = AmountMath.getValue(brandOut, quotedAmountOut);
 
       // Update our cached values before we wait.
       latestValueIn = quotedValueIn;
