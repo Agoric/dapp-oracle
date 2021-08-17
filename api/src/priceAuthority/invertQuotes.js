@@ -1,5 +1,5 @@
 // @ts-check
-import { amountMath } from '@agoric/ertp';
+import { AmountMath } from '@agoric/ertp';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
 import { E } from '@agoric/eventual-send';
 
@@ -56,7 +56,7 @@ export async function makeInverseQuoteStream(options) {
       }
 
       /** @type {PriceQuoteValue} */
-      const theirQuoteValue = amountMath.getValue(
+      const theirQuoteValue = AmountMath.getValue(
         theirQuoteBrand,
         theirQuoteAmount,
       );
@@ -70,8 +70,8 @@ export async function makeInverseQuoteStream(options) {
       ] = theirQuoteValue;
 
       // Ensure the amounts are correct.
-      const amountIn = amountMath.coerce(theirBrandOut, theirAmountOut);
-      const amountOut = amountMath.coerce(theirBrandIn, theirAmountIn);
+      const amountIn = AmountMath.coerce(theirBrandOut, theirAmountOut);
+      const amountOut = AmountMath.coerce(theirBrandIn, theirAmountIn);
 
       // Feed the inverse quote.
       yield { timer, timestamp, item: { amountIn, amountOut } };

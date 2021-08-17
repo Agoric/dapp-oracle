@@ -1,6 +1,6 @@
 // @ts-check
 import { E } from '@agoric/eventual-send';
-import { amountMath } from '@agoric/ertp';
+import { AmountMath } from '@agoric/ertp';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
 import {
   makeLinearPriceAuthority,
@@ -60,7 +60,7 @@ const startSpawn = async (_terms, _invitationMaker) => {
         E(issuerIn).getBrand(),
         E(issuerOut).getBrand(),
       ]);
-      const amountIn = amountMath.make(brandIn, unitValueIn);
+      const amountIn = AmountMath.make(brandIn, unitValueIn);
 
       async function* makeQuotes() {
         for await (const sample of makeAsyncIterableFromNotifier(notifier)) {
@@ -71,7 +71,7 @@ const startSpawn = async (_terms, _invitationMaker) => {
             const valueOutForUnitIn = BigInt(Math.floor(
               parseInt(sample, 10) * scaleValueOut,
             ));
-            amountOut = amountMath.make(brandOut, valueOutForUnitIn);
+            amountOut = AmountMath.make(brandOut, valueOutForUnitIn);
           } catch (e) {
             console.error(`Cannot parse ${JSON.stringify(sample)}:`, e);
             // eslint-disable-next-line no-continue

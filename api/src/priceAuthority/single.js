@@ -1,5 +1,5 @@
 // @ts-check
-import { makeIssuerKit, AssetKind, amountMath } from '@agoric/ertp';
+import { makeIssuerKit, AssetKind, AmountMath } from '@agoric/ertp';
 import { makePromiseKit } from '@agoric/promise-kit';
 import {
   makeNotifierKit,
@@ -42,13 +42,13 @@ export async function makeSinglePriceAuthority(options) {
    */
 
   /** @type {AmountComparator} */
-  const isGTE = (a, b) => amountMath.isGTE(a, b);
+  const isGTE = (a, b) => AmountMath.isGTE(a, b);
   /** @type {AmountComparator} */
-  const isGT = (a, b) => !amountMath.isGTE(b, a);
+  const isGT = (a, b) => !AmountMath.isGTE(b, a);
   /** @type {AmountComparator} */
-  const isLTE = (a, b) => amountMath.isGTE(b, a);
+  const isLTE = (a, b) => AmountMath.isGTE(b, a);
   /** @type {AmountComparator} */
-  const isLT = (a, b) => !amountMath.isGTE(a, b);
+  const isLT = (a, b) => !AmountMath.isGTE(a, b);
 
   /**
    * @typedef {Object} Trigger
@@ -91,7 +91,7 @@ export async function makeSinglePriceAuthority(options) {
    * @returns {PriceQuote}
    */
   const makeQuote = (amountIn, amountOut, quoteTime) => {
-    const quoteAmount = amountMath.make(quoteBrand, [
+    const quoteAmount = AmountMath.make(quoteBrand, [
       {
         amountIn,
         amountOut,
@@ -179,8 +179,8 @@ export async function makeSinglePriceAuthority(options) {
    */
   function resolveQuoteWhen(amountComparator, amountIn, amountOutLimit) {
     assertBrands(amountIn.brand, amountOutLimit.brand);
-    amountMath.coerce(actualBrandOut, amountOutLimit);
-    amountMath.coerce(actualBrandIn, amountIn);
+    AmountMath.coerce(actualBrandOut, amountOutLimit);
+    AmountMath.coerce(actualBrandIn, amountIn);
     const promiseKit = makePromiseKit();
     triggerQueue.push({
       amountComparator,

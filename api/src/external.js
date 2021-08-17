@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { E } from '@agoric/eventual-send';
 import { makePromiseKit } from '@agoric/promise-kit';
-import { amountMath } from '@agoric/ertp';
+import { AmountMath } from '@agoric/ertp';
 import {
   makeNotifierKit,
   makeAsyncIterableFromNotifier,
@@ -147,7 +147,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
                 const replyPK = queryIdToReplyPK.get(queryId);
                 replyPK.resolve({
                   reply,
-                  requiredFee: amountMath.make(feeBrand, requiredFee || 0n),
+                  requiredFee: AmountMath.make(feeBrand, requiredFee || 0n),
                 });
                 queryIdToReplyPK.delete(queryId);
               }

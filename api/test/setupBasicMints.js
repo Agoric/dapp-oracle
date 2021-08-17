@@ -1,6 +1,7 @@
-import { makeIssuerKit, amountMath } from '@agoric/ertp';
-import { makeZoe } from '@agoric/zoe/src/zoeService/zoe';
+import { makeIssuerKit, AmountMath } from '@agoric/ertp';
+import { makeZoeKit } from '@agoric/zoe/src/zoeService/zoe';
 import fakeVatAdmin from '@agoric/zoe/tools/fakeVatAdmin';
+import { E } from '@agoric/eventual-send';
 
 const setup = () => {
   const moolaBundle = makeIssuerKit('moola');
@@ -17,7 +18,9 @@ const setup = () => {
     brands.set(k, allBundles[k].brand);
   }
 
-  const zoe = makeZoe(fakeVatAdmin);
+  const { zoeService } = makeZoeKit(fakeVatAdmin);
+  const feePurse = E(zoeService).makeFeePurse();
+  const zoe = E(zoeService).bindDefaultFeePurse(feePurse);
 
   return harden({
     moolaIssuer: moolaBundle.issuer,
@@ -33,9 +36,9 @@ const setup = () => {
     bucksR: bucksBundle,
     bucksKit: bucksBundle,
     brands,
-    moola: value => amountMath.make(moolaBundle.brand, value),
-    simoleans: value => amountMath.make(simoleanBundle.brand, value),
-    bucks: value => amountMath.make(bucksBundle.brand, value),
+    moola: value => AmountMath.make(moolaBundle.brand, value),
+    simoleans: value => AmountMath.make(simoleanBundle.brand, value),
+    bucks: value => AmountMath.make(bucksBundle.brand, value),
     zoe,
   });
 };
