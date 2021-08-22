@@ -62,6 +62,8 @@ export const makeTimerAsyncIterableKit = async (timer, delay, interval) => {
   const repeater = E(timer).createRepeater(delay, interval);
 
   const waker = Far('waker', {
+    // FIXME: It's a limit of the current API that we have no way to detect when
+    // a repeater has been disabled from within a handler.
     wake(timestamp) {
       updater.updateState(timestamp);
     },
