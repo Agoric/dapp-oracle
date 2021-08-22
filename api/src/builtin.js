@@ -4,6 +4,7 @@
 import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
 import { AmountMath } from '@agoric/ertp';
+import { Far } from '@agoric/marshal';
 
 import './types';
 
@@ -318,7 +319,7 @@ async function makeBuiltinOracle({
   }
 
   /** @type {OracleHandler} */
-  const oracleHandler = {
+  const oracleHandler = Far('oracleHandler', {
     async onQuery(query, fee) {
       assert(
         !requiredFee || AmountMath.isGTE(fee, requiredFee),
@@ -343,7 +344,7 @@ async function makeBuiltinOracle({
     async onError(query, e) {
       console.error(`Builtin oracle failed`, query, `with:`, e);
     },
-  };
+  });
 
   return harden({
     oracleHandler,

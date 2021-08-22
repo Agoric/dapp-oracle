@@ -6,6 +6,7 @@ import {
 } from '@agoric/notifier';
 
 import '@agoric/zoe/exported';
+import { Far } from '@agoric/marshal';
 
 /**
  * @callback CancelFunction
@@ -60,14 +61,14 @@ export const makeTimerAsyncIterableKit = async (timer, delay, interval) => {
   const { notifier, updater } = makeNotifierKit();
   const repeater = E(timer).createRepeater(delay, interval);
 
-  /** @type {TimerWaker} */
-  await E(repeater).schedule({
-    // FIXME: It's a limit of the current API that we have no way to detect when a
-    // repeater has been disabled from within a handler.
+  const waker = Far('waker', {
     wake(timestamp) {
       updater.updateState(timestamp);
     },
   });
+
+  /** @type {TimerWaker} */
+  await E(repeater).schedule(waker);
 
   const asyncIterable = makeAsyncIterableFromNotifier(notifier);
 
