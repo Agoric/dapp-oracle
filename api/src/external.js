@@ -41,7 +41,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
   let lastQueryId = 0;
 
   /** @type {OracleHandler} */
-  const oracleHandler = {
+  const oracleHandler = Far('oracleHandler', {
     async onQuery(query, fee) {
       lastQueryId += 1;
       const queryId = `${lastQueryId}`;
@@ -67,7 +67,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
     async onError(_query, _e) {
       // do nothing
     },
-  };
+  });
 
   const oracleURLHandler = {
     getCommandHandler() {

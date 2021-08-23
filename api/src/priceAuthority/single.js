@@ -9,6 +9,7 @@ import { E } from '@agoric/eventual-send';
 import { assert, details } from '@agoric/assert';
 
 import '@agoric/zoe/exported';
+import { Far } from '@agoric/marshal';
 
 /**
  * @typedef {Object} SinglePriceAuthorityOptions
@@ -209,7 +210,7 @@ export async function makeSinglePriceAuthority(options) {
   }
 
   /** @type {PriceAuthority} */
-  const priceAuthority = {
+  const priceAuthority = Far('priceAuthority', {
     async getQuoteIssuer(brandIn, brandOut) {
       assertBrands(brandIn, brandOut);
       return quoteIssuer;
@@ -227,7 +228,7 @@ export async function makeSinglePriceAuthority(options) {
       const { promise, resolve } = makePromiseKit();
       E(timer).setWakeup(
         timeStamp,
-        harden({
+        Far('waker', {
           wake: time => {
             return resolve(quoteGivenAtMost(amountIn, brandOut, time));
           },
@@ -259,7 +260,7 @@ export async function makeSinglePriceAuthority(options) {
     async quoteWhenLT(amountIn, amountOutLimit) {
       return resolveQuoteWhen(isLT, amountIn, amountOutLimit);
     },
-  };
+  });
 
   return priceAuthority;
 }
