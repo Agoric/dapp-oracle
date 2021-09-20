@@ -59,7 +59,7 @@ export async function* makeScriptedAsyncIterable(
  */
 export const makeTimerAsyncIterableKit = async (timer, delay, interval) => {
   const { notifier, updater } = makeNotifierKit();
-  const repeater = E(timer).createRepeater(delay, interval);
+  const repeater = E(timer).makeRepeater(delay, interval);
 
   /** @type {TimerWaker} */
   const waker = Far('waker', {
