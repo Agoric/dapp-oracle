@@ -28,7 +28,7 @@ cd ..
 # Install the needed dependencies.
 agoric install
 # Start local chain implementation
-AGORIC_CLI_OPTS="--docker-tag=hacktheorb" agoric start --reset local-chain >& chain.log &
+agoric start --reset local-chain >& chain.log &
 ```
 
 This will run a job in the background, and when it's complete, you'll see a new docker container running. You can check it out with `docker ps`
@@ -132,7 +132,7 @@ completely decoupled oracle client and a fresh wallet, run the following:
 
 ```sh
 # Start a solo for the oracle client
-AGORIC_CLI_OPTS="--docker-tag=hacktheorb" agoric start --reset local-solo 8000 agoric.priceAuthorityAdmin >& 8000.log &
+agoric start --reset local-solo 8000 agoric.priceAuthorityAdmin >& 8000.log &
 # Deploy the oracle client (DON'T allow unsafe plugins)
 agoric deploy api/deploy.js
 ```
