@@ -10,9 +10,9 @@ import '@agoric/zoe/exported';
  * Create a price authority which uses linear-scaled latest quotes from the
  * underlying quote stream to answer queries.
  *
- * So, if the quote stream produces `[moola(2), simolean(3)]`, and the caller
- * asks what it would get if it sold `moola(6)`, then we'll return
- * `simoleans(4)`.
+ * So, if the quote stream produces `[moola(2n), simolean(3n)]`, and the caller
+ * asks what it would get if it sold `moola(6n)`, then we'll return
+ * `simoleans(4n)`.
  *
  * @param {BasePriceAuthorityOptions} options
  * @returns {Promise<PriceAuthority>}
