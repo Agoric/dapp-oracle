@@ -92,14 +92,17 @@ export async function makeSinglePriceAuthority(options) {
    * @returns {PriceQuote}
    */
   const makeQuote = (amountIn, amountOut, quoteTime) => {
-    const quoteAmount = AmountMath.make(quoteBrand, [
-      {
-        amountIn,
-        amountOut,
-        timer,
-        timestamp: quoteTime,
-      },
-    ]);
+    const quoteAmount = AmountMath.make(
+      quoteBrand,
+      harden([
+        {
+          amountIn,
+          amountOut,
+          timer,
+          timestamp: quoteTime,
+        },
+      ]),
+    );
     const quote = harden({
       quotePayment: E(quoteMint).mintPayment(quoteAmount),
       quoteAmount,
