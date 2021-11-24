@@ -27,11 +27,12 @@ This can either be a public chain or a local chain **BUT NOT the simulated chain
 cd ..
 # Install the needed dependencies.
 agoric install
-# Start local chain implementation
-agoric start --reset local-chain >& chain.log &
+# Start local chain implementation in Docker
+agoric --no-sdk start --reset local-chain >& chain.log &
 ```
 
-This will run a job in the background, and when it's complete, you'll see a new docker container running. You can check it out with `docker ps`
+This will run a job in the background, and when it's complete, you'll see a new
+docker container running. You can check it out with `docker ps`
 
 ## 3. Setup Chainlink node, external adapter, and external initiator
 
