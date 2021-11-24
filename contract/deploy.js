@@ -1,7 +1,10 @@
 // @ts-check
 import fs from 'fs';
+import { AmountMath } from '@agoric/ertp';
 import '@agoric/zoe/exported';
 import { E } from '@agoric/eventual-send';
+
+import { pursePetnames } from './petnames';
 
 // This script takes our contract code, installs it on Zoe, and makes
 // the installation publicly available. Our backend API script will
@@ -19,8 +22,25 @@ import { E } from '@agoric/eventual-send';
  * @property {() => [string]} ids
  */
 
+const transferFees = async (wallet, faucet) => {
+  const [RUNPurse, feePurse] = await Promise.all([
+    E(wallet).getPurse(pursePetnames.RUN),
+    E(faucet).getFeePurse(),
+  ]);
+  if (RUNPurse === feePurse) {
+    return;
+  }
+  const runAmount = await E(RUNPurse).getCurrentAmount();
+  console.log(`Transferring`, runAmount, `from ${RUNPurse} to ${feePurse}`);
+  if (AmountMath.isEmpty(runAmount)) {
+    return;
+  }
+  const feePayment = await E(RUNPurse).withdraw(runAmount);
+  await E(feePurse).deposit(feePayment);
+};
+
 /**
- * @param {Promise<{zoe: ZoeService, board: Board}>} homePromise
+ * @param {Promise<{wallet: any, faucet: any, zoe: ZoeService, board: Board}>} homePromise
  * @param {DeployPowers} powers
  */
 export default async function deployContract(
@@ -36,6 +56,9 @@ export default async function deployContract(
 
   // Unpack the references.
   const {
+    faucet,
+    wallet,
+
     // *** ON-CHAIN REFERENCES ***
 
     // Zoe lives on-chain and is shared by everyone who has access to
@@ -51,6 +74,9 @@ export default async function deployContract(
     // second time, the original id is just returned.
     board,
   } = home;
+
+  // Transfer some fees around the wallet, if there is a Zoe fee purse.
+  await transferFees(wallet, faucet);
 
   // First, we must bundle up our contract code (./src/contract.js)
   // and install it on Zoe. This returns an installationHandle, an

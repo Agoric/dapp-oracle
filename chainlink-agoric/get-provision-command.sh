@@ -13,4 +13,6 @@ esac
 chainName=$(echo "$ncf" | jq -r .chainName)
 addr=$(cat chainlink/ag-cosmos-helper-address)
 
+# FIXME: Need to do a bank send as well.
+# echo ag-cosmos-helper tx bank send provision "$addr" "100000000urun" --yes --chain-id=$chainName
 echo ag-cosmos-helper tx swingset provision-one "ag-solo$1" "$addr" --yes --chain-id=$chainName
