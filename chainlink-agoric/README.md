@@ -94,7 +94,7 @@ docker-compose up
 ```
 
 The env var `AG_NETWORK_CONFIG` needs to be set before bringing the services up.
-`./setup` will default to `$PWD/network-config.json`, but you need to set this again if it is unset.
+`./setup` will default to `$PWD/etc/network-config.json`, but you need to set this again if it is unset.
 
 ## 4. Start up the UI (testing end-to-end)
 
