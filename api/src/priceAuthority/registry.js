@@ -1,6 +1,7 @@
 // @ts-check
 
 import { E } from '@agoric/eventual-send';
+import { Far } from '@agoric/marshal';
 import { makeStore } from '@agoric/store';
 import { assert, details } from '@agoric/assert';
 
@@ -79,7 +80,7 @@ export const makePriceAuthorityRegistry = () => {
    *
    * @type {PriceAuthority}
    */
-  const priceAuthority = {
+  const priceAuthority = Far('registryPriceAuthority', {
     async getQuoteIssuer(brandIn, brandOut) {
       return E(paFor(brandIn, brandOut)).getQuoteIssuer(brandIn, brandOut);
     },
@@ -109,10 +110,10 @@ export const makePriceAuthorityRegistry = () => {
     quoteWhenLTE: makeQuoteWhen('LTE'),
     quoteWhenGTE: makeQuoteWhen('GTE'),
     quoteWhenGT: makeQuoteWhen('GT'),
-  };
+  });
 
   /** @type {PriceAuthorityRegistryAdmin} */
-  const adminFacet = {
+  const adminFacet = Far('PriceAuthorityRegistryAdmin', {
     registerPriceAuthority(pa, brandIn, brandOut, force = false) {
       /** @type {Store<Brand, PriceAuthorityRecord>} */
       let priceStore;
@@ -136,7 +137,7 @@ export const makePriceAuthorityRegistry = () => {
         priceStore.init(brandOut, harden(record));
       }
 
-      return harden({
+      return Far('registerPriceAuthority deleter', {
         delete() {
           assert.equal(
             priceStore.has(brandOut) && priceStore.get(brandOut),
@@ -147,7 +148,7 @@ export const makePriceAuthorityRegistry = () => {
         },
       });
     },
-  };
+  });
 
   return harden({
     priceAuthority,

@@ -1,5 +1,6 @@
 // @ts-check
 import { E } from '@agoric/eventual-send';
+import { Far } from '@agoric/marshal';
 import { AmountMath } from '@agoric/ertp';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
 import {
@@ -94,7 +95,7 @@ const startSpawn = async (_terms, _invitationMaker) => {
       });
     },
   };
-  return harden(factory);
+  return Far('priceAuthorityFactory', factory);
 };
 
 export default harden(startSpawn);

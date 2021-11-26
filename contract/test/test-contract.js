@@ -21,19 +21,19 @@ import '@agoric/zoe/exported';
  * @property {Amount} feeAmount
  * @property {IssuerKit} link
  *
- * @typedef {import('ava').ExecutionContext<TestContext>} ExecutionContext
+ * @typedef {import('ava').ExecutionContext<unknown>} ExecutionContext
+ * @typedef {import('ava').Implementation<unknown>} UnknownImplementation
  */
 
 const contractPath = `${__dirname}/../src/contract`;
 
-test.before(
-  'setup oracle',
-  /** @param {ExecutionContext} ot */ async ot => {
+/** @type {UnknownImplementation} */
+const setupOracle = async ot => {
     // Outside of tests, we should use the long-lived Zoe on the
     // testnet. In this test, we must create a new Zoe.
     const { zoeService } = makeZoeKit(makeFakeVatAdmin().admin);
     const feePurse = E(zoeService).makeFeePurse();
-    const zoe = E(zoeService).bindDefaultFeePurse(feePurse);
+    const zoe = await E(zoeService).bindDefaultFeePurse(feePurse);
 
     // Pack the contract.
     const contractBundle = await bundleSource(contractPath);
@@ -88,15 +88,21 @@ test.before(
       });
     };
 
-    ot.context.zoe = zoe;
-    ot.context.makePingOracle = makePingOracle;
-    ot.context.feeAmount = feeAmount;
-    ot.context.link = link;
-  },
+    const context = /** @type {TestContext} */ (ot.context);
+    context.zoe = zoe;
+    context.makePingOracle = makePingOracle;
+    context.feeAmount = feeAmount;
+    context.link = link;
+  };
+
+test.before(
+  'setup oracle',
+  setupOracle,
 );
 
-test('single oracle', /** @param {ExecutionContext} t */ async t => {
-  const { zoe, link, makePingOracle, feeAmount } = t.context;
+/** @type {UnknownImplementation} */
+const singleOracleTest =  async t => {
+  const { zoe, link, makePingOracle, feeAmount } = /** @type {TestContext} */ (t.context);
 
   // Get the Zoe invitation issuer from Zoe.
   const invitationIssuer = E(zoe).getInvitationIssuer();
@@ -226,4 +232,7 @@ test('single oracle', /** @param {ExecutionContext} t */ async t => {
     await link.issuer.getAmountOf(E(withdrawOffer).getPayout('Fee')),
     AmountMath.make(link.brand, 201n),
   );
-});
+  };
+
+
+test('single oracle', singleOracleTest);

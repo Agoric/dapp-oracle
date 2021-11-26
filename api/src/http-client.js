@@ -1,5 +1,6 @@
 // @ts-check
 
+import { Far } from '@agoric/marshal';
 import axios from 'axios';
 import { assertUrlIsPublic } from './public-ip';
 
@@ -7,14 +8,14 @@ import './types';
 
 export const bootPlugin = () => {
   // console.error('booting httpclient');
-  return harden({
+  return Far('plugin', {
     /**
      * @param {Record<string, any>} _opts
      * @returns {HttpClient}
      */
     start(_opts) {
       // console.error('starting httpclient', _opts);
-      return harden({
+      return Far('http-client', {
         async get(url, { headers, trusted = false } = {}) {
           await (trusted || assertUrlIsPublic(url));
           const reply = await axios.get(url, {

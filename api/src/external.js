@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { E } from '@agoric/eventual-send';
+import { Far } from '@agoric/marshal';
 import { makePromiseKit } from '@agoric/promise-kit';
 import { AmountMath } from '@agoric/ertp';
 import {
@@ -7,7 +8,7 @@ import {
   makeAsyncIterableFromNotifier,
   observeIteration,
 } from '@agoric/notifier';
-import { makeStore } from '@agoric/store';
+import { makeStore, makeLegacyMap } from '@agoric/store';
 
 import '@agoric/zoe/src/contracts/exported';
 
@@ -19,9 +20,9 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
   /** @type {Store<string, any>} */
   const queryIdToData = makeStore('queryId');
   /** @type {Store<string, PromiseRecord<any>} */
-  const queryIdToReplyPK = makeStore('queryId');
+  const queryIdToReplyPK = makeLegacyMap('queryId');
   /** @type {Store<string, Updater<any>>} */
-  const queryIdToUpdater = makeStore('queryId');
+  const queryIdToUpdater = makeLegacyMap('queryId');
 
   const sendToSubscribers = (
     obj,
@@ -69,7 +70,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
     },
   });
 
-  const oracleURLHandler = {
+  const oracleURLHandler = Far('oracleURLHandler', {
     getCommandHandler() {
       const commandHandler = {
         onError(obj, _meta) {
@@ -196,9 +197,9 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
           }
         },
       };
-      return harden(commandHandler);
+      return Far('oracle commandHandler', commandHandler);
     },
-  };
+  });
 
   return harden({
     oracleHandler,
