@@ -157,13 +157,6 @@
     "@agoric/store" "0.6.7-dev-23c942c.0+23c942c"
     "@agoric/zoe" "0.20.1-dev-23c942c.0+23c942c"
 
-"@agoric/harden@^0.0.8":
-  version "0.0.8"
-  resolved "https://registry.yarnpkg.com/@agoric/harden/-/harden-0.0.8.tgz#1bb7d4b4b9bc884578cb0d87f140bdbe70f563ba"
-  integrity sha512-psxe8nC9wphyeaIhdSFs45CcZnncb4JdoeqBldPNcmcStao8Keuzda9n6t3lqW3WuGm/DNikUyMJ5pE/LeLutQ==
-  dependencies:
-    "@agoric/make-hardener" "0.0.8"
-
 "@agoric/import-bundle@0.2.32-dev-23c942c.0+23c942c":
   version "0.2.32-dev-23c942c.0"
   resolved "https://registry.yarnpkg.com/@agoric/import-bundle/-/import-bundle-0.2.32-dev-23c942c.0.tgz#3c56533786cf1a3116301995be087f51d930cdec"
@@ -186,12 +179,7 @@
     "@agoric/eventual-send" "0.13.31-dev-23c942c.0+23c942c"
     ses "^0.14.3"
 
-"@agoric/make-hardener@0.0.8":
-  version "0.0.8"
-  resolved "https://registry.yarnpkg.com/@agoric/make-hardener/-/make-hardener-0.0.8.tgz#7f9e9d6874600b2e1b0543ce9456fbf62463be2d"
-  integrity sha512-bd83IYEMQbzpprwyA10RjHIGWmWeUMdsd5EzaHwke+zLH0HyqP6UKxFLv5mqkmrMeQyOMhNgKN1hCagjRyjlxQ==
-
-"@agoric/marshal@0.4.29-dev-23c942c.0+23c942c":
+"@agoric/marshal@0.4.29-dev-23c942c.0+23c942c", "@agoric/marshal@dev":
   version "0.4.29-dev-23c942c.0"
   resolved "https://registry.yarnpkg.com/@agoric/marshal/-/marshal-0.4.29-dev-23c942c.0.tgz#0cb62745e9044b5b4820259c37c583343551efb8"
   integrity sha512-GOTGBuZxFi9dDBzYX4Sy6F9Ousc4vpuczI7XAtVuFZXrvscItud1Fe6DkCf3XMAadh8WYDDWv00eVGfLqNEsEg==
@@ -236,7 +224,7 @@
     "@agoric/vats" "0.4.3-dev-23c942c.0+23c942c"
     "@agoric/zoe" "0.20.1-dev-23c942c.0+23c942c"
 
-"@agoric/promise-kit@0.2.29-dev-23c942c.0+23c942c":
+"@agoric/promise-kit@0.2.29-dev-23c942c.0+23c942c", "@agoric/promise-kit@dev":
   version "0.2.29-dev-23c942c.0"
   resolved "https://registry.yarnpkg.com/@agoric/promise-kit/-/promise-kit-0.2.29-dev-23c942c.0.tgz#22ad9c4e7b6fd446a85ecfc3f751cf4bacd0780b"
   integrity sha512-wo1rCBcmtkvRGZXYxMybN4jno+tcr4Wfs4Jka8AQQ7uQVt/X9JGyY7zEUNh3z8q2VgBE74RM4R3nMYopaPuKSA==
@@ -2268,7 +2256,7 @@ eslint@^6.1.0, eslint@^6.8.0:
     text-table "^0.2.0"
     v8-compile-cache "^2.0.3"
 
-esm@^3.2.5, esm@agoric-labs/esm#Agoric-built:
+esm@^3.2.5, esm@agoric-labs/esm#Agoric-built, "esm@github:agoric-labs/esm#Agoric-built":
   version "3.2.25"
   resolved "https://codeload.github.com/agoric-labs/esm/tar.gz/3603726ad4636b2f865f463188fcaade6375638e"
 

@@ -34,8 +34,14 @@
     "tape-promise": "^4.0.0"
   },
   "dependencies": {
+    "@agoric/assert": "dev",
+    "@agoric/ertp": "dev",
     "@agoric/eventual-send": "dev",
-    "@agoric/harden": "^0.0.8",
+    "@agoric/marshal": "dev",
+    "@agoric/notifier": "dev",
+    "@agoric/promise-kit": "dev",
+    "@agoric/store": "dev",
+    "@agoric/zoe": "dev",
     "axios": "^0.21.0",
     "esm": "^3.2.5",
     "ip-address": "^7.1.0"
