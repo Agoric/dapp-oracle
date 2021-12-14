@@ -1,6 +1,5 @@
 // @ts-check
 import fs from 'fs';
-import { AmountMath } from '@agoric/ertp';
 import '@agoric/zoe/exported';
 import { E } from '@agoric/eventual-send';
 
@@ -32,10 +31,13 @@ const transferFees = async (wallet, faucet) => {
   }
   const runAmount = await E(RUNPurse).getCurrentAmount();
   console.log(`Transferring`, runAmount, `from ${RUNPurse} to ${feePurse}`);
-  if (AmountMath.isEmpty(runAmount)) {
+  const withdrawFailedHandle = {};
+  const feePayment = await E(RUNPurse)
+    .withdraw(runAmount)
+    .catch(() => withdrawFailedHandle);
+  if (feePayment === withdrawFailedHandle) {
     return;
   }
-  const feePayment = await E(RUNPurse).withdraw(runAmount);
   await E(feePurse).deposit(feePayment);
 };
 
