@@ -1,4 +1,5 @@
-// @ts-nocheck
+// @ts-check
+/* global BigInt */
 import { E } from '@agoric/eventual-send';
 import { Far } from '@agoric/marshal';
 import { makePromiseKit } from '@agoric/promise-kit';
@@ -19,9 +20,9 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
   const subChannelHandles = new Set();
   /** @type {Store<string, any>} */
   const queryIdToData = makeStore('queryId');
-  /** @type {Store<string, PromiseRecord<any>} */
+  /** @type {Store<string, PromiseRecord<any>>} */
   const queryIdToReplyPK = makeLegacyMap('queryId');
-  /** @type {Store<string, Updater<any>>} */
+  /** @type {Store<string, IterationObserver<any>>} */
   const queryIdToUpdater = makeLegacyMap('queryId');
 
   const sendToSubscribers = (
@@ -49,7 +50,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
       const data = {
         queryId,
         query,
-        fee: fee.value,
+        fee: `${fee.value}`,
       };
       queryIdToData.init(queryId, data);
       const replyPK = makePromiseKit();
@@ -148,7 +149,10 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
                 const replyPK = queryIdToReplyPK.get(queryId);
                 replyPK.resolve({
                   reply,
-                  requiredFee: AmountMath.make(feeBrand, requiredFee || 0n),
+                  requiredFee: AmountMath.make(
+                    feeBrand,
+                    BigInt(requiredFee || 0),
+                  ),
                 });
                 queryIdToReplyPK.delete(queryId);
               }
