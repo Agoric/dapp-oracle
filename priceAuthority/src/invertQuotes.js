@@ -35,7 +35,7 @@ export async function makeInverseQuoteStream(options) {
     theirBrandOut,
   );
   const theirQuoteBrand = await E(theirQuoteIssuer).getBrand();
-  const theirNotifierP = E(theirPa).getQuoteNotifier(
+  const theirNotifierP = E(theirPa).makeQuoteNotifier(
     theirBrandIn,
     theirBrandOut,
   );
