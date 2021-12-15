@@ -2,8 +2,7 @@
 // Agoric Dapp api deployment script
 
 import fs from 'fs';
-import { E } from '@agoric/eventual-send';
-import harden from '@agoric/harden';
+import { E } from '@agoric/far';
 import '@agoric/zoe/exported';
 import '@agoric/zoe/src/contracts/exported';
 
@@ -17,11 +16,11 @@ import installationConstants from '../ui/public/conf/installationConstants';
 const { INSTALL_ORACLE } = process.env;
 
 // The deployer's wallet's petname for the tip issuer.
-const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'Testnet.$LINK';
+const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'LINK';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
- * @property {(path: string) => Promise<{ moduleFormat: string, source: string }>} bundleSource
+ * @property {(path: string, opts?: any) => Promise<{ moduleFormat: string }>} bundleSource
  * @property {(path: string) => string} pathResolve
  * @property {(path: string, opts?: any) => Promise<any>} installUnsafePlugin
  * @property {string} host
@@ -132,13 +131,15 @@ export default async function deployApi(
   const handlerInstall = E(spawner).install(bundle);
 
   // Spawn the running code
-  const { handler, oracleCreator } = await E(handlerInstall).spawn({
-    http,
-    board,
-    feeIssuer,
-    invitationIssuer,
-    zoe,
-  });
+  const { handler, oracleCreator } = await E(handlerInstall).spawn(
+    harden({
+      http,
+      board,
+      feeIssuer,
+      invitationIssuer,
+      zoe,
+    }),
+  );
 
   await E(http).registerURLHandler(handler, '/api/oracle-client');
 

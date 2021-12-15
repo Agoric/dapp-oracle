@@ -1,10 +1,9 @@
 // @ts-check
 /* global BigInt */
 
-import { E } from '@agoric/eventual-send';
+import { E, Far } from '@agoric/far';
 import { assert, details } from '@agoric/assert';
 import { AmountMath } from '@agoric/ertp';
-import { Far } from '@agoric/marshal';
 
 import './types';
 

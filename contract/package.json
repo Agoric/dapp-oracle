@@ -26,15 +26,14 @@
     "ava": "^3.11.1"
   },
   "dependencies": {
-    "@agoric/assert": "*",
+    "@agoric/assert": "dev",
     "@agoric/babel-parser": "^7.6.4",
-    "@agoric/ertp": "*",
-    "@agoric/eventual-send": "*",
-    "@agoric/harden": "^0.0.8",
-    "@agoric/install-ses": "*",
-    "@agoric/notifier": "*",
-    "@agoric/store": "*",
-    "@agoric/zoe": "*",
+    "@agoric/ertp": "dev",
+    "@agoric/far": "dev",
+    "@agoric/install-ses": "dev",
+    "@agoric/notifier": "dev",
+    "@agoric/store": "dev",
+    "@agoric/zoe": "dev",
     "esm": "^3.2.5"
   },
   "ava": {

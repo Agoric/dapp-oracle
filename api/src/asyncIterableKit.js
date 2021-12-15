@@ -1,12 +1,11 @@
 // @ts-check
-import { E } from '@agoric/eventual-send';
+import { E, Far } from '@agoric/far';
 import {
   makeNotifierKit,
   makeAsyncIterableFromNotifier,
 } from '@agoric/notifier';
 
 import '@agoric/zoe/exported';
-import { Far } from '@agoric/marshal';
 
 /**
  * @callback CancelFunction

@@ -27,17 +27,19 @@ This can either be a public chain or a local chain **BUT NOT the simulated chain
 cd ..
 # Install the needed dependencies.
 agoric install
-# Start local chain implementation
+# Start local chain implementation in Docker
 agoric start --reset local-chain >& chain.log &
 ```
 
-This will run a job in the background, and when it's complete, you'll see a new docker container running. You can check it out with `docker ps`
+This will run a job in the background, and when it's complete, you'll see a new
+docker container running. You can check it out with `docker ps` or just `ps` if
+you're using the `agoric` command from the Agoric SDK.
 
 ## 3. Setup Chainlink node, external adapter, and external initiator
 
 _Note: Make sure you have cd-ed into this directory_
 
-Once you are running the Agoric local-chain, simply run:
+Once the above Agoric local-chain has started, simply run:
 
 ```bash
 ./setup
@@ -93,7 +95,7 @@ docker-compose up
 ```
 
 The env var `AG_NETWORK_CONFIG` needs to be set before bringing the services up.
-`./setup` will default to `$PWD/network-config.json`, but you need to set this again if it is unset.
+`./setup` will default to `$PWD/etc/network-config.json`, but you need to set this again if it is unset.
 
 ## 4. Start up the UI (testing end-to-end)
 

@@ -1,5 +1,5 @@
 // @ts-check
-import { E } from '@agoric/eventual-send';
+import { E, Far } from '@agoric/far';
 import { makeExternalOracle } from './external';
 import { makeBuiltinOracle } from './builtin';
 
@@ -10,7 +10,7 @@ const startSpawn = async (
   { board, feeIssuer, http, invitationIssuer, zoe },
   _invitationMaker,
 ) => {
-  const handler = {
+  const handler = Far('oracle handler', {
     getCommandHandler() {
       const commandHandler = {
         onError(obj, _meta) {
@@ -90,20 +90,20 @@ const startSpawn = async (
           }
         },
       };
-      return harden(commandHandler);
+      return Far('oracle command handler', commandHandler);
     },
-  };
+  });
 
   return harden({
     handler,
-    oracleCreator: {
+    oracleCreator: Far('oracleCreator', {
       makeExternalOracle() {
         return makeExternalOracle({ board, http, feeIssuer });
       },
       makeBuiltinOracle({ httpClient, requiredFee }) {
         return makeBuiltinOracle({ httpClient, requiredFee, feeIssuer });
       },
-    },
+    }),
   });
 };
 

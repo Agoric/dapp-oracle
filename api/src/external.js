@@ -1,5 +1,6 @@
-// @ts-nocheck
-import { E } from '@agoric/eventual-send';
+// @ts-check
+/* global BigInt */
+import { E, Far } from '@agoric/far';
 import { makePromiseKit } from '@agoric/promise-kit';
 import { AmountMath } from '@agoric/ertp';
 import {
@@ -7,7 +8,7 @@ import {
   makeAsyncIterableFromNotifier,
   observeIteration,
 } from '@agoric/notifier';
-import { makeStore } from '@agoric/store';
+import { makeStore, makeLegacyMap } from '@agoric/store';
 
 import '@agoric/zoe/src/contracts/exported';
 
@@ -16,12 +17,23 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
   const feeBrand = await E(feeIssuer).getBrand();
 
   const subChannelHandles = new Set();
-  /** @type {Store<string, any>} */
+
+  /**
+   * @type {Store<string, {
+   *   queryId: string, query: unknown, fee?: string, boardId?: string
+   * }>}
+   */
   const queryIdToData = makeStore('queryId');
-  /** @type {Store<string, PromiseRecord<any>} */
-  const queryIdToReplyPK = makeStore('queryId');
-  /** @type {Store<string, Updater<any>>} */
-  const queryIdToUpdater = makeStore('queryId');
+  /**
+   * @type {Store<string, PromiseRecord<unknown>>}
+   * Legacy because PromiseRecord mixes functions and data
+   */
+  const queryIdToReplyPK = makeLegacyMap('queryId');
+  /**
+   * @type {Store<string, IterationObserver<unknown>>}
+   * Legacy because makeNotifierKit().updater is not Far
+   */
+  const queryIdToUpdater = makeLegacyMap('queryId');
 
   const sendToSubscribers = (
     obj,
@@ -48,7 +60,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
       const data = {
         queryId,
         query,
-        fee: fee.value,
+        fee: `${fee.value}`,
       };
       queryIdToData.init(queryId, data);
       const replyPK = makePromiseKit();
@@ -69,7 +81,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
     },
   });
 
-  const oracleURLHandler = {
+  const oracleURLHandler = Far('oracleURLHandler', {
     getCommandHandler() {
       const commandHandler = {
         onError(obj, _meta) {
@@ -147,7 +159,10 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
                 const replyPK = queryIdToReplyPK.get(queryId);
                 replyPK.resolve({
                   reply,
-                  requiredFee: AmountMath.make(feeBrand, requiredFee || 0n),
+                  requiredFee: AmountMath.make(
+                    feeBrand,
+                    BigInt(requiredFee || 0),
+                  ),
                 });
                 queryIdToReplyPK.delete(queryId);
               }
@@ -196,9 +211,9 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
           }
         },
       };
-      return harden(commandHandler);
+      return Far('oracle commandHandler', commandHandler);
     },
-  };
+  });
 
   return harden({
     oracleHandler,
