@@ -1,6 +1,5 @@
 // @ts-check
-import { E } from '@agoric/eventual-send';
-import { Far } from '@agoric/marshal';
+import { E, Far } from '@agoric/far';
 import { makeExternalOracle } from './external';
 import { makeBuiltinOracle } from './builtin';
 

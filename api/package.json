@@ -36,8 +36,7 @@
   "dependencies": {
     "@agoric/assert": "dev",
     "@agoric/ertp": "dev",
-    "@agoric/eventual-send": "dev",
-    "@agoric/marshal": "dev",
+    "@agoric/far": "dev",
     "@agoric/notifier": "dev",
     "@agoric/promise-kit": "dev",
     "@agoric/store": "dev",

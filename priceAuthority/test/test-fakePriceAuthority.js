@@ -3,11 +3,11 @@
 import '@agoric/zoe/tools/prepare-test-env';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import test from 'ava';
-import { E } from '@agoric/eventual-send';
+import { E } from '@agoric/far';
 import buildManualTimer from '@agoric/zoe/tools/manualTimer';
 
 // import { makeFakePriceAuthority } from '@agoric/zoe/tools/fakePriceAuthority';
-import { makeFakePriceAuthority } from '../src/priceAuthority/fake';
+import { makeFakePriceAuthority } from '../src/fake';
 import { setup } from './setupBasicMints';
 
 /**

@@ -1,7 +1,6 @@
 // @ts-check
 
-import { E } from '@agoric/eventual-send';
-import { Far } from '@agoric/marshal';
+import { E, Far } from '@agoric/far';
 import { makeStore } from '@agoric/store';
 import { assert, details } from '@agoric/assert';
 

@@ -1,5 +1,5 @@
 // @ts-check
-import { E } from '@agoric/eventual-send';
+import { E } from '@agoric/far';
 import '@agoric/zoe/exported';
 import '@agoric/zoe/src/contracts/exported';
 

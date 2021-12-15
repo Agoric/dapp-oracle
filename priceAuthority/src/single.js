@@ -5,11 +5,10 @@ import {
   makeNotifierKit,
   makeNotifierFromAsyncIterable,
 } from '@agoric/notifier';
-import { E } from '@agoric/eventual-send';
+import { E, Far } from '@agoric/far';
 import { assert, details } from '@agoric/assert';
 
 import '@agoric/zoe/exported';
-import { Far } from '@agoric/marshal';
 
 /**
  * @typedef {Object} SinglePriceAuthorityOptions

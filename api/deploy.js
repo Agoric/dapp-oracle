@@ -2,7 +2,7 @@
 // Agoric Dapp api deployment script
 
 import fs from 'fs';
-import { E } from '@agoric/eventual-send';
+import { E } from '@agoric/far';
 import '@agoric/zoe/exported';
 import '@agoric/zoe/src/contracts/exported';
 
@@ -20,7 +20,7 @@ const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'LINK';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
- * @property {(path: string, opts?: any) => Promise<{ moduleFormat: string, source: string }>} bundleSource
+ * @property {(path: string, opts?: any) => Promise<{ moduleFormat: string }>} bundleSource
  * @property {(path: string) => string} pathResolve
  * @property {(path: string, opts?: any) => Promise<any>} installUnsafePlugin
  * @property {string} host

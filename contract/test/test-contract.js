@@ -5,12 +5,11 @@ import '@agoric/zoe/tools/prepare-test-env';
 import test from 'ava';
 import bundleSource from '@agoric/bundle-source';
 
-import { E } from '@agoric/eventual-send';
+import { E, Far } from '@agoric/far';
 import { makeFakeVatAdmin } from '@agoric/zoe/tools/fakeVatAdmin';
 import { makeZoeKit } from '@agoric/zoe';
 import { makeIssuerKit, AmountMath } from '@agoric/ertp';
 import { assert, details } from '@agoric/assert/src/assert';
-import { Far } from '@agoric/marshal';
 
 import '@agoric/zoe/exported';
 

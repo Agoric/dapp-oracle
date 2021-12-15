@@ -1,6 +1,5 @@
 // @ts-check
-import { E } from '@agoric/eventual-send';
-import { Far } from '@agoric/marshal';
+import { E, Far } from '@agoric/far';
 import { AmountMath } from '@agoric/ertp';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
 import {

@@ -1,7 +1,7 @@
 // @ts-check
 import { AmountMath } from '@agoric/ertp';
 import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
-import { E } from '@agoric/eventual-send';
+import { E } from '@agoric/far';
 
 import '@agoric/zoe/exported';
 

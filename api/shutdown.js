@@ -1,10 +1,10 @@
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
- * @property {(path: string) => { moduleFormat: string, source: string }} bundleSource
+ * @property {(path: string) => { moduleFormat: string }} bundleSource
  * @property {(path: string) => string} pathResolve
  */
 
-import { E } from '@agoric/eventual-send';
+import { E } from '@agoric/far';
 
 /**
  * @param {any} referencesPromise A promise for the references

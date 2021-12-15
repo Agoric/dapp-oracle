@@ -1,6 +1,6 @@
 // @ts-check
 
-import { Far } from '@agoric/marshal';
+import { Far } from '@agoric/far';
 import axios from 'axios';
 import { assertUrlIsPublic } from './public-ip';
 

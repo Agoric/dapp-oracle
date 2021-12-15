@@ -1,7 +1,6 @@
 // @ts-check
 /* global BigInt */
-import { E } from '@agoric/eventual-send';
-import { Far } from '@agoric/marshal';
+import { E, Far } from '@agoric/far';
 import { makePromiseKit } from '@agoric/promise-kit';
 import { AmountMath } from '@agoric/ertp';
 import {
