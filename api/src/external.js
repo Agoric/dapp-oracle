@@ -18,11 +18,22 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
   const feeBrand = await E(feeIssuer).getBrand();
 
   const subChannelHandles = new Set();
-  /** @type {Store<string, any>} */
+
+  /**
+   * @type {Store<string, {
+   *   queryId: string, query: unknown, fee?: string, boardId?: string
+   * }>}
+   */
   const queryIdToData = makeStore('queryId');
-  /** @type {Store<string, PromiseRecord<any>>} */
+  /**
+   * @type {Store<string, PromiseRecord<unknown>>}
+   * Legacy because PromiseRecord mixes functions and data
+   */
   const queryIdToReplyPK = makeLegacyMap('queryId');
-  /** @type {Store<string, IterationObserver<any>>} */
+  /**
+   * @type {Store<string, IterationObserver<unknown>>}
+   * Legacy because makeNotifierKit().updater is not Far
+   */
   const queryIdToUpdater = makeLegacyMap('queryId');
 
   const sendToSubscribers = (
