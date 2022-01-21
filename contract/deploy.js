@@ -77,9 +77,6 @@ export default async function deployContract(
     board,
   } = home;
 
-  // Transfer some fees around the wallet, if there is a Zoe fee purse.
-  await transferFees(wallet, faucet);
-
   // First, we must bundle up our contract code (./src/contract.js)
   // and install it on Zoe. This returns an installationHandle, an
   // opaque, unforgeable identifier for our contract code that we can
