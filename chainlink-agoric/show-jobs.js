@@ -1,10 +1,10 @@
 #! /usr/bin/env node
-const esmRequire = require('esm')(module);
-const fs = require('fs');
-const defaults = esmRequire('../ui/public/conf/defaults').default;
+import fs from 'fs';
+import defaults from '../ui/public/conf/defaults.js';
 
 // console.log(defaults);
-const lines = fs.readFileSync(`${__dirname}/jobids.txt`, 'utf-8');
+const jobids = new URL('./jobids.txt', import.meta.url).pathname;
+const lines = fs.readFileSync(jobids, 'utf-8');
 for (const line of lines.trimRight().split('\n')) {
   const [jobid, port] = line.split(/\s+/);
   const oraclePort = Number(port) + 200;

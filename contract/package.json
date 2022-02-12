@@ -3,9 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Contract for the dapp-oracle Agoric Dapp",
-  "parsers": {
-    "js": "mjs"
-  },
+  "type": "module",
   "scripts": {
     "build": "exit 0",
     "test": "ava --verbose",
@@ -58,40 +56,8 @@
   "homepage": "https://github.com/Agoric/agoric#readme",
   "eslintConfig": {
     "extends": [
-      "airbnb-base",
-      "plugin:prettier/recommended"
-    ],
-    "env": {
-      "es6": true
-    },
-    "rules": {
-      "implicit-arrow-linebreak": "off",
-      "function-paren-newline": "off",
-      "arrow-parens": "off",
-      "strict": "off",
-      "no-console": "off",
-      "no-unused-vars": [
-        "error",
-        {
-          "argsIgnorePattern": "^_",
-          "varsIgnorePattern": "^_"
-        }
-      ],
-      "no-return-assign": "off",
-      "no-param-reassign": "off",
-      "no-restricted-syntax": [
-        "off",
-        "ForOfStatement"
-      ],
-      "no-unused-expressions": "off",
-      "no-loop-func": "off",
-      "no-inner-declarations": "off",
-      "import/prefer-default-export": "off",
-      "import/no-extraneous-dependencies": "off"
-    },
-    "globals": {
-      "harden": "readonly"
-    }
+      "@agoric"
+    ]
   },
   "prettier": {
     "trailingComma": "all",
