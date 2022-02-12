@@ -8,7 +8,7 @@ import {
 import { E, Far } from '@agoric/far';
 import { assert, details } from '@agoric/assert';
 
-import '@agoric/zoe/exported';
+import '@agoric/zoe/exported.js';
 
 /**
  * @typedef {Object} SinglePriceAuthorityOptions

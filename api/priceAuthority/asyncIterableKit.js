@@ -27,7 +27,7 @@ import '@agoric/zoe/exported';
  * @param {Array<T>} script
  * @param {TimerAsyncIterableKit} timerAsyncIterableKit
  * @param {boolean} [repeat=true]
- * @returns {AsyncIterable<{ timer: TimerService, timestamp: Timestamp, item: T }>}
+ * @yields {{ timer: TimerService, timestamp: Timestamp, item: T }}
  */
 export async function* makeScriptedAsyncIterable(
   script,

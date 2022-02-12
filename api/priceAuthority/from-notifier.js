@@ -1,12 +1,16 @@
+/* global process */
 // @ts-check
 import { E } from '@agoric/far';
-import '@agoric/zoe/exported';
-import '@agoric/zoe/src/contracts/exported';
+import '@agoric/zoe/exported.js';
+import '@agoric/zoe/src/contracts/exported.js';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
  * @property {(path: string) => Promise<{ moduleFormat: string, source: string }>} bundleSource
  * @property {(path: string) => string} pathResolve
+ * @property {(path: string, opts?: any) => Promise<any>} installUnsafePlugin
+ * @property {string} host
+ * @property {string} port
  *
  * @typedef {Object} Board
  * @property {(id: string) => any} getValue
@@ -18,20 +22,24 @@ import '@agoric/zoe/src/contracts/exported';
 /**
  * @typedef {{ board: Board, chainTimerService, wallet, scratch, spawner }} Home
  * @param {Promise<Home>} homePromise
+ * @param {Object} root0
+ * @param {(filename: string) => Promise<any>} root0.bundleSource
+ * @param {(filename: string) => string} root0.pathResolve
  * A promise for the references available from REPL home
  */
-export default async function priceAuthorityInvert(
+export default async function priceAuthorityfromNotifier(
   homePromise,
   { bundleSource, pathResolve },
 ) {
   const {
     FORCE_SPAWN = 'true',
-    IN_ISSUER_JSON = JSON.stringify('Testnet.$LINK'),
-    OUT_ISSUER_JSON = JSON.stringify('Testnet.$USD'),
-    PRICE_AUTHORITY_BOARD_ID,
+    IN_ISSUER_JSON = JSON.stringify('LINK'),
+    OUT_ISSUER_JSON = JSON.stringify('USDC'),
+    PRICE_DECIMALS = '0',
+    NOTIFIER_BOARD_ID,
   } = process.env;
 
-  if (!PRICE_AUTHORITY_BOARD_ID) {
+  if (!NOTIFIER_BOARD_ID) {
     console.error(`You must specify PRICE_AUTHORITY_BOARD_ID`);
     process.exit(1);
   }
@@ -44,8 +52,12 @@ export default async function priceAuthorityInvert(
 
   const issuersArray = await E(wallet).getIssuers();
   const issuerNames = issuersArray.map(([petname]) => JSON.stringify(petname));
-  const issuerIn = await E(wallet).getIssuer(JSON.parse(IN_ISSUER_JSON));
-  const issuerOut = await E(wallet).getIssuer(JSON.parse(OUT_ISSUER_JSON));
+  const issuerIn = await E(wallet)
+    .getIssuer(JSON.parse(IN_ISSUER_JSON))
+    .catch(() => undefined);
+  const issuerOut = await E(wallet)
+    .getIssuer(JSON.parse(OUT_ISSUER_JSON))
+    .catch(() => undefined);
 
   if (issuerIn === undefined) {
     console.error(
@@ -67,14 +79,27 @@ export default async function priceAuthorityInvert(
     process.exit(1);
   }
 
-  const priceAuthority = await E(board).getValue(PRICE_AUTHORITY_BOARD_ID);
+  const displayInfoIn = await E(E(issuerIn).getBrand()).getDisplayInfo();
+  const { decimalPlaces: decimalPlacesIn = 0 } = displayInfoIn || {};
+
+  const unitValueIn = 10n ** BigInt(decimalPlacesIn);
+
+  const displayInfoOut = await E(E(issuerOut).getBrand()).getDisplayInfo();
+  const { decimalPlaces: decimalPlacesOut = 0 } = displayInfoOut || {};
+
+  // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut.
+  const priceDecimalPlaces = JSON.parse(PRICE_DECIMALS);
+  const scaleValueOut = 10 ** (decimalPlacesOut - priceDecimalPlaces);
+
+  // Get the notifier.
+  const notifierId = NOTIFIER_BOARD_ID.replace(/^board:/, '');
+  const notifier = E(board).getValue(notifierId);
+
   let priceAuthorityFactory = E(scratch).get('priceAuthorityFactory');
 
   if (FORCE_SPAWN || !priceAuthorityFactory) {
-    // Bundle up the priceAuthorityFactory code
-    const bundle = await bundleSource(
-      pathResolve('./src/priceAuthorityFactory.js'),
-    );
+    // Bundle up the notifierPriceAuthority code
+    const bundle = await bundleSource(pathResolve('./factory.js'));
 
     // Install it on the spawner
     const notifierFactory = E(spawner).install(bundle);
@@ -87,20 +112,17 @@ export default async function priceAuthorityInvert(
   }
 
   console.log('Waiting for first valid quote from push notifier...');
-  const inversePriceAuthority = await E(
+  const priceAuthority = await E(
     priceAuthorityFactory,
-  ).makeInversePriceAuthority({
-    priceAuthority,
+  ).makeNotifierPriceAuthority({
+    notifier,
     issuerIn,
     issuerOut,
     timer,
+    unitValueIn,
+    scaleValueOut,
   });
 
-  const INVERSE_PRICE_AUTHORITY_BOARD_ID = await E(board).getId(
-    inversePriceAuthority,
-  );
-  console.log(
-    '-- INVERSE_PRICE_AUTHORITY_BOARD_ID:',
-    INVERSE_PRICE_AUTHORITY_BOARD_ID,
-  );
+  const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);
+  console.log('-- PRICE_AUTHORITY_BOARD_ID:', PRICE_AUTHORITY_BOARD_ID);
 }

@@ -5,7 +5,7 @@ import { makeAsyncIterableFromNotifier } from '@agoric/notifier';
 import {
   makeLinearPriceAuthority,
   makeInverseQuoteStream,
-} from './priceAuthority';
+} from './src/index.js';
 
 const startSpawn = async (_terms, _invitationMaker) => {
   const factory = {
@@ -68,9 +68,9 @@ const startSpawn = async (_terms, _invitationMaker) => {
           let amountOut;
           try {
             // Scale the sample to the specific valueOut.
-            const valueOutForUnitIn = BigInt(Math.floor(
-              parseInt(sample, 10) * scaleValueOut,
-            ));
+            const valueOutForUnitIn = BigInt(
+              Math.floor(parseInt(sample, 10) * scaleValueOut),
+            );
             amountOut = AmountMath.make(brandOut, valueOutForUnitIn);
           } catch (e) {
             console.error(`Cannot parse ${JSON.stringify(sample)}:`, e);
