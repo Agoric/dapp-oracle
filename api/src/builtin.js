@@ -1,11 +1,11 @@
 // @ts-check
-/* global BigInt */
-
 import { E, Far } from '@agoric/far';
 import { assert, details } from '@agoric/assert';
 import { AmountMath } from '@agoric/ertp';
 
-import './types';
+import { makePushCallbacks } from './push.js';
+
+import './types.js';
 
 const CHAINLINK_SIM_JOB = 'b0b5cafec0ffeeee';
 
@@ -195,11 +195,15 @@ const l = (template, ...args) =>
  *
  * @param {Object} param0
  * @param {HttpClient} param0.httpClient
+ * @param {any} param0.board
+ * @param {any} param0.http
  * @param {Amount} [param0.requiredFee]
  * @param {Issuer} param0.feeIssuer
  */
 async function makeBuiltinOracle({
   httpClient,
+  http,
+  board,
   feeIssuer,
   requiredFee = undefined,
 }) {
@@ -345,8 +349,25 @@ async function makeBuiltinOracle({
     },
   });
 
+  const { onMessage, onOpen, onClose } = makePushCallbacks({ board, http });
+  const oracleURLHandler = Far('oracleURLHandler', {
+    getCommandHandler() {
+      const commandHandler = {
+        onOpen,
+        onClose,
+        onMessage,
+
+        onError(obj, _meta) {
+          console.error('Have error', obj);
+        },
+      };
+      return Far('oracle commandHandler', commandHandler);
+    },
+  });
+
   return harden({
     oracleHandler,
+    oracleURLHandler,
   });
 }
 

@@ -1,12 +1,13 @@
 // @ts-check
+/* global process */
 // Agoric Dapp api deployment script
 
 import fs from 'fs';
 import { E } from '@agoric/far';
-import '@agoric/zoe/exported';
-import '@agoric/zoe/src/contracts/exported';
+import '@agoric/zoe/exported.js';
+import '@agoric/zoe/src/contracts/exported.js';
 
-import installationConstants from '../ui/public/conf/installationConstants';
+import installationConstants from '../ui/public/conf/installationConstants.js';
 
 // deploy.js runs in an ephemeral Node.js outside of swingset. The
 // spawner runs within ag-solo, so is persistent.  Once the deploy.js
@@ -178,41 +179,33 @@ export default async function deployApi(
       oracleDescription: INSTALL_ORACLE || 'Builtin Oracle',
     });
 
-    /** @type {OracleCreatorFacet} */
-    let creatorFacet;
+    let handlerP;
     if (INSTALL_ORACLE) {
       // This clause is to install an external oracle (serviced by, say, a
       // separate oracle node).
       console.log('Creating external oracle', INSTALL_ORACLE);
-      const { oracleHandler, oracleURLHandler } = await E(
-        oracleCreator,
-      ).makeExternalOracle();
-      const oracleAdmin = E(initializationFacet).initialize({ oracleHandler });
-
-      // Install this oracle on the ag-solo.
-      await E(http).registerURLHandler(oracleURLHandler, '/api/oracle');
-
-      // Stash the oracleAdmin.
-      await Promise.all([
-        oracleAdmin,
-        E(scratch).set('oracleAdmin', oracleAdmin),
-      ]);
-
-      creatorFacet = await E(initializationFacet).initialize({ oracleHandler });
+      handlerP = E(oracleCreator).makeExternalOracle();
     } else {
       // Builtin oracle.
       console.log('Creating builtin oracle');
-      const { oracleHandler } = await E(oracleCreator).makeBuiltinOracle({
-        httpClient,
-      });
-      creatorFacet = await E(initializationFacet).initialize({ oracleHandler });
+      handlerP = E(oracleCreator).makeBuiltinOracle({ httpClient });
     }
+
+    const { oracleHandler, oracleURLHandler } = await handlerP;
+
+    // Install this oracle on the ag-solo.
+    await E(http).registerURLHandler(oracleURLHandler, '/api/oracle');
+
+    /** @type {OracleCreatorFacet} */
+    const creatorFacet = await E(initializationFacet).initialize({
+      oracleHandler,
+    });
 
     console.log('- SUCCESS! contract instance is running on Zoe');
 
     // We put the oracleCreator in our scratch location for future use (such as
     // in the shutdown.js script).
-    E(scratch).set('oracleCreator', creatorFacet);
+    await E(scratch).set('oracleCreator', creatorFacet);
 
     INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
   }
@@ -250,8 +243,8 @@ export default async function deployApi(
   const defaultsFile = pathResolve('../ui/public/conf/defaults.js');
   let defaults;
   try {
-    // eslint-disable-next-line global-require,import/no-dynamic-require
-    defaults = require(defaultsFile).default;
+    const ns = await import('../ui/public/conf/defaults.js');
+    defaults = ns.default;
   } catch (e) {
     // do nothing
   }

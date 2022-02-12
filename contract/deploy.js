@@ -1,13 +1,23 @@
 // @ts-check
 import fs from 'fs';
-import '@agoric/zoe/exported';
+import '@agoric/zoe/exported.js';
 import { E } from '@agoric/far';
-
-import { pursePetnames } from './petnames';
 
 // This script takes our contract code, installs it on Zoe, and makes
 // the installation publicly available. Our backend API script will
 // use this installation in a later step.
+
+/**
+ * @typedef {Object} DeployPowers The special powers that agoric deploy gives us
+ * @property {(path: string) => Promise<{ moduleFormat: string, source: string }>} bundleSource
+ * @property {(path: string) => string} pathResolve
+ *
+ * @typedef {Object} Board
+ * @property {(id: string) => any} getValue
+ * @property {(value: any) => string} getId
+ * @property {(value: any) => boolean} has
+ * @property {() => [string]} ids
+ */
 
 /**
  * @param {Promise<{wallet: any, faucet: any, zoe: ZoeService, board: Board}>} homePromise
@@ -26,9 +36,6 @@ export default async function deployContract(
 
   // Unpack the references.
   const {
-    faucet,
-    wallet,
-
     // *** ON-CHAIN REFERENCES ***
 
     // Zoe lives on-chain and is shared by everyone who has access to
