@@ -5,7 +5,7 @@ import {
   makeAsyncIterableFromNotifier,
 } from '@agoric/notifier';
 
-import '@agoric/zoe/exported';
+import '@agoric/zoe/exported.js';
 
 /**
  * @callback CancelFunction

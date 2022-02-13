@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "exit 0",
-    "test": "exit 0",
+    "test": "yarn ava",
     "test:nyc": "nyc ava",
     "lint": "yarn lint:types && yarn lint:eslint",
     "lint:eslint": "eslint '**/*.{js,jsx}'",

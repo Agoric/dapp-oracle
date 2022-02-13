@@ -8,7 +8,7 @@ import {
   makeTimerAsyncIterableKit,
 } from '../asyncIterableKit.js';
 
-import '@agoric/zoe/exported';
+import '@agoric/zoe/exported.js';
 
 /**
  * @typedef {Object} FakePriceAuthorityOptions
