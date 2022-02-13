@@ -1,7 +1,8 @@
+/* global process */
 // @ts-check
 import { E } from '@agoric/far';
-import '@agoric/zoe/exported';
-import '@agoric/zoe/src/contracts/exported';
+import '@agoric/zoe/exported.js';
+import '@agoric/zoe/src/contracts/exported.js';
 
 /**
  * @typedef {Object} Board
@@ -18,8 +19,8 @@ import '@agoric/zoe/src/contracts/exported';
  */
 export default async function registerPriceAuthority(homePromise) {
   const {
-    IN_ISSUER_JSON = JSON.stringify('Testnet.$LINK'),
-    OUT_ISSUER_JSON = JSON.stringify('Testnet.$USD'),
+    IN_ISSUER_JSON = JSON.stringify('LINK'),
+    OUT_ISSUER_JSON = JSON.stringify('USDC'),
     PRICE_AUTHORITY_BOARD_ID,
   } = process.env;
 

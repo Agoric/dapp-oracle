@@ -1,10 +1,11 @@
 // @ts-check
-import { natSafeMath } from '@agoric/zoe/src/contractSupport';
+import { natSafeMath } from '@agoric/zoe/src/contractSupport/index.js';
 import { AmountMath } from '@agoric/ertp';
 
-import { makeSinglePriceAuthority } from './single';
+import { makeSinglePriceAuthority } from './single.js';
 
-import '@agoric/zoe/exported';
+import '@agoric/zoe/exported.js';
+import './types.js';
 
 /**
  * Create a price authority which uses linear-scaled latest quotes from the
@@ -73,6 +74,7 @@ export async function makeLinearPriceAuthority(options) {
    * Follow the quotes to get the latest values.
    *
    * @param {ERef<QuoteStream>} sourceQuotesP
+   * @yields {Timestamped<Price>}
    */
   async function* makeQuoteFollower(sourceQuotesP) {
     const sourceQuotes = await sourceQuotesP;

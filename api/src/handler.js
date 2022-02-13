@@ -5,6 +5,7 @@ import { makeBuiltinOracle } from './builtin';
 
 /**
  * @param {{ zoe: any, http: any, board: any, installOracle?: string, feeIssuer: Issuer, invitationIssuer: Issuer }} param0
+ * @param {unknown} _invitationMaker
  */
 const startSpawn = async (
   { board, feeIssuer, http, invitationIssuer, zoe },
@@ -101,7 +102,13 @@ const startSpawn = async (
         return makeExternalOracle({ board, http, feeIssuer });
       },
       makeBuiltinOracle({ httpClient, requiredFee }) {
-        return makeBuiltinOracle({ httpClient, requiredFee, feeIssuer });
+        return makeBuiltinOracle({
+          board,
+          http,
+          httpClient,
+          requiredFee,
+          feeIssuer,
+        });
       },
     }),
   });

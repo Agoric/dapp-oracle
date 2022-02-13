@@ -1,56 +1,33 @@
 // @ts-check
-/* global BigInt */
 import { E, Far } from '@agoric/far';
 import { makePromiseKit } from '@agoric/promise-kit';
+import { makeLegacyMap } from '@agoric/store';
 import { AmountMath } from '@agoric/ertp';
-import {
-  makeNotifierKit,
-  makeAsyncIterableFromNotifier,
-  observeIteration,
-} from '@agoric/notifier';
-import { makeStore, makeLegacyMap } from '@agoric/store';
 
-import '@agoric/zoe/src/contracts/exported';
+import { makePushCallbacks } from './push.js';
+
+import '@agoric/zoe/src/contracts/exported.js';
 
 async function makeExternalOracle({ board, http, feeIssuer }) {
   // console.warn('got', feeIssuer);
   const feeBrand = await E(feeIssuer).getBrand();
 
-  const subChannelHandles = new Set();
-
   /**
-   * @type {Store<string, {
-   *   queryId: string, query: unknown, fee?: string, boardId?: string
-   * }>}
-   */
-  const queryIdToData = makeStore('queryId');
-  /**
-   * @type {Store<string, PromiseRecord<unknown>>}
+   * @type {LegacyMap<string, PromiseRecord<unknown>>}
    * Legacy because PromiseRecord mixes functions and data
    */
   const queryIdToReplyPK = makeLegacyMap('queryId');
-  /**
-   * @type {Store<string, IterationObserver<unknown>>}
-   * Legacy because makeNotifierKit().updater is not Far
-   */
-  const queryIdToUpdater = makeLegacyMap('queryId');
-
-  const sendToSubscribers = (
-    obj,
-    channelHandles = [...subChannelHandles.keys()],
-  ) => {
-    E(http)
-      .send(obj, channelHandles)
-      .catch(e => console.error('cannot send', e));
-  };
-
-  const publishPending = (channelHandles = undefined) => {
-    const queries = Object.fromEntries(queryIdToData.entries());
-    const obj = { type: 'oracleServer/pendingQueries', data: { queries } };
-    sendToSubscribers(obj, channelHandles);
-  };
 
   let lastQueryId = 0;
+
+  const {
+    queryIdToData,
+    publishPending,
+    sendToSubscribers,
+    onOpen,
+    onClose,
+    onMessage: pushOnMessage,
+  } = makePushCallbacks({ board, http });
 
   /** @type {OracleHandler} */
   const oracleHandler = Far('oracleHandler', {
@@ -84,77 +61,18 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
   const oracleURLHandler = Far('oracleURLHandler', {
     getCommandHandler() {
       const commandHandler = {
-        onError(obj, _meta) {
-          console.error('Have error', obj);
-        },
+        onOpen,
+        onClose,
 
-        onOpen(_obj, { channelHandle }) {
-          subChannelHandles.add(channelHandle);
-          // Send all the pending requests to the new channel.
-          publishPending([channelHandle]);
-        },
+        async onMessage(obj, _meta) {
+          const pushReply = await pushOnMessage(obj);
+          if (pushReply) {
+            return pushReply;
+          }
 
-        onClose(_obj, { channelHandle }) {
-          subChannelHandles.delete(channelHandle);
-        },
-
-        async onMessage(obj, { _channelHandle }) {
-          // These are messages we receive from either POST or WebSocket.
           switch (obj.type) {
-            case 'oracleServer/createNotifier': {
-              const { notifier, updater } = makeNotifierKit();
-              lastQueryId += 1;
-
-              // Publish the notifier on the board.
-              const queryId = `push-${lastQueryId}`;
-              const boardId = await E(board).getId(notifier);
-
-              // Say that we have an updater for that query.
-              queryIdToUpdater.init(queryId, updater);
-              const data = { ...obj.data, queryId, boardId };
-              queryIdToData.init(queryId, data);
-
-              publishPending();
-              observeIteration(makeAsyncIterableFromNotifier(notifier), {
-                updateState(reply) {
-                  sendToSubscribers({
-                    type: 'oracleServer/onPush',
-                    data: { ...data, reply },
-                  });
-                },
-                finish(final) {
-                  sendToSubscribers({
-                    type: 'oracleServer/onPush',
-                    data: { ...data, reply: final },
-                  });
-                },
-                fail(error) {
-                  sendToSubscribers({
-                    type: 'oracleServer/onPush',
-                    data: { ...data, error },
-                  });
-                },
-              });
-
-              return harden({
-                type: 'oracleServer/createNotifierResponse',
-                data: { queryId, boardId },
-              });
-            }
-
             case 'oracleServer/reply': {
-              const { queryId, reply, requiredFee, final = false } = obj.data;
-              if (queryIdToUpdater.has(queryId)) {
-                // We have an updater, so push the reply.
-                const updater = queryIdToUpdater.get(queryId);
-                if (final) {
-                  updater.finish(reply);
-                  queryIdToUpdater.delete(queryId);
-                } else {
-                  updater.updateState(reply);
-                }
-                return true;
-              }
+              const { queryId, reply, requiredFee } = obj.data;
               if (queryIdToReplyPK.has(queryId)) {
                 const replyPK = queryIdToReplyPK.get(queryId);
                 replyPK.resolve({
@@ -182,11 +100,7 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
             case 'oracleServer/error': {
               const { queryId, error } = obj.data;
               const e = Error(error);
-              if (queryIdToUpdater.has(queryId)) {
-                const updater = queryIdToUpdater.get(queryId);
-                updater.fail(e);
-                queryIdToUpdater.delete(queryId);
-              }
+
               if (queryIdToReplyPK.has(queryId)) {
                 const replyPK = queryIdToReplyPK.get(queryId);
                 replyPK.reject(e);
@@ -205,10 +119,14 @@ async function makeExternalOracle({ board, http, feeIssuer }) {
               });
               return true;
             }
-
-            default:
-              return undefined;
+            default: {
+              return false;
+            }
           }
+        },
+
+        onError(obj, _meta) {
+          console.error('Have error', obj);
         },
       };
       return Far('oracle commandHandler', commandHandler);

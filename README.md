@@ -121,35 +121,35 @@ If your scheduled query returns a numeric string as the price of a unit of your
 input issuer, you can create a price authority from it.
 
 1. Find out your wallet petnames for the input and output issuers (for example,
-   `"Testnet.$LINK"` to `"Testnet.$USD"`).
+   `"LINK"` to `"USDC"`).
 2. Create a public price authority for your push query.  Set `PRICE_DECIMALS=2`
    because of the scaling factor `"times": 100` in the above `Multiply` task,
    (which is `10^2`). (you will need to push at least one result before the
    deployment will complete):
 ```sh
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
-IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
+IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
 PRICE_DECIMALS=2 \
-agoric deploy --hostport=127.0.0.1:7999 api/from-notifier.js
+agoric deploy --hostport=127.0.0.1:7999 api/priceAuthority/from-notifier.js
 ```
 3. Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
    `agoric.priceAuthority`.  If you want to publish to the testnet you will need
    to ask for somebody privileged to do this for you.
 ```sh
 PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
-IN_ISSUER_JSON='"Testnet.$LINK"' OUT_ISSUER_JSON='"Testnet.$USD"' \
+IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
 agoric deploy --hostport=127.0.0.1:7999 api/register.js
 ```
 
 Here is a session testing the `priceAuthority`:
 
 ```js
-home.wallet~.getIssuer('Testnet.$LINK')~.getBrand().then(brand => link = brand)
-// -> [Alleged: presence o-82]{}
-home.wallet~.getIssuer('Testnet.$USD')~.getBrand().then(brand => usd = brand)
-// -> [Alleged: presence o-81]{}
-home.priceAuthority~.getQuoteNotifier(link, usd)~.getUpdateSince()
-// {"value":{"quotePayment":[Promise],"quoteAmount":{"brand":[Alleged: presence o-132]{},"value":[{"amountIn":{"brand":[Alleged: presence o-82]{},"value":1000000},"amountOut":{"brand":[Alleged: presence o-81]{},"value":1191},"timer":[Alleged: presence o-68]{},"timestamp":1604759700}]}},"updateCount":2}
+E(E(home.wallet).getIssuer('LINK')).getBrand().then(brand => link = brand)
+// -> [Object Alleged: LINK brand]{}
+E(E(home.wallet).getIssuer('USDC')).getBrand().then(brand => usdc = brand)
+// -> [Object Alleged: USDC brand]{}
+E(E(home.priceAuthority).makeQuoteNotifier({ value: 10n ** 18n, brand: link }, usdc)).getUpdateSince()
+// -> {"updateCount":2,"value":{"quoteAmount":{"brand":[Object Alleged: quote brand]{},"value":[{"amountIn":{"brand":[Object Alleged: LINK brand]{},"value":1000000000000000000n},"amountOut":{"brand":[Object Alleged: USDC brand]{},"value":10000000000000000000000n},"timer":[Object Alleged: timerService]{},"timestamp":1644701445n}]},"quotePayment":[Promise]}}
 ```
 
 ## Single-query Usage

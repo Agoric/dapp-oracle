@@ -9,9 +9,9 @@ import { E } from '@agoric/far';
 /**
  * @param {any} referencesPromise A promise for the references
  * available from REPL home
- * @param {DeployPowers} powers
+ * @param {DeployPowers} _powers
  */
-export default async function deployShutdown(referencesPromise) {
+export default async function deployShutdown(referencesPromise, _powers) {
   const { scratch, wallet, zoe } = await referencesPromise;
 
   console.log('Getting oracleCreator');

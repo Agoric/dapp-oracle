@@ -1,14 +1,14 @@
 // @ts-check
 
-import '@agoric/zoe/tools/prepare-test-env';
+import '@agoric/zoe/tools/prepare-test-env.js';
 // eslint-disable-next-line import/no-extraneous-dependencies
 import test from 'ava';
 import { E } from '@agoric/far';
-import buildManualTimer from '@agoric/zoe/tools/manualTimer';
+import buildManualTimer from '@agoric/zoe/tools/manualTimer.js';
 
 // import { makeFakePriceAuthority } from '@agoric/zoe/tools/fakePriceAuthority';
-import { makeFakePriceAuthority } from '../src/fake';
-import { setup } from './setupBasicMints';
+import { makeFakePriceAuthority } from '../priceAuthority/src/fake.js';
+import { setup } from './setupBasicMints.js';
 
 /**
  * @param {Object} param0

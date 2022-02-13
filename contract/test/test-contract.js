@@ -1,17 +1,18 @@
 // @ts-check
 
-import '@agoric/zoe/tools/prepare-test-env';
+import '@endo/init/pre-bundle-source.js';
+import '@agoric/zoe/tools/prepare-test-env.js';
 
 import test from 'ava';
-import bundleSource from '@agoric/bundle-source';
+import bundleSource from '@endo/bundle-source';
 
 import { E, Far } from '@agoric/far';
-import { makeFakeVatAdmin } from '@agoric/zoe/tools/fakeVatAdmin';
+import { makeFakeVatAdmin } from '@agoric/zoe/tools/fakeVatAdmin.js';
 import { makeZoeKit } from '@agoric/zoe';
 import { makeIssuerKit, AmountMath } from '@agoric/ertp';
-import { assert, details } from '@agoric/assert/src/assert';
+import { assert, details } from '@agoric/assert';
 
-import '@agoric/zoe/exported';
+import '@agoric/zoe/exported.js';
 
 /**
  * @typedef {Object} TestContext
@@ -24,84 +25,87 @@ import '@agoric/zoe/exported';
  * @typedef {import('ava').Implementation<unknown>} UnknownImplementation
  */
 
-const contractPath = `${__dirname}/../src/contract`;
+const contractPath = new URL(`../src/contract.js`, import.meta.url).pathname;
 
 /** @type {UnknownImplementation} */
 const setupOracle = async ot => {
-    // Outside of tests, we should use the long-lived Zoe on the
-    // testnet. In this test, we must create a new Zoe.
-    const { zoeService } = makeZoeKit(makeFakeVatAdmin().admin);
-    const feePurse = E(zoeService).makeFeePurse();
-    const zoe = await E(zoeService).bindDefaultFeePurse(feePurse);
+  // Outside of tests, we should use the long-lived Zoe on the
+  // testnet. In this test, we must create a new Zoe.
+  const { zoeService } = makeZoeKit(makeFakeVatAdmin().admin);
+  const feePurse = E(zoeService).makeFeePurse();
+  const zoe = await E(zoeService).bindDefaultFeePurse(feePurse);
 
-    // Pack the contract.
-    const contractBundle = await bundleSource(contractPath);
+  // Pack the contract.
+  const contractBundle = await bundleSource(contractPath);
 
-    const link = makeIssuerKit('$LINK', 'nat');
+  const link = makeIssuerKit('$LINK', 'nat');
 
-    // Install the contract on Zoe, getting an installation. We can
-    // use this installation to look up the code we installed. Outside
-    // of tests, we can also send the installation to someone
-    // else, and they can use it to create a new contract instance
-    // using the same code.
-    const installation = await E(zoe).install(contractBundle);
+  // Install the contract on Zoe, getting an installation. We can
+  // use this installation to look up the code we installed. Outside
+  // of tests, we can also send the installation to someone
+  // else, and they can use it to create a new contract instance
+  // using the same code.
+  const installation = await E(zoe).install(contractBundle);
 
-    const feeAmount = AmountMath.make(link.brand, 1000n);
-    /**
-     * @returns {Promise<OracleKit>}
-     */
-    const makePingOracle = async _t => {
-      /** @type {OracleHandler} */
-      const oracleHandler = Far('oracleHandler', {
-        async onQuery(query, fee) {
-          let requiredFee;
-          if (query.kind === 'Paid') {
-            requiredFee = feeAmount;
-            assert(
-              AmountMath.isGTE(fee, requiredFee),
-              details`Minimum fee of ${feeAmount} not met; have ${fee}`,
-            );
-          }
-          const reply = { pong: query };
-          return harden({ reply, requiredFee });
-        },
-        async onError(_query, _reason) {
-          // do nothing
-        },
-        async onReply(_query, _reply, _fee) {
-          // do nothing
-        },
-      });
+  const feeAmount = AmountMath.make(link.brand, 1000n);
+  /**
+   * @param _t
+   * @returns {Promise<OracleKit>}
+   */
+  const makePingOracle = async _t => {
+    /** @type {OracleHandler} */
+    const oracleHandler = Far('oracleHandler', {
+      async onQuery(query, fee) {
+        let requiredFee;
+        if (query.kind === 'Paid') {
+          requiredFee = feeAmount;
+          assert(
+            AmountMath.isGTE(fee, requiredFee),
+            details`Minimum fee of ${feeAmount} not met; have ${fee}`,
+          );
+        }
+        const reply = { pong: query };
+        return harden({ reply, requiredFee });
+      },
+      async onError(_query, _reason) {
+        // do nothing
+      },
+      async onReply(_query, _reply, _fee) {
+        // do nothing
+      },
+    });
 
-      /** @type {OracleStartFnResult} */
-      const startResult = await E(zoe).startInstance(installation, {
-        Fee: link.issuer,
-      });
-      const creatorFacet = await E(startResult.creatorFacet).initialize({
-        oracleHandler,
-      });
+    /** @type {OracleStartFnResult} */
+    const startResult = await E(zoe).startInstance(installation, {
+      Fee: link.issuer,
+    });
+    const creatorFacet = await E(startResult.creatorFacet).initialize({
+      oracleHandler,
+    });
 
-      return harden({
-        ...startResult,
-        creatorFacet,
-      });
-    };
-
-    const context = /** @type {TestContext} */ (ot.context);
-    context.zoe = zoe;
-    context.makePingOracle = makePingOracle;
-    context.feeAmount = feeAmount;
-    context.link = link;
+    return harden({
+      ...startResult,
+      creatorFacet,
+    });
   };
 
-test.before(
-  'setup oracle',
-  setupOracle,
-);
+  const context = /** @type {TestContext} */ (ot.context);
+  context.zoe = zoe;
+  context.makePingOracle = makePingOracle;
+  context.feeAmount = feeAmount;
+  context.link = link;
+};
+
+test.before('setup oracle', setupOracle);
 
 /** @type {UnknownImplementation} */
-const singleOracleTest =  async t => {
-  const { zoe, link, makePingOracle, feeAmount } = /** @type {TestContext} */ (t.context);
+const singleOracleTest = async t => {
+  const {
+    zoe,
+    link,
+    makePingOracle,
+    feeAmount,
+  } = /** @type {TestContext} */ (t.context);
 
   // Get the Zoe invitation issuer from Zoe.
   const invitationIssuer = E(zoe).getInvitationIssuer();
@@ -144,7 +148,10 @@ const singleOracleTest =  async t => {
 
   const offer = E(zoe).offer(invitation1);
 
-  const overAmount = AmountMath.add(feeAmount, AmountMath.make(link.brand, 799n));
+  const overAmount = AmountMath.add(
+    feeAmount,
+    AmountMath.make(link.brand, 799n),
+  );
   const offer3 = E(zoe).offer(
     invitation3,
     harden({ give: { Fee: overAmount } }),
@@ -231,7 +238,6 @@ const singleOracleTest =  async t => {
     await link.issuer.getAmountOf(E(withdrawOffer).getPayout('Fee')),
     AmountMath.make(link.brand, 201n),
   );
-  };
-
+};
 
 test('single oracle', singleOracleTest);

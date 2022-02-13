@@ -2,13 +2,13 @@
 import { assert, details } from '@agoric/assert';
 import { AmountMath } from '@agoric/ertp';
 
-import { makeLinearPriceAuthority } from './linear';
+import { makeLinearPriceAuthority } from './linear.js';
 import {
   makeScriptedAsyncIterable,
   makeTimerAsyncIterableKit,
-} from '../asyncIterableKit';
+} from '../asyncIterableKit.js';
 
-import '@agoric/zoe/exported';
+import '@agoric/zoe/exported.js';
 
 /**
  * @typedef {Object} FakePriceAuthorityOptions
