@@ -10,38 +10,6 @@ import { pursePetnames } from './petnames';
 // use this installation in a later step.
 
 /**
- * @typedef {Object} DeployPowers The special powers that agoric deploy gives us
- * @property {(path: string) => Promise<{ moduleFormat: string, source: string }>} bundleSource
- * @property {(path: string) => string} pathResolve
- *
- * @typedef {Object} Board
- * @property {(id: string) => any} getValue
- * @property {(value: any) => string} getId
- * @property {(value: any) => boolean} has
- * @property {() => [string]} ids
- */
-
-const transferFees = async (wallet, faucet) => {
-  const [RUNPurse, feePurse] = await Promise.all([
-    E(wallet).getPurse(pursePetnames.RUN),
-    E(faucet).getFeePurse(),
-  ]);
-  if (RUNPurse === feePurse) {
-    return;
-  }
-  const runAmount = await E(RUNPurse).getCurrentAmount();
-  console.log(`Transferring`, runAmount, `from ${RUNPurse} to ${feePurse}`);
-  const withdrawFailedHandle = {};
-  const feePayment = await E(RUNPurse)
-    .withdraw(runAmount)
-    .catch(() => withdrawFailedHandle);
-  if (feePayment === withdrawFailedHandle) {
-    return;
-  }
-  await E(feePurse).deposit(feePayment);
-};
-
-/**
  * @param {Promise<{wallet: any, faucet: any, zoe: ZoeService, board: Board}>} homePromise
  * @param {DeployPowers} powers
  */
@@ -76,9 +44,6 @@ export default async function deployContract(
     // second time, the original id is just returned.
     board,
   } = home;
-
-  // Transfer some fees around the wallet, if there is a Zoe fee purse.
-  await transferFees(wallet, faucet);
 
   // First, we must bundle up our contract code (./src/contract.js)
   // and install it on Zoe. This returns an installationHandle, an
