@@ -127,12 +127,15 @@ input issuer, you can create a price authority from it.
    (which is `10^2`). (you will need to push at least one result before the
    deployment will complete):
 ```sh
+FORCE_SPAWN=yes \
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
+INSTANCE_HANDLE_BOARD_ID=<boardId of oracle instance> \
 IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
 PRICE_DECIMALS=2 \
-agoric deploy --hostport=127.0.0.1:7999 api/priceAuthority/from-notifier.js
+agoric deploy --hostport=127.0.0.1:7999 api/priceAuthority/from-notifier-cl.js
 ```
-3. Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
+3. Publish additional oracles by setting `FORCE_SPAWN=''` in the above command.
+4. Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
    `agoric.priceAuthority`.  If you want to publish to the testnet you will need
    to ask for somebody privileged to do this for you.
 ```sh

@@ -39,9 +39,9 @@
     "@agoric/ertp": "dev",
     "@agoric/far": "dev",
     "@agoric/notifier": "dev",
-    "@agoric/promise-kit": "dev",
     "@agoric/store": "dev",
     "@agoric/zoe": "dev",
+    "@endo/promise-kit": "^0.2.35",
     "axios": "^0.21.0",
     "esm": "^3.2.5",
     "ip-address": "^7.1.0"

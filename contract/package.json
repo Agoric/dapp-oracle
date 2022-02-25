@@ -28,7 +28,6 @@
     "@agoric/babel-parser": "^7.6.4",
     "@agoric/ertp": "dev",
     "@agoric/far": "dev",
-    "@agoric/install-ses": "dev",
     "@agoric/notifier": "dev",
     "@agoric/store": "dev",
     "@agoric/zoe": "dev",
