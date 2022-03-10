@@ -41,10 +41,13 @@
     "@agoric/notifier": "dev",
     "@agoric/store": "dev",
     "@agoric/zoe": "dev",
+    "@datasert/cronjs-matcher": "^1.2.0",
+    "@endo/far": "^0.1.9",
     "@endo/promise-kit": "^0.2.35",
     "axios": "^0.21.0",
     "esm": "^3.2.5",
-    "ip-address": "^7.1.0"
+    "ip-address": "^7.1.0",
+    "luxon": "^2.3.1"
   },
   "eslintConfig": {
     "extends": [
