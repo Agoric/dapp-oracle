@@ -132,7 +132,7 @@ export default async function deployApi(
   const handlerInstall = E(spawner).install(bundle);
 
   // Spawn the running code
-  const { handler, oracleCreator } = await E(handlerInstall).spawn(
+  const { handler, oracleAdmin } = await E(handlerInstall).spawn(
     harden({
       http,
       board,
@@ -184,11 +184,11 @@ export default async function deployApi(
       // This clause is to install an external oracle (serviced by, say, a
       // separate oracle node).
       console.log('Creating external oracle', INSTALL_ORACLE);
-      handlerP = E(oracleCreator).makeExternalOracle();
+      handlerP = E(oracleAdmin).makeExternalOracle();
     } else {
       // Builtin oracle.
       console.log('Creating builtin oracle');
-      handlerP = E(oracleCreator).makeBuiltinOracle({ httpClient });
+      handlerP = E(oracleAdmin).makeBuiltinOracle({ httpClient });
     }
 
     const { oracleHandler, oracleURLHandler } = await handlerP;
@@ -203,9 +203,10 @@ export default async function deployApi(
 
     console.log('- SUCCESS! contract instance is running on Zoe');
 
-    // We put the oracleCreator in our scratch location for future use (such as
+    // We put the oracleCreator and facet in our scratch location for future use (such as
     // in the shutdown.js script).
     await E(scratch).set('oracleCreator', creatorFacet);
+    await E(scratch).set('oracleAdmin', oracleAdmin);
 
     INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
   }

@@ -13,7 +13,11 @@ export const start = async (...args) => {
       // This adapter is necessary to make the oracle's notifier work with the
       // CL aggregator.
       initOracleWithNotifier: async (instance, notifier, scaleValueOut = 1) => {
-        const { pushResult, delete: del, ...rest } = await creatorFacet.initOracle(instance);
+        const {
+          pushResult,
+          delete: del,
+          ...rest2
+        } = await creatorFacet.initOracle(instance);
 
         // Adapt the notifier to push results.
         const recurse = ({ value, updateCount }) => {
@@ -23,7 +27,9 @@ export const start = async (...args) => {
             return;
           }
           // Queue the next update.
-          E(notifier).getUpdateSince(updateCount).then(recurse);
+          E(notifier)
+            .getUpdateSince(updateCount)
+            .then(recurse);
 
           // Push the current scaled result.
           const scaledValue = Math.floor(parseInt(value, 10) * scaleValueOut);
@@ -32,13 +38,15 @@ export const start = async (...args) => {
         };
 
         // Start the notifier.
-        E(notifier).getUpdateSince().then(recurse);
+        E(notifier)
+          .getUpdateSince()
+          .then(recurse);
 
         // Need to rewrap the oracleAdmin since initOracle returns a non-Far
         // object.
         return Far('oracleAdmin', {
           // Provide the same methods as the oracleAdmin.
-          ...rest,
+          ...rest2,
           delete: async () => {
             // Interrupt the notifier adapter.
             notifier = undefined;
@@ -50,4 +58,4 @@ export const start = async (...args) => {
       },
     }),
   });
-}
+};

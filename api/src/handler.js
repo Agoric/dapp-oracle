@@ -1,7 +1,10 @@
 // @ts-check
 import { E, Far } from '@agoric/far';
-import { makeExternalOracle } from './external';
-import { makeBuiltinOracle } from './builtin';
+import { makePromiseKit } from '@endo/promise-kit';
+
+import { makeExternalOracle } from './external.js';
+import { makeBuiltinOracle } from './builtin.js';
+// import { makeCronTickIterable } from './cron.js';
 
 /**
  * @param {{ zoe: any, http: any, board: any, installOracle?: string, feeIssuer: Issuer, invitationIssuer: Issuer }} param0
@@ -97,7 +100,7 @@ const startSpawn = async (
 
   return harden({
     handler,
-    oracleCreator: Far('oracleCreator', {
+    oracleAdmin: Far('oracleAdmin', {
       makeExternalOracle() {
         return makeExternalOracle({ board, http, feeIssuer });
       },
@@ -108,6 +111,41 @@ const startSpawn = async (
           httpClient,
           requiredFee,
           feeIssuer,
+        });
+      },
+      // FIXME: Enable when we have CJS support in compartment-mapper.
+      // makeCronTickIterable,
+      makeTimerIterable(tickIterable, timerService) {
+        // @ts-expect-error - Type 'unique symbol' cannot be used as an index type.ts(2538)
+        const cronTickIterator = E(tickIterable)[Symbol.asyncIterator]();
+        return Far('cron iterable', {
+          [Symbol.asyncIterator]: () => {
+            return Far('cron iterator', {
+              next: async () => {
+                const startTick = await E(timerService).getCurrentTimestamp();
+                const { value: deadline } = await E(cronTickIterator).next(
+                  startTick,
+                );
+                if (startTick >= deadline) {
+                  // We're already past the deadline, so wake immediately.
+                  return { done: false, value: startTick };
+                }
+
+                // Wait for the next deadline.
+                const wake = makePromiseKit();
+                E(timerService).setWakeup(
+                  deadline,
+                  Far('waker', {
+                    wake: tick => {
+                      wake.resolve(tick);
+                    },
+                  }),
+                );
+                const wakeTick = await wake.promise;
+                return harden({ done: false, value: wakeTick });
+              },
+            });
+          },
         });
       },
     }),

@@ -1,7 +1,8 @@
 // @ts-check
+/* global process */
 import { E } from '@agoric/far';
 
-import { makeIssuerKit, AssetKind } from '@agoric/ertp'
+import { makeIssuerKit, AssetKind } from '@agoric/ertp';
 import { deeplyFulfilled } from '@endo/marshal';
 
 import '@agoric/zoe/exported.js';
@@ -25,6 +26,9 @@ import '@agoric/zoe/src/contracts/exported.js';
 /**
  * @typedef {{ board: Board, chainTimerService, wallet, scratch, zoe }} Home
  * @param {Promise<Home>} homePromise
+ * @param {object} root0
+ * @param {Function} root0.bundleSource
+ * @param {Function} root0.pathResolve
  * A promise for the references available from REPL home
  */
 export default async function priceAuthorityfromNotifier(
@@ -99,9 +103,7 @@ export default async function priceAuthorityfromNotifier(
 
   if (FORCE_SPAWN || !aggregator) {
     // Bundle up the notifierPriceAuthority code
-    const bundle = await bundleSource(
-      pathResolve('./src/chainlinkWrapper.js'),
-    );
+    const bundle = await bundleSource(pathResolve('./src/chainlinkWrapper.js'));
 
     // Install it in zoe
     const priceAgg = E(zoe).install(bundle);
@@ -131,9 +133,7 @@ export default async function priceAuthorityfromNotifier(
   }
 
   // Adapt the notifier to the price aggregator.
-  const oracleAdmin = await E(
-    aggregator.creatorFacet,
-  ).initOracleWithNotifier(
+  const oracleAdmin = await E(aggregator.creatorFacet).initOracleWithNotifier(
     oracleInstance,
     notifier,
     Number(scaleValueOut),

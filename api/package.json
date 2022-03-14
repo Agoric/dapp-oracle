@@ -17,6 +17,7 @@
     "lint-check-jessie": "eslint -c '.eslintrc-jessie.js' '**/*.{js,jsx}'"
   },
   "devDependencies": {
+    "@endo/eslint-config": "^0.4.6",
     "@endo/eslint-plugin": "^0.3.20",
     "@jessie.js/eslint-plugin": "^0.1.3",
     "ava": "^3.12.1",
@@ -32,7 +33,7 @@
     "tap-spec": "^5.0.0",
     "tape": "^4.11.0",
     "tape-promise": "^4.0.0",
-    "typescript": "^4.0.5"
+    "typescript": "~4.6.2"
   },
   "dependencies": {
     "@agoric/assert": "dev",
@@ -43,7 +44,8 @@
     "@agoric/zoe": "dev",
     "@datasert/cronjs-matcher": "^1.2.0",
     "@endo/far": "^0.1.9",
-    "@endo/promise-kit": "^0.2.35",
+    "@endo/marshal": "^0.6.3",
+    "@endo/promise-kit": "^0.2.37",
     "axios": "^0.21.0",
     "esm": "^3.2.5",
     "ip-address": "^7.1.0",
