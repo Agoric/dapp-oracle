@@ -2,7 +2,6 @@
 /* global process */
 import { E } from '@agoric/far';
 
-import { makeIssuerKit, AssetKind } from '@agoric/ertp';
 import { deeplyFulfilled } from '@endo/marshal';
 
 import '@agoric/zoe/exported.js';
@@ -36,23 +35,13 @@ export default async function priceAuthorityfromNotifier(
   { bundleSource, pathResolve },
 ) {
   const {
-    FORCE_SPAWN = 'true',
+    FORCE_SPAWN,
     IN_ISSUER_JSON = JSON.stringify('LINK'),
     OUT_ISSUER_JSON = JSON.stringify('RUN'),
     PRICE_DECIMALS = '0',
     NOTIFIER_BOARD_ID,
     INSTANCE_HANDLE_BOARD_ID,
   } = process.env;
-
-  if (!NOTIFIER_BOARD_ID) {
-    console.error(`You must specify NOTIFIER_BOARD_ID`);
-    process.exit(1);
-  }
-
-  if (!INSTANCE_HANDLE_BOARD_ID) {
-    console.error(`You must specify INSTANCE_HANDLE_BOARD_ID`);
-    process.exit(1);
-  }
 
   // Let's wait for the promise to resolve.
   const home = await deeplyFulfilled(homePromise);
@@ -85,20 +74,6 @@ export default async function priceAuthorityfromNotifier(
     process.exit(1);
   }
 
-  const displayInfoOut = await E(E(issuerOut).getBrand()).getDisplayInfo();
-  const { decimalPlaces: decimalPlacesOut = 0 } = displayInfoOut || {};
-
-  // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut.
-  const priceDecimalPlaces = parseInt(PRICE_DECIMALS, 10);
-  const scaleValueOut = 10 ** (decimalPlacesOut - priceDecimalPlaces);
-
-  // Get the notifier.
-  const notifierId = NOTIFIER_BOARD_ID.replace(/^board:/, '');
-  const notifier = E(board).getValue(notifierId);
-
-  const oracleId = INSTANCE_HANDLE_BOARD_ID.replace(/^board:/, '');
-  const oracleInstance = E(board).getValue(oracleId);
-
   let aggregator = await E(scratch).get('priceAggregatorChainlink');
 
   if (FORCE_SPAWN || !aggregator) {
@@ -107,7 +82,6 @@ export default async function priceAuthorityfromNotifier(
 
     // Install it in zoe
     const priceAgg = E(zoe).install(bundle);
-    const quote = makeIssuerKit('quote', AssetKind.SET);
 
     // Start the contract
     aggregator = await E(zoe).startInstance(
@@ -126,27 +100,46 @@ export default async function priceAuthorityfromNotifier(
         maxSubmissionValue: 2n ** 256n,
       },
     );
-    await E(aggregator.creatorFacet).initializeQuoteMint(quote.mint);
 
     await E(scratch).set('priceAggregatorChainlink', aggregator);
     console.log('Stored priceAggregatorChainlink in scratch');
   }
 
-  // Adapt the notifier to the price aggregator.
-  const oracleAdmin = await E(aggregator.creatorFacet).initOracleWithNotifier(
-    oracleInstance,
-    notifier,
-    Number(scaleValueOut),
-  );
-  const oadmin = `oracleAdminFor${oracleId}`;
-  await E(scratch).set(oadmin, oracleAdmin);
-  console.log(
-    `Stored oracleAdmin in E(scratch).get(${JSON.stringify(
-      oadmin,
-    )}); you should communicate it to the oracle operator`,
-  );
+  // Get the notifier.
+  if (NOTIFIER_BOARD_ID || INSTANCE_HANDLE_BOARD_ID) {
+    const notifierId = NOTIFIER_BOARD_ID.replace(/^board:/, '');
+    const oracleId = INSTANCE_HANDLE_BOARD_ID.replace(/^board:/, '');
+
+    const notifier = E(board).getValue(notifierId);
+    const oracleInstance = E(board).getValue(oracleId);
+
+    const displayInfoOut = await E(E(issuerOut).getBrand()).getDisplayInfo();
+    const { decimalPlaces: decimalPlacesOut = 0 } = displayInfoOut || {};
+
+    // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut.
+    const priceDecimalPlaces = parseInt(PRICE_DECIMALS, 10);
+    const scaleValueOut = 10 ** (decimalPlacesOut - priceDecimalPlaces);
+
+    // Adapt the notifier to the price aggregator.
+    const oracleAdmin = await E(aggregator.creatorFacet).initOracleWithNotifier(
+      oracleInstance,
+      notifier,
+      Number(scaleValueOut),
+    );
+    const oadmin = `oracleAdminFor${oracleId}`;
+    await E(scratch).set(oadmin, oracleAdmin);
+    console.log(
+      `Stored oracleAdmin in E(scratch).get(${JSON.stringify(
+        oadmin,
+      )}); you should communicate it to the oracle operator`,
+    );
+  }
 
   const priceAuthority = await E(aggregator.publicFacet).getPriceAuthority();
+  const roundNotifier = await E(aggregator.publicFacet).getRoundStartNotifier();
+
+  const ROUND_START_ID = await E(board).getId(roundNotifier);
+  console.log('-- ROUND_START_ID:', ROUND_START_ID);
   const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);
   console.log('-- PRICE_AUTHORITY_BOARD_ID:', PRICE_AUTHORITY_BOARD_ID);
 }

@@ -58,14 +58,14 @@ const FEE_PAYMENT_VALUE = 0n;
 export default async function priceAuthorityfromNotifier(homePromise) {
   const {
     FEE_ISSUER_JSON = JSON.stringify('LINK'),
-    AGGREGATOR_INSTANCE_ID,
+    ROUND_START_ID,
   } = process.env;
 
   // Let's wait for the promise to resolve.
   const home = await deeplyFulfilled(homePromise);
 
   // Unpack the references.
-  const { board, scratch, wallet, zoe, localTimerService: timerService } = home;
+  const { board, scratch, wallet, localTimerService: timerService } = home;
 
   const issuersArray = await E(wallet).getIssuers();
   const issuerNames = issuersArray.map(([petname]) => JSON.stringify(petname));
@@ -82,11 +82,8 @@ export default async function priceAuthorityfromNotifier(homePromise) {
   }
 
   let roundStartNotifier;
-  if (AGGREGATOR_INSTANCE_ID) {
-    const aggregatorInstance = await E(board).getValue(AGGREGATOR_INSTANCE_ID);
-    roundStartNotifier = E(
-      E(zoe).getPublicFacet(aggregatorInstance),
-    ).getRoundStartNotifier();
+  if (ROUND_START_ID) {
+    roundStartNotifier = await E(board).getValue(ROUND_START_ID);
   }
 
   const [feeBrand, oracleHandler, oracleMaster] = await Promise.all([

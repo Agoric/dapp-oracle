@@ -122,27 +122,32 @@ input issuer, you can create a price authority from it.
 
 1. Find out your wallet petnames for the input and output issuers (for example,
    `"LINK"` to `"USDC"`).
-2. Create a push notifier for your oracle with semantics similar to FluxMonitor.
-   You can edit parameters in `api/flux-notifier.js`:
+2. Create a public price authority based on an aggregator:
 ```sh
+IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
+agoric deploy --hostport=127.0.0.1:7999 api/aggregate.js
+```
+3. Create a Flux Notifier for your oracle.  You can edit parameters at the top
+   of `api/flux-notifier.js`:
+```sh
+ROUND_START_ID=<boardId of round starter if any> \
 FEE_ISSUER_JSON='"LINK"' \
 agoric deploy api/flux-notifier.js
 ```
-3. Create a public price authority for your notifier.  Set `PRICE_DECIMALS=2`
-   because of the scaling factor `"times": 100` in the above `Multiply` task,
-   (which is `10^2`):
+4. Add your notifier to the aggregator.  We set `PRICE_DECIMALS=2` because of
+   the scaling factor `"times": 100` in the above `Multiply` task, (which is
+   `10^2`):
 ```sh
-FORCE_SPAWN=yes \
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
 INSTANCE_HANDLE_BOARD_ID=<boardId of oracle instance> \
 IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
 PRICE_DECIMALS=2 \
-agoric deploy --hostport=127.0.0.1:7999 api/priceAuthority/from-notifier-cl.js
+agoric deploy --hostport=127.0.0.1:7999 api/aggregate.js
 ```
-4. Publish additional oracles by setting `FORCE_SPAWN=''` in the above command.
+Repeat for as many notifiers as necessary.
 5. Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
-   `agoric.priceAuthority`.  If you want to publish to the testnet you will need
-   to ask for somebody privileged to do this for you.
+   `agoric.priceAuthority`.  If you want to publish to the devnet you will need
+   an act of governance to do this for you.
 ```sh
 PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
 IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \

@@ -1,10 +1,21 @@
 import { E, Far } from '@agoric/far';
+import { makeIssuerKit, AssetKind } from '@agoric/ertp';
+
 // FIXME: We should use the chainlink aggregator, but it is incomplete.
 // import { start as startAggregator } from '@agoric/zoe/src/contracts/priceAggregatorChainlink.js';
 import { start as startAggregator } from '@agoric/zoe/src/contracts/priceAggregator.js';
 
 export const start = async (...args) => {
   const { creatorFacet, ...rest } = await startAggregator(...args);
+
+  // Initialize the quote mint from private args.
+  const [_zcf, privateArgs] = args;
+  if (creatorFacet.initializeQuoteMint) {
+    const { quoteMint = makeIssuerKit('quote', AssetKind.SET).mint } =
+      privateArgs || {};
+    await creatorFacet.initializeQuoteMint(quoteMint);
+  }
+
   return harden({
     ...rest,
     creatorFacet: Far('wrappedCreatorFacet', {
