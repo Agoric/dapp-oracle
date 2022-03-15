@@ -9,13 +9,12 @@ import { makeScheduledTickIterable } from './ticks.js';
  * @returns {Date[]}
  */
 export const nextCronMatches = (date, cronSpec, nmatches = 1) => {
-  console.error('nextCronMatches', { date, cronSpec, nmatches });
-  console.error({ getFutureMatches, date: { toISOString: date.toISOString } });
+  // console.error('nextCronMatches', { date, cronSpec, nmatches });
+  // console.error({ getFutureMatches, date: { toISOString: date.toISOString } });
   const matches = getFutureMatches(cronSpec, {
     startAt: date.toISOString(),
     matchCount: nmatches + 1,
   });
-  console.error({ matches });
   if (+date === +matches[0]) {
     // We are already on the next matches.
     matches.shift();

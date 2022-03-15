@@ -36,8 +36,8 @@ test('cron steps in two minutes', async t => {
   const t3 = await cronTicker.next(now);
   t.deepEqual(t3, { done: false, value: first3 });
 
-  // Skip ahead 1 minute.
-  now += 60_000n;
+  // Skip ahead two minutes.
+  now += TWO_MINUTE;
   const first4 = first3 + TWO_MINUTE;
   const t4 = await cronTicker.next(now);
   t.deepEqual(t4, { done: false, value: first4 });
