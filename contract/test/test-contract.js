@@ -1,6 +1,4 @@
 // @ts-check
-
-import '@endo/init/pre-bundle-source.js';
 import '@agoric/zoe/tools/prepare-test-env.js';
 
 import test from 'ava';
@@ -49,7 +47,7 @@ const setupOracle = async ot => {
 
   const feeAmount = AmountMath.make(link.brand, 1000n);
   /**
-   * @param _t
+   * @param {typeof ot} _t
    * @returns {Promise<OracleKit>}
    */
   const makePingOracle = async _t => {

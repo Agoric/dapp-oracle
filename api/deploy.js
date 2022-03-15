@@ -132,7 +132,7 @@ export default async function deployApi(
   const handlerInstall = E(spawner).install(bundle);
 
   // Spawn the running code
-  const { handler, oracleAdmin } = await E(handlerInstall).spawn(
+  const { handler, oracleMaster } = await E(handlerInstall).spawn(
     harden({
       http,
       board,
@@ -184,11 +184,11 @@ export default async function deployApi(
       // This clause is to install an external oracle (serviced by, say, a
       // separate oracle node).
       console.log('Creating external oracle', INSTALL_ORACLE);
-      handlerP = E(oracleAdmin).makeExternalOracle();
+      handlerP = E(oracleMaster).makeExternalOracle();
     } else {
       // Builtin oracle.
       console.log('Creating builtin oracle');
-      handlerP = E(oracleAdmin).makeBuiltinOracle({ httpClient });
+      handlerP = E(oracleMaster).makeBuiltinOracle({ httpClient });
     }
 
     const { oracleHandler, oracleURLHandler } = await handlerP;
@@ -206,7 +206,7 @@ export default async function deployApi(
     // We put the oracleCreator and facet in our scratch location for future use (such as
     // in the shutdown.js script).
     await E(scratch).set('oracleCreator', creatorFacet);
-    await E(scratch).set('oracleAdmin', oracleAdmin);
+    await E(scratch).set('oracleAdmin', oracleMaster);
 
     INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
   }

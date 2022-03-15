@@ -1,10 +1,12 @@
 // @ts-check
 import { E, Far } from '@agoric/far';
 import { makePromiseKit } from '@endo/promise-kit';
+import { observeIteration, makeNotifierKit } from '@agoric/notifier';
 
 import { makeExternalOracle } from './external.js';
 import { makeBuiltinOracle } from './builtin.js';
 // import { makeCronTickIterable } from './cron.js';
+import { makePeriodicTickIterable } from './ticks.js';
 
 /**
  * @param {{ zoe: any, http: any, board: any, installOracle?: string, feeIssuer: Issuer, invitationIssuer: Issuer }} param0
@@ -100,7 +102,7 @@ const startSpawn = async (
 
   return harden({
     handler,
-    oracleAdmin: Far('oracleAdmin', {
+    oracleMaster: Far('oracleMaster', {
       makeExternalOracle() {
         return makeExternalOracle({ board, http, feeIssuer });
       },
@@ -113,17 +115,148 @@ const startSpawn = async (
           feeIssuer,
         });
       },
-      // FIXME: Enable when we have CJS support in compartment-mapper.
-      // makeCronTickIterable,
+      /**
+       * @param {object} param0
+       * @param {Record<string, any>} param0.query
+       * @param {Amount} param0.fee
+       * @param {number} [param0.minDeviationPercent]
+       * @param {bigint} [param0.timeoutTicks]
+       * @param {object} param1
+       * @param {AsyncIterable<void>} [param1.pollingIterable]
+       * @param {ERef<TimerService>} param1.timerService
+       * @param {ERef<Notifier<bigint> | undefined>} [param1.roundStartNotifier]
+       * @param {ERef<Awaited<ReturnType<typeof makeBuiltinOracle>>['oracleHandler']>} param1.oracleHandler
+       */
+      async makeFluxNotifier(
+        { query, fee, minDeviationPercent = 0, timeoutTicks },
+        { pollingIterable, timerService, oracleHandler, roundStartNotifier },
+      ) {
+        const deviationTolerance = minDeviationPercent / 100.0;
+
+        const {
+          notifier: fluxNotifier,
+          updater: fluxUpdater,
+        } = makeNotifierKit();
+
+        /** @type {Promise<any> | undefined} */
+        let querying;
+
+        /** @type {bigint} */
+        let currentRound;
+
+        // Start a fresh query if we don't already have one.
+        const triggerQuery = async () => {
+          if (!querying) {
+            const thisQuery = E(oracleHandler)
+              .onQuery(query, fee)
+              .finally(() => {
+                // Clear out the current query if we're it.
+                if (querying === thisQuery) {
+                  querying = undefined;
+                }
+              });
+            querying = thisQuery;
+          }
+          return querying;
+        };
+
+        let lastSubmission = 0;
+        const submitToCurrentRound = (data, round) => {
+          if (currentRound !== round) {
+            return;
+          }
+          lastSubmission = parseFloat(data);
+          if (currentRound === undefined) {
+            // No round data, just send the query value directly.
+            fluxUpdater.updateState(data);
+            return;
+          }
+
+          // We have a round, so attach it to the update.
+          fluxUpdater.updateState({ data, roundId: currentRound });
+          if (!timeoutTicks) {
+            // No timeout on rounds, just let others and polling initiate.
+            return;
+          }
+
+          // Submit a new round if there is a timeout with no intervening rounds.
+          const preRound = currentRound;
+          E(timerService)
+            .delay(timeoutTicks)
+            .then(async () => {
+              if (preRound !== currentRound) {
+                // A different piece already started a new round.
+                return;
+              }
+              const data2 = await triggerQuery();
+              submitToCurrentRound(data2, preRound);
+            });
+        };
+
+        const startNewRoundIfDeviated = (data, round) => {
+          if (currentRound !== round) {
+            return;
+          }
+          const current = parseFloat(data);
+          if (
+            lastSubmission &&
+            Math.abs(current - lastSubmission) / lastSubmission <
+              deviationTolerance
+          ) {
+            // Didn't deviate enough yet.
+            return;
+          }
+          if (currentRound !== undefined) {
+            currentRound += 1n;
+          }
+          submitToCurrentRound(data, currentRound);
+        };
+
+        // Observe the start of every round.
+        const roundStarter = await roundStartNotifier;
+        if (roundStarter) {
+          observeIteration(roundStarter, {
+            async updateState(round) {
+              if (round <= currentRound) {
+                // We already submitted for this round, so skip.
+                return;
+              }
+
+              // Trigger a query for this round.
+              currentRound = round;
+              const data = await triggerQuery();
+              submitToCurrentRound(data, round);
+            },
+          });
+        }
+
+        // Query on the polling interval.
+        if (pollingIterable) {
+          observeIteration(pollingIterable, {
+            async updateState(_tick) {
+              const preRound = currentRound;
+              const data = await triggerQuery();
+              startNewRoundIfDeviated(data, preRound);
+            },
+          });
+        }
+
+        return fluxNotifier;
+      },
+      /**
+       *
+       * @param {AsyncIterable<bigint>} tickIterable
+       * @param {ERef<TimerService>} timerService
+       */
       makeTimerIterable(tickIterable, timerService) {
-        // @ts-expect-error - Type 'unique symbol' cannot be used as an index type.ts(2538)
-        const cronTickIterator = E(tickIterable)[Symbol.asyncIterator]();
-        return Far('cron iterable', {
+        return Far('timer iterable', {
           [Symbol.asyncIterator]: () => {
-            return Far('cron iterator', {
+            const tickIterator = E(tickIterable)[Symbol.asyncIterator]();
+            return Far('timer iterator', {
               next: async () => {
+                /** @type {any} */
                 const startTick = await E(timerService).getCurrentTimestamp();
-                const { value: deadline } = await E(cronTickIterator).next(
+                const { value: deadline } = await E(tickIterator).next(
                   startTick,
                 );
                 if (startTick >= deadline) {
@@ -148,6 +281,9 @@ const startSpawn = async (
           },
         });
       },
+      makePeriodicTickIterable,
+      // FIXME: Enable when we have CJS support in compartment-mapper.
+      // makeCronTickIterable,
     }),
   });
 };

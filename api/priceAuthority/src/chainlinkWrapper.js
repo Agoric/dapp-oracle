@@ -12,7 +12,12 @@ export const start = async (...args) => {
 
       // This adapter is necessary to make the oracle's notifier work with the
       // CL aggregator.
-      initOracleWithNotifier: async (instance, notifier, scaleValueOut = 1) => {
+      initOracleWithNotifier: async (
+        instanceP,
+        notifier,
+        scaleValueOut = 1,
+      ) => {
+        const instance = await instanceP;
         const {
           pushResult,
           delete: del,
@@ -31,10 +36,20 @@ export const start = async (...args) => {
             .getUpdateSince(updateCount)
             .then(recurse);
 
+          // See if we have associated parameters or just a raw value.
+          const data = value.data || value;
+
           // Push the current scaled result.
-          const scaledValue = Math.floor(parseInt(value, 10) * scaleValueOut);
-          // pushResult({ data: `${scaledValue}`, roundId }).catch(console.error);
-          pushResult(scaledValue).catch(console.error);
+          const scaledData = Math.floor(parseInt(data, 10) * scaleValueOut);
+          const newData = BigInt(scaledData);
+
+          if (value.data) {
+            // We have some associated parameters to push.
+            const newValue = { ...value, data: newData };
+            pushResult(newValue).catch(console.error);
+          } else {
+            pushResult(newData).catch(console.error);
+          }
         };
 
         // Start the notifier.

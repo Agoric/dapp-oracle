@@ -138,8 +138,13 @@ export default async function priceAuthorityfromNotifier(
     notifier,
     Number(scaleValueOut),
   );
-  await E(scratch).set('oracleAdmin', oracleAdmin);
-  console.log('Stored oracleAdmin in scratch');
+  const oadmin = `oracleAdminFor${oracleId}`;
+  await E(scratch).set(oadmin, oracleAdmin);
+  console.log(
+    `Stored oracleAdmin in E(scratch).get(${JSON.stringify(
+      oadmin,
+    )}); you should communicate it to the oracle operator`,
+  );
 
   const priceAuthority = await E(aggregator.publicFacet).getPriceAuthority();
   const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);
