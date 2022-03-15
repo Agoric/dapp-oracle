@@ -192,6 +192,7 @@ export default async function deployApi(
     }
 
     const { oracleHandler, oracleURLHandler } = await handlerP;
+    await E(scratch).set('oracleHandler', oracleHandler);
 
     // Install this oracle on the ag-solo.
     await E(http).registerURLHandler(oracleURLHandler, '/api/oracle');
@@ -206,7 +207,7 @@ export default async function deployApi(
     // We put the oracleCreator and facet in our scratch location for future use (such as
     // in the shutdown.js script).
     await E(scratch).set('oracleCreator', creatorFacet);
-    await E(scratch).set('oracleAdmin', oracleMaster);
+    await E(scratch).set('oracleMaster', oracleMaster);
 
     INSTANCE_HANDLE_BOARD_ID = await E(board).getId(instance);
   }
