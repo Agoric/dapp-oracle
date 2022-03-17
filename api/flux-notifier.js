@@ -51,13 +51,13 @@ const FEE_PAYMENT_VALUE = 0n;
  */
 
 /**
- * @typedef {{ board: Board, chainTimerService, wallet, scratch, zoe }} Home
+ * @typedef {{ board: Board, chainTimerService, scratch, zoe }} Home
  * @param {Promise<Home>} homePromise
  * A promise for the references available from REPL home
  */
 export default async function priceAuthorityfromNotifier(homePromise) {
   const {
-    FEE_ISSUER_JSON = JSON.stringify('LINK'),
+    FEE_ISSUER_JSON = JSON.stringify('RUN'),
     ROUND_START_ID,
   } = process.env;
 
@@ -65,29 +65,19 @@ export default async function priceAuthorityfromNotifier(homePromise) {
   const home = await deeplyFulfilled(homePromise);
 
   // Unpack the references.
-  const { board, scratch, wallet, localTimerService: timerService } = home;
+  const { board, scratch, localTimerService: timerService } = home;
 
-  const issuersArray = await E(wallet).getIssuers();
-  const issuerNames = issuersArray.map(([petname]) => JSON.stringify(petname));
-  const feeIssuer = await E(wallet).getIssuer(JSON.parse(FEE_ISSUER_JSON));
-
-  if (feeIssuer === undefined) {
-    console.error(
-      'Cannot find FEE_ISSUER_JSON',
-      FEE_ISSUER_JSON,
-      'in home.wallet',
-    );
-    console.error('Have issuers:', issuerNames.join(', '));
-    process.exit(1);
-  }
+  const feeBrand = await E(home.agoricNames).lookup(
+    'brand',
+    JSON.parse(FEE_ISSUER_JSON),
+  );
 
   let roundStartNotifier;
   if (ROUND_START_ID) {
     roundStartNotifier = await E(board).getValue(ROUND_START_ID);
   }
 
-  const [feeBrand, oracleHandler, oracleMaster] = await Promise.all([
-    E(feeIssuer).getBrand(),
+  const [oracleHandler, oracleMaster] = await Promise.all([
     E(scratch).get('oracleHandler'),
     E(scratch).get('oracleMaster'),
   ]);

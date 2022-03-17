@@ -20,7 +20,7 @@ import '@agoric/zoe/src/contracts/exported.js';
  */
 
 /**
- * @typedef {{ board: Board, chainTimerService, wallet, scratch, spawner }} Home
+ * @typedef {{ board: Board, chainTimerService, agoricNames, scratch, spawner }} Home
  * @param {Promise<Home>} homePromise
  * @param {Object} root0
  * @param {(filename: string) => Promise<any>} root0.bundleSource
@@ -33,8 +33,8 @@ export default async function priceAuthorityfromNotifier(
 ) {
   const {
     FORCE_SPAWN = 'true',
-    IN_ISSUER_JSON = JSON.stringify('LINK'),
-    OUT_ISSUER_JSON = JSON.stringify('USDC'),
+    IN_ISSUER_JSON = JSON.stringify('BLD'),
+    OUT_ISSUER_JSON = JSON.stringify('USD'),
     PRICE_DECIMALS = '0',
     NOTIFIER_BOARD_ID,
   } = process.env;
@@ -48,36 +48,12 @@ export default async function priceAuthorityfromNotifier(
   const home = await homePromise;
 
   // Unpack the references.
-  const { board, scratch, wallet, spawner, chainTimerService: timer } = home;
+  const { board, scratch, spawner, chainTimerService: timer } = home;
 
-  const issuersArray = await E(wallet).getIssuers();
-  const issuerNames = issuersArray.map(([petname]) => JSON.stringify(petname));
-  const issuerIn = await E(wallet)
-    .getIssuer(JSON.parse(IN_ISSUER_JSON))
-    .catch(() => undefined);
-  const issuerOut = await E(wallet)
-    .getIssuer(JSON.parse(OUT_ISSUER_JSON))
-    .catch(() => undefined);
-
-  if (issuerIn === undefined) {
-    console.error(
-      'Cannot find IN_ISSUER_JSON',
-      IN_ISSUER_JSON,
-      'in home.wallet',
-    );
-    console.error('Have issuers:', issuerNames.join(', '));
-    process.exit(1);
-  }
-
-  if (issuerOut === undefined) {
-    console.error(
-      'Cannot find OUT_ISSUER_JSON',
-      OUT_ISSUER_JSON,
-      'in home.wallet',
-    );
-    console.error('Have issuers:', issuerNames.join(', '));
-    process.exit(1);
-  }
+  const [issuerIn, issuerOut] = await Promise.all([
+    E(home.agoricNames).lookup('issuer', JSON.parse(IN_ISSUER_JSON)),
+    E(home.agoricNames).lookup('issuer', JSON.parse(OUT_ISSUER_JSON)),
+  ]);
 
   const displayInfoIn = await E(E(issuerIn).getBrand()).getDisplayInfo();
   const { decimalPlaces: decimalPlacesIn = 0 } = displayInfoIn || {};

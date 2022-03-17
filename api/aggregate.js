@@ -23,7 +23,7 @@ import '@agoric/zoe/src/contracts/exported.js';
  */
 
 /**
- * @typedef {{ board: Board, chainTimerService, wallet, scratch, zoe }} Home
+ * @typedef {{ board: Board, chainTimerService, scratch, zoe }} Home
  * @param {Promise<Home>} homePromise
  * @param {object} root0
  * @param {Function} root0.bundleSource
@@ -36,8 +36,8 @@ export default async function priceAuthorityfromNotifier(
 ) {
   const {
     FORCE_SPAWN,
-    IN_ISSUER_JSON = JSON.stringify('LINK'),
-    OUT_ISSUER_JSON = JSON.stringify('RUN'),
+    IN_ISSUER_JSON = JSON.stringify('BLD'),
+    OUT_ISSUER_JSON = JSON.stringify('USD'),
     PRICE_DECIMALS = '0',
     NOTIFIER_BOARD_ID,
     INSTANCE_HANDLE_BOARD_ID,
@@ -47,32 +47,12 @@ export default async function priceAuthorityfromNotifier(
   const home = await deeplyFulfilled(homePromise);
 
   // Unpack the references.
-  const { board, scratch, wallet, zoe, chainTimerService: timer } = home;
+  const { board, scratch, zoe, chainTimerService: timer } = home;
 
-  const issuersArray = await E(wallet).getIssuers();
-  const issuerNames = issuersArray.map(([petname]) => JSON.stringify(petname));
-  const issuerIn = await E(wallet).getIssuer(JSON.parse(IN_ISSUER_JSON));
-  const issuerOut = await E(wallet).getIssuer(JSON.parse(OUT_ISSUER_JSON));
-
-  if (issuerIn === undefined) {
-    console.error(
-      'Cannot find IN_ISSUER_JSON',
-      IN_ISSUER_JSON,
-      'in home.wallet',
-    );
-    console.error('Have issuers:', issuerNames.join(', '));
-    process.exit(1);
-  }
-
-  if (issuerOut === undefined) {
-    console.error(
-      'Cannot find OUT_ISSUER_JSON',
-      OUT_ISSUER_JSON,
-      'in home.wallet',
-    );
-    console.error('Have issuers:', issuerNames.join(', '));
-    process.exit(1);
-  }
+  const [issuerIn, issuerOut] = await Promise.all([
+    E(home.agoricNames).lookup('issuer', JSON.parse(IN_ISSUER_JSON)),
+    E(home.agoricNames).lookup('issuer', JSON.parse(OUT_ISSUER_JSON)),
+  ]);
 
   let aggregator = await E(scratch).get('priceAggregatorChainlink');
 
@@ -107,6 +87,8 @@ export default async function priceAuthorityfromNotifier(
 
   // Get the notifier.
   if (NOTIFIER_BOARD_ID || INSTANCE_HANDLE_BOARD_ID) {
+    assert(NOTIFIER_BOARD_ID);
+    assert(INSTANCE_HANDLE_BOARD_ID);
     const notifierId = NOTIFIER_BOARD_ID.replace(/^board:/, '');
     const oracleId = INSTANCE_HANDLE_BOARD_ID.replace(/^board:/, '');
 

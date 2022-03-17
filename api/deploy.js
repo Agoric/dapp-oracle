@@ -17,7 +17,7 @@ import installationConstants from '../ui/public/conf/installationConstants.js';
 const { INSTALL_ORACLE } = process.env;
 
 // The deployer's wallet's petname for the tip issuer.
-const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'LINK';
+const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'RUN';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
@@ -35,7 +35,7 @@ const FEE_ISSUER_PETNAME = process.env.FEE_ISSUER_PETNAME || 'LINK';
  */
 
 /**
- * @typedef {{ zoe: ZoeService, board: Board, spawner, wallet, scratch, http }} Home
+ * @typedef {{ zoe: ZoeService, board: Board, spawner, agoricNames, scratch, http }} Home
  * @param {Promise<Home>} homePromise
  * A promise for the references available from REPL home
  * @param {DeployPowers} powers
@@ -50,10 +50,6 @@ export default async function deployApi(
   // Unpack the references.
   const {
     // *** LOCAL REFERENCES ***
-
-    // This wallet only exists on this machine, and only you have
-    // access to it. The wallet stores purses and handles transactions.
-    wallet,
 
     // Scratch is a map only on this machine, and can be used for
     // communication in objects between processes/scripts on this
@@ -88,42 +84,10 @@ export default async function deployApi(
   // const API_HOST = process.env.API_HOST || host;
   const API_PORT = process.env.API_PORT || port;
 
-  // Second, we can use the installationHandle to create a new instance of our
-  // contract code on Zoe. A contract instance is a running program that can
-  // take offers through Zoe. Creating a contract instance gives you an
-  // invitation to the contract. In this case, it is an admin invitation with
-  // special authority - whoever redeems this admin invitation will get all of
-  // the fees from the contract instance.
-
-  // At the time that we make the contract instance, we need to tell
-  // Zoe what kind of token to accept as tip money. In this instance,
-  // we will only accept moola. (If we wanted to accept other kinds of
-  // tips, we could create other instances or edit the contract code
-  // and redeploy.) We need to put this information in the form of a
-  // keyword (a string that the contract determines, in this case,
-  // 'Tip') plus an issuer for the token kind, the moolaIssuer.
-
-  // In our example, moola is a widely used token that our wallet
-  // already knows about.
-
-  // getIssuers returns an array, because we currently cannot
-  // serialize maps. We can immediately create a map using the array,
-  // though. https://github.com/Agoric/agoric-sdk/issues/838
-  const issuersArray = await E(wallet).getIssuers();
-  const issuers = new Map(issuersArray);
-  const feeIssuer = issuers.get(FEE_ISSUER_PETNAME);
-
-  if (feeIssuer === undefined) {
-    console.error(
-      'Cannot find FEE_ISSUER_PETNAME',
-      FEE_ISSUER_PETNAME,
-      'in home.wallet',
-    );
-    console.error('Have issuers:', [...issuers.keys()].join(', '));
-    process.exit(1);
-  }
-
-  const invitationIssuer = await E(zoe).getInvitationIssuer();
+  const [feeIssuer, invitationIssuer] = await Promise.all([
+    E(home.agoricNames).lookup('issuer', FEE_ISSUER_PETNAME),
+    E(zoe).getInvitationIssuer(),
+  ]);
 
   // Bundle up the handler code
   const bundle = await bundleSource(pathResolve('./src/handler.js'));

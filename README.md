@@ -121,17 +121,17 @@ If your scheduled query returns a numeric string as the price of a unit of your
 input issuer, you can create a price authority from it.
 
 1. Find out your wallet petnames for the input and output issuers (for example,
-   `"LINK"` to `"USDC"`).
+   `"BLD"` to `"USD"`).
 2. Create a public price authority based on an aggregator:
 ```sh
-IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
+IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
 agoric deploy --hostport=127.0.0.1:7999 api/aggregate.js
 ```
 3. Create a Flux Notifier for your oracle.  You can edit parameters at the top
    of `api/flux-notifier.js`:
 ```sh
 ROUND_START_ID=<boardId of round starter if any> \
-FEE_ISSUER_JSON='"LINK"' \
+FEE_ISSUER_JSON='"RUN"' \
 agoric deploy api/flux-notifier.js
 ```
 4. Add your notifier to the aggregator.  We set `PRICE_DECIMALS=2` because of
@@ -140,7 +140,7 @@ agoric deploy api/flux-notifier.js
 ```sh
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
 INSTANCE_HANDLE_BOARD_ID=<boardId of oracle instance> \
-IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
+IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
 PRICE_DECIMALS=2 \
 agoric deploy --hostport=127.0.0.1:7999 api/aggregate.js
 ```
@@ -150,19 +150,19 @@ Repeat for as many notifiers as necessary.
    an act of governance to do this for you.
 ```sh
 PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
-IN_ISSUER_JSON='"LINK"' OUT_ISSUER_JSON='"USDC"' \
+IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
 agoric deploy --hostport=127.0.0.1:7999 api/register.js
 ```
 
 Here is a session testing the `priceAuthority`:
 
 ```js
-E(E(home.wallet).getIssuer('LINK')).getBrand().then(brand => link = brand)
-// -> [Object Alleged: LINK brand]{}
-E(E(home.wallet).getIssuer('USDC')).getBrand().then(brand => usdc = brand)
-// -> [Object Alleged: USDC brand]{}
-E(E(home.priceAuthority).makeQuoteNotifier({ value: 10n ** 18n, brand: link }, usdc)).getUpdateSince()
-// -> {"updateCount":2,"value":{"quoteAmount":{"brand":[Object Alleged: quote brand]{},"value":[{"amountIn":{"brand":[Object Alleged: LINK brand]{},"value":1000000000000000000n},"amountOut":{"brand":[Object Alleged: USDC brand]{},"value":10000000000000000000000n},"timer":[Object Alleged: timerService]{},"timestamp":1644701445n}]},"quotePayment":[Promise]}}
+E(home.agoricNames).lookup('brand', 'BLD').then(brand => bld = brand)
+// -> [Object Alleged: BLD brand]{}
+E(home.agoricNames).lookup('brand', 'USD').then(brand => usd = brand)
+// -> [Object Alleged: USD brand]{}
+E(E(home.priceAuthority).makeQuoteNotifier({ value: 1_000n * 10n ** 6n, brand: bld }, usd)).getUpdateSince()
+// -> {"updateCount":2,"value":{"quoteAmount":{"brand":[Object Alleged: quote brand]{},"value":[{"amountIn":{"brand":[Object Alleged: BLD brand]{},"value":1000000000000000000n},"amountOut":{"brand":[Object Alleged: USD brand]{},"value":10000000000000000000000n},"timer":[Object Alleged: timerService]{},"timestamp":1644701445n}]},"quotePayment":[Promise]}}
 ```
 
 ## Single-query Usage
