@@ -14,7 +14,7 @@ There are three basic components to a given Chainlink integration:
    Chainlink node and translates them into Agoric transactions.
 3. $LINK, a token which secures the oracle network.
 
-The oracle query-only UI is deployed with `agoric deploy api/deploy.js`.
+The oracle query-only UI is deployed with `agoric deploy api/spawn.js`.
 
 The "external adapter" is [in
 Javascript](https://github.com/smartcontractkit/external-adapters-js/pull/114) and
@@ -44,10 +44,8 @@ client:
 ```sh
 # Install the needed dependencies.
 agoric install
-# Deploy the oracle service contract.
-agoric deploy contract/deploy.js
-# Deploy the builtin oracle.
-agoric deploy --allow-unsafe-plugins api/deploy.js
+# Deploy the builtin oracle plugin.
+agoric deploy --allow-unsafe-plugins api/spawn.js
 # Run the UI server.
 (cd ui && yarn start)
 ```

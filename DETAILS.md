@@ -19,11 +19,9 @@ agoric start --reset local-chain >& chain.log &
 agoric start local-solo 8000 >& 8000.log &
 # Start a solo for the oracle.
 agoric start local-solo 7999 >& 7999.log &
-# Deploy the oracle server contract.
+# Deploy the oracle query plugin.
 INSTALL_ORACLE='My Oracle' FEE_ISSUER_PETNAME='moola' agoric deploy \
-  --hostport=127.0.0.1:7999 contract/deploy.js api/deploy.js
-# Deploy the oracle query contract.
-agoric deploy api/deploy.js
+  --hostport=127.0.0.1:7999 api/spawn.js
 # Run the UI server.
 (cd ui && yarn start)
 ```
@@ -47,9 +45,9 @@ tail -f testnet.log
 # Do any setup your ag-solo wallet needs, such as setting a petname
 # for the fee tokens you wish to charge ('moola' in this example).
 
-# Deploy the contract and API server when the above is ready.
+# Deploy the oracle query plugin when the above is ready.
 INSTALL_ORACLE='My wonderful oracle' FEE_ISSUER_PETNAME='moola' \
-  agoric deploy contract/deploy.js api/deploy.js
+  agoric deploy api/spawn.js
 ```
 
 Your external oracle service would function like the following JS-like pseudocode:

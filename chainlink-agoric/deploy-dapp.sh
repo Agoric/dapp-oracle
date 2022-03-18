@@ -48,12 +48,7 @@ while ! ag-cosmos-helper query swingset egress "$addr" --node=tcp://$rp; do
 done
 
 HOSTPORT="localhost:689$1"
-if ${2-false}; then
-  agoric deploy --hostport="$HOSTPORT" /usr/src/dapp-oracle/contract/deploy.js
-
-  echo "dapp-oracle contract has been installed"
-fi
 
 INSTALL_ORACLE="Chainlink #$1" agoric deploy --hostport="$HOSTPORT" \
-  /usr/src/dapp-oracle/api/deploy.js
-echo "dapp-oracle API for Chainlink #$1 has been installed"
+  /usr/src/dapp-oracle/api/spawn.js
+echo "dapp-oracle plugin for Chainlink #$1 has been installed"

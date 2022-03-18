@@ -136,7 +136,7 @@ completely decoupled oracle client and a fresh wallet, run the following:
 # Start a solo for the oracle client
 agoric start --reset local-solo 8000 agoric.priceAuthorityAdmin >& 8000.log &
 # Deploy the oracle client (DON'T allow unsafe plugins)
-agoric deploy api/deploy.js
+agoric deploy api/spawn.js
 ```
 
 then visit `http://localhost:3000` and submit queries as above (you still need
