@@ -46,9 +46,9 @@ export default async function priceAuthorityInvert(
   // Unpack the references.
   const { board, scratch, spawner, chainTimerService: timer } = home;
 
-  const [issuerIn, issuerOut] = await Promise.all([
-    E(home.agoricNames).lookup('issuer', JSON.parse(IN_ISSUER_JSON)),
-    E(home.agoricNames).lookup('issuer', JSON.parse(OUT_ISSUER_JSON)),
+  const [brandIn, brandOUt] = await Promise.all([
+    E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
+    E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
   ]);
 
   const priceAuthority = await E(board).getValue(PRICE_AUTHORITY_BOARD_ID);
@@ -75,8 +75,8 @@ export default async function priceAuthorityInvert(
     priceAuthorityFactory,
   ).makeInversePriceAuthority({
     priceAuthority,
-    issuerIn,
-    issuerOut,
+    brandIn,
+    brandOUt,
     timer,
   });
 

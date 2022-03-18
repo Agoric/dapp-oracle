@@ -14,24 +14,21 @@ const startSpawn = async (_terms, _invitationMaker) => {
      * receipts of issuerIn).
      *
      * @param {Object} param0
-     * @param {ERef<Issuer>} param0.issuerIn
-     * @param {ERef<Issuer>} param0.issuerOut
+     * @param {ERef<Brand>} param0.brandIn
+     * @param {ERef<Brand>} param0.brandOut
      * @param {ERef<PriceAuthority>} param0.inOutPriceAuthority
      * @param {ERef<Mint>} [param0.quoteMint]
      * @param {ERef<TimerService>} [param0.timer]
      * @returns {Promise<PriceAuthority>}
      */
     async makeInversePriceAuthority({
-      issuerIn,
-      issuerOut,
+      brandIn,
+      brandOut,
       inOutPriceAuthority,
       quoteMint,
       timer,
     }) {
-      const [brandIn, brandOut] = await Promise.all([
-        E(issuerIn).getBrand(),
-        E(issuerOut).getBrand(),
-      ]);
+      [brandIn, brandOut] = await Promise.all([brandIn, brandOut]);
 
       const quotes = makeInverseQuoteStream({
         brandIn,
@@ -49,17 +46,14 @@ const startSpawn = async (_terms, _invitationMaker) => {
     },
     async makeNotifierPriceAuthority({
       notifier,
-      issuerIn,
-      issuerOut,
+      brandIn,
+      brandOut,
       timer,
       unitValueIn = 1n,
       scaleValueOut = 1,
       quoteMint,
     }) {
-      const [brandIn, brandOut] = await Promise.all([
-        E(issuerIn).getBrand(),
-        E(issuerOut).getBrand(),
-      ]);
+      [brandIn, brandOut] = await Promise.all([brandIn, brandOut]);
       const amountIn = AmountMath.make(brandIn, unitValueIn);
 
       async function* makeQuotes() {

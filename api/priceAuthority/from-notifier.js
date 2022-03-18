@@ -50,17 +50,17 @@ export default async function priceAuthorityfromNotifier(
   // Unpack the references.
   const { board, scratch, spawner, chainTimerService: timer } = home;
 
-  const [issuerIn, issuerOut] = await Promise.all([
-    E(home.agoricNames).lookup('issuer', JSON.parse(IN_ISSUER_JSON)),
-    E(home.agoricNames).lookup('issuer', JSON.parse(OUT_ISSUER_JSON)),
+  const [brandIn, brandOut] = await Promise.all([
+    E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
+    E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
   ]);
 
-  const displayInfoIn = await E(E(issuerIn).getBrand()).getDisplayInfo();
+  const displayInfoIn = await E(brandIn).getDisplayInfo();
   const { decimalPlaces: decimalPlacesIn = 0 } = displayInfoIn || {};
 
   const unitValueIn = 10n ** BigInt(decimalPlacesIn);
 
-  const displayInfoOut = await E(E(issuerOut).getBrand()).getDisplayInfo();
+  const displayInfoOut = await E(brandOut).getDisplayInfo();
   const { decimalPlaces: decimalPlacesOut = 0 } = displayInfoOut || {};
 
   // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut.
@@ -92,8 +92,8 @@ export default async function priceAuthorityfromNotifier(
     priceAuthorityFactory,
   ).makeNotifierPriceAuthority({
     notifier,
-    issuerIn,
-    issuerOut,
+    brandIn,
+    brandOut,
     timer,
     unitValueIn,
     scaleValueOut,

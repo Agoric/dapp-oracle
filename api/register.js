@@ -45,13 +45,11 @@ export default async function registerPriceAuthority(homePromise) {
   const priceAuthorityId = PRICE_AUTHORITY_BOARD_ID.replace(/^board:/, '');
   const priceAuthority = E(board).getValue(priceAuthorityId);
 
-  const [issuerIn, issuerOut] = await Promise.all([
-    E(home.agoricNames).lookup('issuer', JSON.parse(IN_ISSUER_JSON)),
-    E(home.agoricNames).lookup('issuer', JSON.parse(OUT_ISSUER_JSON)),
+  const [brandIn, brandOut] = await Promise.all([
+    E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
+    E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
   ]);
 
-  const brandIn = await E(issuerIn).getBrand();
-  const brandOut = await E(issuerOut).getBrand();
   const deleter = await E(priceAuthorityAdmin).registerPriceAuthority(
     priceAuthority,
     brandIn,

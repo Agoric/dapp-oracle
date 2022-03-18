@@ -49,9 +49,9 @@ export default async function priceAuthorityfromNotifier(
   // Unpack the references.
   const { board, scratch, zoe, chainTimerService: timer } = home;
 
-  const [issuerIn, issuerOut] = await Promise.all([
-    E(home.agoricNames).lookup('issuer', JSON.parse(IN_ISSUER_JSON)),
-    E(home.agoricNames).lookup('issuer', JSON.parse(OUT_ISSUER_JSON)),
+  const [brandIn, brandOut] = await Promise.all([
+    E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
+    E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
   ]);
 
   let aggregator = await E(scratch).get('priceAggregatorChainlink');
@@ -64,22 +64,20 @@ export default async function priceAuthorityfromNotifier(
     const priceAgg = E(zoe).install(bundle);
 
     // Start the contract
-    aggregator = await E(zoe).startInstance(
-      priceAgg,
-      { In: issuerIn, Out: issuerOut },
-      {
-        timer,
-        POLL_INTERVAL: 30n,
-        // NOTE: here are the parameters to tune
-        maxSubmissionCount: 1000,
-        minSubmissionCount: 1,
-        restartDelay: 5, // in seconds
-        timeout: 10, // in seconds
-        description: 'Chainlink oracles',
-        minSubmissionValue: 1n,
-        maxSubmissionValue: 2n ** 256n,
-      },
-    );
+    aggregator = await E(zoe).startInstance(priceAgg, undefined, {
+      brandIn,
+      brandOut,
+      timer,
+      POLL_INTERVAL: 30n,
+      // NOTE: here are the parameters to tune
+      maxSubmissionCount: 1000,
+      minSubmissionCount: 1,
+      restartDelay: 5, // in seconds
+      timeout: 10, // in seconds
+      description: 'Chainlink oracles',
+      minSubmissionValue: 1n,
+      maxSubmissionValue: 2n ** 256n,
+    });
 
     await E(scratch).set('priceAggregatorChainlink', aggregator);
     console.log('Stored priceAggregatorChainlink in scratch');
@@ -95,7 +93,7 @@ export default async function priceAuthorityfromNotifier(
     const notifier = E(board).getValue(notifierId);
     const oracleInstance = E(board).getValue(oracleId);
 
-    const displayInfoOut = await E(E(issuerOut).getBrand()).getDisplayInfo();
+    const displayInfoOut = await E(brandOut).getDisplayInfo();
     const { decimalPlaces: decimalPlacesOut = 0 } = displayInfoOut || {};
 
     // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut.
