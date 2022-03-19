@@ -117,41 +117,50 @@ results.
 
 ### Publishing a price authority
 
-If your scheduled query returns a numeric string as the price of a unit of your
-input issuer, you can create a price authority from it.
+If you have a jobId that returns a numeric string as the price of a unit of your
+input issuer, you can create a price authority from it using the Flux Notifier.
 
 1. Find out your wallet petnames for the input and output issuers (for example,
    `"BLD"` to `"USD"`).
-2. Create a public price authority based on an aggregator:
+2. Create a public price authority based on an aggregator.  For testing
+   Chainlink, use a privileged node (such as `--hostport=127.0.0.1:7999`):
 ```sh
 IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
-agoric deploy --hostport=127.0.0.1:7999 api/aggregate.js
+agoric deploy api/aggregate.js
 ```
-3. Create a Flux Notifier for your oracle.  You can edit parameters at the top
-   of `api/flux-notifier.js`:
+3. Create a Flux Notifier on one of the oracles (any of them, specify
+   `--hostport=127.0.0.1:689<N>` for a Chainlink oracle).
+   
+   NOTE: You will need to edit parameters at the top of `api/flux-notifier.js`
+   to specify the price query to poll before running this:
 ```sh
-ROUND_START_ID=<boardId of round starter if any> \
+AGGREGATOR_INSTANCE_ID=<boardId of aggregator instance> \
 FEE_ISSUER_JSON='"RUN"' \
 agoric deploy api/flux-notifier.js
 ```
-4. Add your notifier to the aggregator.  We set `PRICE_DECIMALS=2` because of
-   the scaling factor `"times": 100` in the above `Multiply` task, (which is
-   `10^2`):
+
+This command will wait until the first query returns valid data.
+
+4. Add the oracle's notifier to the aggregator back on the privileged aggregator
+   hostport.  We set `PRICE_DECIMALS=2` because of the scaling factor `"times": 100`
+   in the above `Multiply` task, (which is `10^2`):
 ```sh
 NOTIFIER_BOARD_ID=<boardId of push notifier> \
 INSTANCE_HANDLE_BOARD_ID=<boardId of oracle instance> \
 IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
 PRICE_DECIMALS=2 \
-agoric deploy --hostport=127.0.0.1:7999 api/aggregate.js
+agoric deploy api/aggregate.js
 ```
-Repeat for as many notifiers as necessary.
-5. Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
-   `agoric.priceAuthority`.  If you want to publish to the devnet you will need
-   an act of governance to do this for you.
+Repeat 3 and 4 for as many oracle nodes as necessary.
+
+
+5. OPTIONAL: Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
+`agoric.priceAuthority`.  Run this step on the privileged node.
+
 ```sh
 PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
 IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
-agoric deploy --hostport=127.0.0.1:7999 api/register.js
+agoric deploy api/register.js
 ```
 
 Here is a session testing the `priceAuthority`:
@@ -161,7 +170,9 @@ E(home.agoricNames).lookup('brand', 'BLD').then(brand => bld = brand)
 // -> [Object Alleged: BLD brand]{}
 E(home.agoricNames).lookup('brand', 'USD').then(brand => usd = brand)
 // -> [Object Alleged: USD brand]{}
-E(E(home.priceAuthority).makeQuoteNotifier({ value: 1_000n * 10n ** 6n, brand: bld }, usd)).getUpdateSince()
+pa = E(home.board).getValue('<boardId of price authority>')
+// -> [Object Alleged: PriceAuthority]{}
+E(E(pa).makeQuoteNotifier({ value: 1_000n * 10n ** 6n, brand: bld }, usd)).getUpdateSince()
 // -> {"updateCount":2,"value":{"quoteAmount":{"brand":[Object Alleged: quote brand]{},"value":[{"amountIn":{"brand":[Object Alleged: BLD brand]{},"value":1000000000000000000n},"amountOut":{"brand":[Object Alleged: USD brand]{},"value":10000000000000000000000n},"timer":[Object Alleged: timerService]{},"timestamp":1644701445n}]},"quotePayment":[Promise]}}
 ```
 

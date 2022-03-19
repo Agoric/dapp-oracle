@@ -10,8 +10,8 @@ import {
 const startSpawn = async (_terms, _invitationMaker) => {
   const factory = {
     /**
-     * Adapt a price authority into its inverse (quotes sales of issuerOut for
-     * receipts of issuerIn).
+     * Adapt a price authority into its inverse (quotes sales of brandOut for
+     * receipts of brandIn).
      *
      * @param {Object} param0
      * @param {ERef<Brand>} param0.brandIn
