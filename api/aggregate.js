@@ -109,17 +109,14 @@ export default async function priceAuthorityfromNotifier(
     const oadmin = `oracleAdminFor${oracleId}`;
     await E(scratch).set(oadmin, oracleAdmin);
     console.log(
-      `Stored oracleAdmin in E(scratch).get(${JSON.stringify(
-        oadmin,
-      )}); you should communicate it to the oracle operator`,
+      `Stored oracleAdmin in E(scratch).get(${JSON.stringify(oadmin)})`,
     );
   }
 
   const priceAuthority = await E(aggregator.publicFacet).getPriceAuthority();
-  const roundNotifier = await E(aggregator.publicFacet).getRoundStartNotifier();
 
-  const ROUND_START_ID = await E(board).getId(roundNotifier);
-  console.log('-- ROUND_START_ID:', ROUND_START_ID);
+  const AGGREGATOR_INSTANCE_ID = await E(board).getId(aggregator.instance);
+  console.log('-- AGGREGATOR_INSTANCE_ID:', AGGREGATOR_INSTANCE_ID);
   const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);
   console.log('-- PRICE_AUTHORITY_BOARD_ID:', PRICE_AUTHORITY_BOARD_ID);
 }

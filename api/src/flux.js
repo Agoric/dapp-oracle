@@ -134,5 +134,9 @@ export const makeFluxNotifier = async (
     });
   }
 
+  // Trigger the first query and wait for its response.
+  const data = await triggerQuery();
+  submitToCurrentRound(data, currentRound);
+
   return fluxNotifier;
 };

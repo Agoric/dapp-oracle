@@ -58,7 +58,7 @@ const FEE_PAYMENT_VALUE = 0n;
 export default async function priceAuthorityfromNotifier(homePromise) {
   const {
     FEE_ISSUER_JSON = JSON.stringify('RUN'),
-    ROUND_START_ID,
+    AGGREGATOR_INSTANCE_ID,
   } = process.env;
 
   // Let's wait for the promise to resolve.
@@ -73,9 +73,13 @@ export default async function priceAuthorityfromNotifier(homePromise) {
   );
 
   let roundStartNotifier;
-  if (ROUND_START_ID) {
-    roundStartNotifier = await E(board).getValue(ROUND_START_ID);
+  if (AGGREGATOR_INSTANCE_ID) {
+    const aggregatorInstance = E(board).getValue(AGGREGATOR_INSTANCE_ID);
+    const publicFacet = await E(home.zoe).getPublicFacet(aggregatorInstance);
+    roundStartNotifier = publicFacet.roundStartNotifier;
   }
+
+  console.log('Round start notifier:', roundStartNotifier || '*none*');
 
   const [oracleHandler, oracleMaster] = await Promise.all([
     E(scratch).get('oracleHandler'),
@@ -97,6 +101,7 @@ export default async function priceAuthorityfromNotifier(homePromise) {
   }
 
   // Put everything together into a flux monitor.
+  console.log('Waiting for first price query...');
   const fluxNotifier = await E(oracleMaster).makeFluxNotifier(
     {
       query: PRICE_QUERY,
@@ -107,6 +112,9 @@ export default async function priceAuthorityfromNotifier(homePromise) {
     },
     { pollIterable, timerService, oracleHandler, roundStartNotifier },
   );
+
+  const { value } = await E(fluxNotifier).getUpdateSince();
+  console.log(`First price query:`, value);
 
   const NOTIFIER_BOARD_ID = await E(board).getId(fluxNotifier);
   console.log('-- NOTIFIER_BOARD_ID:', NOTIFIER_BOARD_ID);
