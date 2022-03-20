@@ -118,48 +118,59 @@ results.
 If you have a jobId that returns a numeric string as the price of a unit of your
 input issuer, you can create a price authority from it using the Flux Notifier.
 
-1. Find out your wallet petnames for the input and output issuers (for example,
-   `"BLD"` to `"USD"`).
-2. Create a public price authority based on an aggregator.  For testing
-   Chainlink, use a privileged node (such as `--hostport=127.0.0.1:7999`):
+If you're not testing the Chainlink instructions, you don't need to do anything
+special for `PRIVILEGED-NODE` versus `ORACLE-NODE`.  If you are testing the
+Chainlink instructions, when you see `PRIVILEGED-NODE` use
+`--hostport=127.0.0.1:7999`, and when you see `ORACLE-NODE`, use one of
+`--hostport=127.0.0.1:689<N>` (like `--hostport=127.0.0.1:6891`).
+
+1. Find out the published `E(E(home.agoricNames).lookup('brand')).keys()` names
+   for the input and output brands (for example, `"BLD"` to `"USD"`).
+2. Create a public price authority based on an aggregator on the
+   `PRIVILEGED-NODE`, and send invitations to the `ORACLE-NODE`s
+   (without `ORACLE_NODE_ADDRESSES`, use the current node):
 ```sh
 IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
 agoric deploy api/aggregate.js
 ```
-3. Create a Flux Notifier on one of the oracles (any of them, specify
-   `--hostport=127.0.0.1:689<N>` for a Chainlink oracle).
-   
-   NOTE: You will need to edit parameters at the top of `api/flux-notifier.js`
-   to specify the price query to poll before running this:
+3. On an `ORACLE-NODE`, find its `agoric1...` (or `sim-...`) address:
+```sh
+agoric deploy api/show-my-address.js
+```
+4. On `PRIVILEGED-NODE`, send an aggregator invitation to the specified oracle:
+```sh
+ORACLE_ADDRESS=agoric1... \
+agoric deploy api/invite-oracle.js
+```
+5. Create a Flux Notifier on an `ORACLE-NODE`.  NOTE: You will need to edit
+   parameters at the top of `api/flux-notifier.js` to specify the notifier
+   parameters before running this:
 ```sh
 AGGREGATOR_INSTANCE_ID=<boardId of aggregator instance> \
+IN_ISSUER_JSON='"BLD"' \
+OUT_ISSUER_JSON='"USD"' \
 FEE_ISSUER_JSON='"RUN"' \
 agoric deploy api/flux-notifier.js
 ```
 
-This command will wait until the first query returns valid data.
+This command will wait until the first query returns valid data, and also add it
+to the aggregator.
 
-4. Add the oracle's notifier to the aggregator back on the privileged aggregator
-   hostport.  We set `PRICE_DECIMALS=2` because of the scaling factor `"times": 100`
-   in the above `Multiply` task, (which is `10^2`):
-```sh
-NOTIFIER_BOARD_ID=<boardId of push notifier> \
-INSTANCE_HANDLE_BOARD_ID=<boardId of oracle instance> \
-IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
-PRICE_DECIMALS=2 \
-agoric deploy api/aggregate.js
-```
-Repeat 3 and 4 for as many oracle nodes as necessary.
+Repeat steps 3 to 5 for as many `ORACLE-NODE`s as necessary.
 
-
-5. OPTIONAL: Publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the on-chain
-`agoric.priceAuthority`.  Run this step on the privileged node.
+6. OPTIONAL: You can publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the
+sim-chain's `agoric.priceAuthority`.
 
 ```sh
 PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
-IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
+IN_ISSUER_JSON='"BLD"' \
+OUT_ISSUER_JSON='"USD"' \
 agoric deploy api/register.js
 ```
+
+If this step fails (such as with `local-chain` or a public chain), you can use
+on-chain governance to install the price authority.  Remember that this step is
+optional.
 
 Here is a session testing the `priceAuthority`:
 

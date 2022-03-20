@@ -14,13 +14,16 @@ const THRESHOLD = 0.1;
 // What minimum absolute change in price should result in a notification?
 const ABSOLUTE_THRESHOLD = 0;
 
+// How many decimal places does the price need to be shifted by?
+const PRICE_DECIMALS = 2;
+
 // This is the query submitted to the oracle.
 const PRICE_QUERY = {
   jobId: 'b0b5cafec0ffeeee',
   params: {
     get: 'https://bitstamp.net/api/ticker/',
     path: ['last'],
-    times: 100,
+    times: 10 ** PRICE_DECIMALS,
   },
 };
 
@@ -57,8 +60,10 @@ const FEE_PAYMENT_VALUE = 0n;
  */
 export default async function priceAuthorityfromNotifier(homePromise) {
   const {
-    FEE_ISSUER_JSON = JSON.stringify('RUN'),
     AGGREGATOR_INSTANCE_ID,
+    FEE_ISSUER_JSON = JSON.stringify('RUN'),
+    IN_ISSUER_JSON = JSON.stringify('BLD'),
+    OUT_ISSUER_JSON = JSON.stringify('USD'),
   } = process.env;
 
   // Let's wait for the promise to resolve.
@@ -72,11 +77,15 @@ export default async function priceAuthorityfromNotifier(homePromise) {
     JSON.parse(FEE_ISSUER_JSON),
   );
 
-  let roundStartNotifier;
+  let aggregatorInstance;
   if (AGGREGATOR_INSTANCE_ID) {
-    const aggregatorInstance = E(board).getValue(AGGREGATOR_INSTANCE_ID);
-    const publicFacet = await E(home.zoe).getPublicFacet(aggregatorInstance);
-    roundStartNotifier = publicFacet.roundStartNotifier;
+    aggregatorInstance = await E(board).getValue(AGGREGATOR_INSTANCE_ID);
+  }
+
+  let roundStartNotifier;
+  if (aggregatorInstance) {
+    const publicFacet = E(home.zoe).getPublicFacet(aggregatorInstance);
+    roundStartNotifier = await E(publicFacet).getRoundStartNotifier();
   }
 
   console.log('Round start notifier:', roundStartNotifier || '*none*');
@@ -117,5 +126,45 @@ export default async function priceAuthorityfromNotifier(homePromise) {
   console.log(`First price query:`, value);
 
   const NOTIFIER_BOARD_ID = await E(board).getId(fluxNotifier);
-  console.log('-- NOTIFIER_BOARD_ID:', NOTIFIER_BOARD_ID);
+  console.log(`-- NOTIFIER_BOARD_ID=${NOTIFIER_BOARD_ID}`);
+
+  if (!aggregatorInstance) {
+    return;
+  }
+
+  /** @param {ERef<Brand>} brand */
+  const getDecimalP = async brand => {
+    const displayInfo = E(brand).getDisplayInfo();
+    return E.get(displayInfo).decimalPlaces;
+  };
+  const [decimalPlacesIn = 0, decimalPlacesOut = 0] = await Promise.all([
+    getDecimalP(
+      E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
+    ),
+    getDecimalP(
+      E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
+    ),
+  ]);
+
+  // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut - decimalPlacesIn.
+  const scaleValueOut =
+    10 ** (decimalPlacesOut - decimalPlacesIn - PRICE_DECIMALS);
+
+  const offer = {
+    id: Date.now(),
+    proposalTemplate: {
+      arguments: { notifier: fluxNotifier, scaleValueOut },
+    },
+    invitationQuery: {
+      description: 'oracle invitation',
+      instance: aggregatorInstance,
+    },
+  };
+
+  // Consume an aggregator invitation for this instance.
+  console.log(
+    `Please approve your wallet's proposal to connect the aggregator ${aggregatorInstance}...`,
+  );
+  const bridge = E(home.wallet).getBridge();
+  await E(bridge).addOffer(offer, { dappOrigin: 'oracle script' });
 }
