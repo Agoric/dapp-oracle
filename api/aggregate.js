@@ -93,12 +93,20 @@ export default async function priceAuthorityfromNotifier(
     const notifier = E(board).getValue(notifierId);
     const oracleInstance = E(board).getValue(oracleId);
 
-    const displayInfoOut = await E(brandOut).getDisplayInfo();
-    const { decimalPlaces: decimalPlacesOut = 0 } = displayInfoOut || {};
+    /** @param {ERef<Brand>} brand */
+    const getDecimalP = async brand => {
+      const displayInfo = E(brand).getDisplayInfo();
+      return E.get(displayInfo).decimalPlaces;
+    };
+    const [decimalPlacesIn = 0, decimalPlacesOut = 0] = await Promise.all([
+      getDecimalP(brandIn),
+      getDecimalP(brandOut),
+    ]);
 
-    // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut.
+    // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut - decimalPlacesIn.
     const priceDecimalPlaces = parseInt(PRICE_DECIMALS, 10);
-    const scaleValueOut = 10 ** (decimalPlacesOut - priceDecimalPlaces);
+    const scaleValueOut =
+      10 ** (decimalPlacesOut - decimalPlacesIn - priceDecimalPlaces);
 
     // Adapt the notifier to the price aggregator.
     const oracleAdmin = await E(aggregator.creatorFacet).initOracleWithNotifier(
@@ -116,7 +124,7 @@ export default async function priceAuthorityfromNotifier(
   const priceAuthority = await E(aggregator.publicFacet).getPriceAuthority();
 
   const AGGREGATOR_INSTANCE_ID = await E(board).getId(aggregator.instance);
-  console.log('-- AGGREGATOR_INSTANCE_ID:', AGGREGATOR_INSTANCE_ID);
+  console.log(`-- AGGREGATOR_INSTANCE_ID=${AGGREGATOR_INSTANCE_ID}`);
   const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);
-  console.log('-- PRICE_AUTHORITY_BOARD_ID:', PRICE_AUTHORITY_BOARD_ID);
+  console.log(`-- PRICE_AUTHORITY_BOARD_ID=${PRICE_AUTHORITY_BOARD_ID}`);
 }
