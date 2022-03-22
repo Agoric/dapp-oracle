@@ -16,11 +16,13 @@ import '@agoric/zoe/src/contracts/exported.js';
  * @typedef {{ zoe: ZoeService, board: Board, agoricNames, scratch, priceAuthorityAdmin }} Home
  * @param {Promise<Home>} homePromise
  * A promise for the references available from REPL home
+ * @param {object} root0
+ * @param {(...path: string[]) => Promise<any>} root0.lookup
  */
-export default async function registerPriceAuthority(homePromise) {
+export default async function registerPriceAuthority(homePromise, { lookup }) {
   const {
-    IN_ISSUER_JSON = JSON.stringify('BLD'),
-    OUT_ISSUER_JSON = JSON.stringify('USD'),
+    IN_BRAND_LOOKUP = JSON.stringify(['wallet', 'brand', 'RUN']),
+    OUT_BRAND_LOOKUP = JSON.stringify(['agoricNames', 'oracleBrand', 'USD']),
     PRICE_AUTHORITY_BOARD_ID,
   } = process.env;
 
@@ -46,8 +48,8 @@ export default async function registerPriceAuthority(homePromise) {
   const priceAuthority = E(board).getValue(priceAuthorityId);
 
   const [brandIn, brandOut] = await Promise.all([
-    E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
-    E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
+    lookup(JSON.parse(IN_BRAND_LOOKUP)),
+    lookup(JSON.parse(OUT_BRAND_LOOKUP)),
   ]);
 
   const deleter = await E(priceAuthorityAdmin).registerPriceAuthority(
@@ -57,7 +59,7 @@ export default async function registerPriceAuthority(homePromise) {
     true,
   );
 
-  const DELETER_NAME = `delete ${IN_ISSUER_JSON}-${OUT_ISSUER_JSON}`;
+  const DELETER_NAME = `delete ${IN_BRAND_LOOKUP}-${OUT_BRAND_LOOKUP}`;
   await E(scratch).set(DELETER_NAME, deleter);
 
   console.log(`Delete this registration with:`);

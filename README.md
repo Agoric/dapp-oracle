@@ -124,47 +124,46 @@ Chainlink instructions, when you see `PRIVILEGED-NODE` use
 `--hostport=127.0.0.1:7999`, and when you see `ORACLE-NODE`, use one of
 `--hostport=127.0.0.1:689<N>` (like `--hostport=127.0.0.1:6891`).
 
-1. Find out the published `E(E(home.agoricNames).lookup('brand')).keys()` names
-   for the input and output brands (for example, `"BLD"` to `"USD"`).
-2. Create a public price authority based on an aggregator on the
+1. Create a public price authority based on an aggregator on the
    `PRIVILEGED-NODE`, and send invitations to the `ORACLE-NODE`s
    (without `ORACLE_NODE_ADDRESSES`, use the current node):
 ```sh
-IN_ISSUER_JSON='"BLD"' OUT_ISSUER_JSON='"USD"' \
+IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
+OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
 agoric deploy api/aggregate.js
 ```
-3. On an `ORACLE-NODE`, find its `agoric1...` (or `sim-...`) address:
+2. On an `ORACLE-NODE`, find its `agoric1...` (or `sim-...`) address:
 ```sh
 agoric deploy api/show-my-address.js
 ```
-4. On `PRIVILEGED-NODE`, send an aggregator invitation to the specified oracle:
+3. On `PRIVILEGED-NODE`, send an aggregator invitation to the specified oracle:
 ```sh
 ORACLE_ADDRESS=agoric1... \
 agoric deploy api/invite-oracle.js
 ```
-5. Create a Flux Notifier on an `ORACLE-NODE`.  NOTE: You will need to edit
+4. Create a Flux Notifier on an `ORACLE-NODE`.  NOTE: You will need to edit
    parameters at the top of `api/flux-notifier.js` to specify the notifier
    parameters before running this:
 ```sh
 AGGREGATOR_INSTANCE_ID=<boardId of aggregator instance> \
-IN_ISSUER_JSON='"BLD"' \
-OUT_ISSUER_JSON='"USD"' \
-FEE_ISSUER_JSON='"RUN"' \
+IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
+OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
+FEE_ISSUER_LOOKUP='["wallet","issuer","RUN"]' \
 agoric deploy api/flux-notifier.js
 ```
 
 This command will wait until the first query returns valid data, and also add it
 to the aggregator.
 
-Repeat steps 3 to 5 for as many `ORACLE-NODE`s as necessary.
+Repeat steps 2 to 4 for as many `ORACLE-NODE`s as necessary.
 
-6. OPTIONAL: You can publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the
+5. OPTIONAL: You can publish the resulting `PRICE_AUTHORITY_BOARD_ID` to the
 sim-chain's `agoric.priceAuthority`.
 
 ```sh
 PRICE_AUTHORITY_BOARD_ID=<boardId of price authority> \
-IN_ISSUER_JSON='"BLD"' \
-OUT_ISSUER_JSON='"USD"' \
+IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
+OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
 agoric deploy api/register.js
 ```
 

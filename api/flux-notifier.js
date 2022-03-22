@@ -56,14 +56,19 @@ const FEE_PAYMENT_VALUE = 0n;
 /**
  * @typedef {{ board: Board, chainTimerService, scratch, zoe }} Home
  * @param {Promise<Home>} homePromise
+ * @param {object} root0
+ * @param {(...path: string[]) => Promise<any>} root0.lookup
  * A promise for the references available from REPL home
  */
-export default async function priceAuthorityfromNotifier(homePromise) {
+export default async function priceAuthorityfromNotifier(
+  homePromise,
+  { lookup },
+) {
   const {
     AGGREGATOR_INSTANCE_ID,
-    FEE_ISSUER_JSON = JSON.stringify('RUN'),
-    IN_ISSUER_JSON = JSON.stringify('BLD'),
-    OUT_ISSUER_JSON = JSON.stringify('USD'),
+    FEE_ISSUER_LOOKUP = JSON.stringify(['wallet', 'issuer', 'RUN']),
+    IN_BRAND_LOOKUP = JSON.stringify(['wallet', 'brand', 'RUN']),
+    OUT_BRAND_LOOKUP = JSON.stringify(['agoricNames', 'oracleBrand', 'USD']),
   } = process.env;
 
   // Let's wait for the promise to resolve.
@@ -72,10 +77,7 @@ export default async function priceAuthorityfromNotifier(homePromise) {
   // Unpack the references.
   const { board, scratch, localTimerService: timerService } = home;
 
-  const feeBrand = await E(home.agoricNames).lookup(
-    'brand',
-    JSON.parse(FEE_ISSUER_JSON),
-  );
+  const feeBrand = await E(lookup(JSON.parse(FEE_ISSUER_LOOKUP))).getBrand();
 
   let aggregatorInstance;
   if (AGGREGATOR_INSTANCE_ID) {
@@ -138,12 +140,8 @@ export default async function priceAuthorityfromNotifier(homePromise) {
     return E.get(displayInfo).decimalPlaces;
   };
   const [decimalPlacesIn = 0, decimalPlacesOut = 0] = await Promise.all([
-    getDecimalP(
-      E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
-    ),
-    getDecimalP(
-      E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
-    ),
+    getDecimalP(lookup(JSON.parse(IN_BRAND_LOOKUP))),
+    getDecimalP(lookup(JSON.parse(OUT_BRAND_LOOKUP))),
   ]);
 
   // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut - decimalPlacesIn.
