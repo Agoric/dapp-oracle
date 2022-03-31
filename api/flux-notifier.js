@@ -8,35 +8,7 @@ import { deeplyFulfilled } from '@endo/marshal';
 import '@agoric/zoe/exported.js';
 import '@agoric/zoe/src/contracts/exported.js';
 
-// What minimum percentage of the price difference should result in a notification?
-const THRESHOLD = 0.1;
-
-// What minimum absolute change in price should result in a notification?
-const ABSOLUTE_THRESHOLD = 0;
-
-// How many decimal places does the price need to be shifted by?
-const PRICE_DECIMALS = 2;
-
-// This is the query submitted to the oracle.
-const PRICE_QUERY = {
-  jobId: 'b0b5cafec0ffeeee',
-  params: {
-    get: 'https://bitstamp.net/api/ticker/',
-    path: ['last'],
-    times: 10 ** PRICE_DECIMALS,
-  },
-};
-
-// If no new round is started in this number of seconds, the oracle will initiate a new round.
-const IDLE_TIMER_PERIOD_S = 10n * 60n;
-
-// This is the number of seconds between each poll.
-const POLL_TIMER_PERIOD_S = 60n;
-
-// This is sent to the oracle node as the fee amount for the flux monitor
-// query.  It isn't actually a real payment, just something to tell the oracle
-// job that it has permission to run.
-const FEE_PAYMENT_VALUE = 0n;
+import * as params from './flux-params.js';
 
 /**
  * @typedef {Object} DeployPowers The special powers that `agoric deploy` gives us
@@ -65,7 +37,7 @@ export default async function priceAuthorityfromNotifier(
   { lookup },
 ) {
   const {
-    AGGREGATOR_INSTANCE_ID,
+    AGGREGATOR_INSTANCE_LOOKUP,
     FEE_ISSUER_LOOKUP = JSON.stringify(['wallet', 'issuer', 'RUN']),
     IN_BRAND_LOOKUP = JSON.stringify(['wallet', 'brand', 'RUN']),
     OUT_BRAND_LOOKUP = JSON.stringify(['agoricNames', 'oracleBrand', 'USD']),
@@ -80,8 +52,8 @@ export default async function priceAuthorityfromNotifier(
   const feeBrand = await E(lookup(JSON.parse(FEE_ISSUER_LOOKUP))).getBrand();
 
   let aggregatorInstance;
-  if (AGGREGATOR_INSTANCE_ID) {
-    aggregatorInstance = await E(board).getValue(AGGREGATOR_INSTANCE_ID);
+  if (AGGREGATOR_INSTANCE_LOOKUP) {
+    aggregatorInstance = await lookup(JSON.parse(AGGREGATOR_INSTANCE_LOOKUP));
   }
 
   let roundStartNotifier;
@@ -101,9 +73,9 @@ export default async function priceAuthorityfromNotifier(
 
   // Create an iterable to drive the query poll loop.
   let pollIterable;
-  if (POLL_TIMER_PERIOD_S) {
+  if (params.POLL_TIMER_PERIOD_S) {
     const pollTickIterable = E(oracleMaster).makePeriodicTickIterable(
-      Number((POLL_TIMER_PERIOD_S * 1000n) / DEBUGGING_SPEED_FACTOR),
+      Number((params.POLL_TIMER_PERIOD_S * 1000n) / DEBUGGING_SPEED_FACTOR),
     );
     pollIterable = E(oracleMaster).makeTimerIterable(
       pollTickIterable,
@@ -115,11 +87,12 @@ export default async function priceAuthorityfromNotifier(
   console.log('Waiting for first price query...');
   const fluxNotifier = await E(oracleMaster).makeFluxNotifier(
     {
-      query: PRICE_QUERY,
-      fee: AmountMath.make(feeBrand, FEE_PAYMENT_VALUE),
-      absoluteThreshold: ABSOLUTE_THRESHOLD,
-      fractionalThreshold: THRESHOLD / 100.0,
-      idleTimerTicks: (IDLE_TIMER_PERIOD_S * 1000n) / DEBUGGING_SPEED_FACTOR,
+      query: params.PRICE_QUERY,
+      fee: AmountMath.make(feeBrand, params.FEE_PAYMENT_VALUE),
+      absoluteThreshold: params.ABSOLUTE_THRESHOLD,
+      fractionalThreshold: params.THRESHOLD / 100.0,
+      idleTimerTicks:
+        (params.IDLE_TIMER_PERIOD_S * 1000n) / DEBUGGING_SPEED_FACTOR,
     },
     { pollIterable, timerService, oracleHandler, roundStartNotifier },
   );
@@ -146,7 +119,7 @@ export default async function priceAuthorityfromNotifier(
 
   // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut - decimalPlacesIn.
   const scaleValueOut =
-    10 ** (decimalPlacesOut - decimalPlacesIn - PRICE_DECIMALS);
+    10 ** (decimalPlacesOut - decimalPlacesIn - params.PRICE_DECIMALS);
 
   const offer = {
     id: Date.now(),

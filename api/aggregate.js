@@ -125,7 +125,12 @@ export default async function priceAuthorityfromNotifier(
   const priceAuthority = await E(aggregator.publicFacet).getPriceAuthority();
 
   const AGGREGATOR_INSTANCE_ID = await E(board).getId(aggregator.instance);
-  console.log(`-- AGGREGATOR_INSTANCE_ID=${AGGREGATOR_INSTANCE_ID}`);
+  console.log(
+    `-- AGGREGATOR_INSTANCE_LOOKUP='${JSON.stringify([
+      'board',
+      AGGREGATOR_INSTANCE_ID,
+    ])}'`,
+  );
   const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);
   console.log(`-- PRICE_AUTHORITY_BOARD_ID=${PRICE_AUTHORITY_BOARD_ID}`);
 }

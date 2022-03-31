@@ -118,11 +118,15 @@ results.
 If you have a jobId that returns a numeric string as the price of a unit of your
 input issuer, you can create a price authority from it using the Flux Notifier.
 
-If you're not testing the Chainlink instructions, you don't need to do anything
-special for `PRIVILEGED-NODE` versus `ORACLE-NODE`.  If you are testing the
-Chainlink instructions, when you see `PRIVILEGED-NODE` use
-`--hostport=127.0.0.1:7999`, and when you see `ORACLE-NODE`, use one of
-`--hostport=127.0.0.1:689<N>` (like `--hostport=127.0.0.1:6891`).
+There are some different ways to follow these instructions:
+
+- Just running locally: you don't need to do anything special for
+  `PRIVILEGED-NODE` versus `ORACLE-NODE`.
+- Testing Chainlink: when you see `PRIVILEGED-NODE` use
+  `--hostport=127.0.0.1:7999`, and when you see `ORACLE-NODE`, use one of
+  `--hostport=127.0.0.1:689<N>` (like `--hostport=127.0.0.1:6891`)
+- Deploying on-chain before Mainnet 3: you must use governance instead of a
+  `PRIVILEGED-NODE`.  Follow the steps in [README-gov.md](README-gov.md).
 
 1. Create a public price authority based on an aggregator on the
    `PRIVILEGED-NODE`, and send invitations to the `ORACLE-NODE`s
@@ -145,7 +149,7 @@ agoric deploy api/invite-oracle.js
    parameters at the top of `api/flux-notifier.js` to specify the notifier
    parameters before running this:
 ```sh
-AGGREGATOR_INSTANCE_ID=<boardId of aggregator instance> \
+AGGREGATOR_INSTANCE_LOOKUP=<from step 1> \
 IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
 OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
 FEE_ISSUER_LOOKUP='["wallet","issuer","RUN"]' \
@@ -174,9 +178,9 @@ optional.
 Here is a session testing the `priceAuthority`:
 
 ```js
-E(home.agoricNames).lookup('brand', 'BLD').then(brand => bld = brand)
+lookup('agoricNames', 'brand', 'BLD').then(brand => bld = brand)
 // -> [Object Alleged: BLD brand]{}
-E(home.agoricNames).lookup('brand', 'USD').then(brand => usd = brand)
+lookup('agoricNames', 'oracleBrand', 'USD').then(brand => usd = brand)
 // -> [Object Alleged: USD brand]{}
 pa = E(home.board).getValue('<boardId of price authority>')
 // -> [Object Alleged: PriceAuthority]{}

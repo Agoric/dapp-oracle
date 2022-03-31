@@ -6,6 +6,7 @@ add_dapp_oracle() {
   COSMOS_RPC_HOST=localhost
   COSMOS_RPC_PORT=26657
   echo -n "Waiting for $COSMOS_RPC_HOST:$COSMOS_RPC_PORT to come live..."
+  start=
   while true; do
     block=$(curl -s http://$COSMOS_RPC_HOST:$COSMOS_RPC_PORT/status | jq -r .result.sync_info.latest_block_height);
     if test -z "$start"; then
@@ -18,7 +19,6 @@ add_dapp_oracle() {
   done
   echo ' done!'
 
-  HOSTPORT="localhost:689$1"
   AG_COSMOS_HELPER_OPTS=${AG_COSMOS_HELPER_OPTS-"--from=provision --keyring-dir=$PWD/../_agstate/keys --keyring-backend=test"}
 
   soloContainer=chainlink-agoric_ag-solo-node$1_1

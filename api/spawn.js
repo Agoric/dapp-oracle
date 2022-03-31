@@ -194,4 +194,7 @@ export default async function spawnOracle(
 export default ${JSON.stringify(newDefaults, undefined, 2)};
 `;
   await fs.promises.writeFile(defaultsFile, defaultsContents);
+
+  const addr = await E(E.get(homePromise).myAddressNameAdmin).getMyAddress();
+  console.log(`ORACLE_ADDRESS=${addr}`);
 }
