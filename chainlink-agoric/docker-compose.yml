@@ -56,6 +56,7 @@ services:
     environment:
       - "AG_SOLO_BASEDIR=chainlink"
       - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+      - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
       - 'ag1:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
@@ -100,6 +101,7 @@ services:
     environment:
       - "AG_SOLO_BASEDIR=chainlink"
       - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+      - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
       - 'ag2:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'
@@ -144,6 +146,7 @@ services:
     environment:
       - "AG_SOLO_BASEDIR=chainlink"
       - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+      - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
       - 'ag3:/usr/src/app/solo'
       - '$HOME/.agoric:/root/.agoric'

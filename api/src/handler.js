@@ -1,7 +1,12 @@
 // @ts-check
 import { E, Far } from '@agoric/far';
-import { makeExternalOracle } from './external';
-import { makeBuiltinOracle } from './builtin';
+import { makePromiseKit } from '@endo/promise-kit';
+
+import { makeExternalOracle } from './external.js';
+import { makeBuiltinOracle } from './builtin.js';
+// import { makeCronTickIterable } from './cron.js';
+import { makeFluxNotifier } from './flux.js';
+import { makePeriodicTickIterable } from './ticks.js';
 
 /**
  * @param {{ zoe: any, http: any, board: any, installOracle?: string, feeIssuer: Issuer, invitationIssuer: Issuer }} param0
@@ -97,7 +102,7 @@ const startSpawn = async (
 
   return harden({
     handler,
-    oracleCreator: Far('oracleCreator', {
+    oracleMaster: Far('oracleMaster', {
       makeExternalOracle() {
         return makeExternalOracle({ board, http, feeIssuer });
       },
@@ -110,6 +115,48 @@ const startSpawn = async (
           feeIssuer,
         });
       },
+      makeFluxNotifier,
+      /**
+       *
+       * @param {AsyncIterable<bigint>} tickIterable
+       * @param {ERef<TimerService>} timerService
+       */
+      makeTimerIterable(tickIterable, timerService) {
+        return Far('timer iterable', {
+          [Symbol.asyncIterator]: () => {
+            const tickIterator = E(tickIterable)[Symbol.asyncIterator]();
+            return Far('timer iterator', {
+              next: async () => {
+                /** @type {any} */
+                const startTick = await E(timerService).getCurrentTimestamp();
+                const { value: deadline } = await E(tickIterator).next(
+                  startTick,
+                );
+                if (startTick >= deadline) {
+                  // We're already past the deadline, so wake immediately.
+                  return { done: false, value: startTick };
+                }
+
+                // Wait for the next deadline.
+                const wake = makePromiseKit();
+                E(timerService).setWakeup(
+                  deadline,
+                  Far('waker', {
+                    wake: tick => {
+                      wake.resolve(tick);
+                    },
+                  }),
+                );
+                const wakeTick = await wake.promise;
+                return harden({ done: false, value: wakeTick });
+              },
+            });
+          },
+        });
+      },
+      makePeriodicTickIterable,
+      // FIXME: Enable when we have CJS support in compartment-mapper.
+      // makeCronTickIterable,
     }),
   });
 };

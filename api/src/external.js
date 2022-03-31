@@ -1,6 +1,6 @@
 // @ts-check
 import { E, Far } from '@agoric/far';
-import { makePromiseKit } from '@agoric/promise-kit';
+import { makePromiseKit } from '@endo/promise-kit';
 import { makeLegacyMap } from '@agoric/store';
 import { AmountMath } from '@agoric/ertp';
 
