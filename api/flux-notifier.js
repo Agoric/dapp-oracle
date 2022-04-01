@@ -56,6 +56,26 @@ export default async function priceAuthorityfromNotifier(
     aggregatorInstance = await lookup(JSON.parse(AGGREGATOR_INSTANCE_LOOKUP));
   }
 
+  if (!aggregatorInstance) {
+    console.log('Autodetecting aggregator instance...');
+    const purse = E(home.wallet).getPurse('Default Zoe invite purse');
+    const { value } = await E(purse).getCurrentAmount();
+    const invitations = value.filter(
+      ({ description }) => description === 'oracle invitation',
+    );
+    if (invitations.length > 1) {
+      console.error('Multiple oracle invitations found', invitations);
+      throw new Error('You need an AGGREGATOR_INSTANCE_LOOKUP to disambiguate');
+    }
+    if (invitations.length === 0) {
+      throw new Error(
+        'No oracle invitations found; you need an AGGREGATOR_INSTANCE_LOOKUP',
+      );
+    }
+    console.log('Found oracle invitation', invitations);
+    aggregatorInstance = invitations[0].instance;
+  }
+
   let roundStartNotifier;
   if (aggregatorInstance) {
     const publicFacet = E(home.zoe).getPublicFacet(aggregatorInstance);

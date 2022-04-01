@@ -40,7 +40,7 @@ agoric deploy api/create-gov.js
    parameters as specified by the oracle coordinator.
 
 ```sh
-AGGREGATOR_INSTANCE_LOOKUP='["agoricNames","instance","BLD-USD priceAggregator"]' \
+NO_AGGREGATOR_INSTANCE_LOOKUP='["agoricNames","instance","BLD-USD priceAggregator"]' \
 IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
 OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
 FEE_ISSUER_LOOKUP='["wallet","issuer","RUN"]' \
