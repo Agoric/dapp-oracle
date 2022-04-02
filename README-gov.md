@@ -1,6 +1,6 @@
 # Creating a price authority with on-chain governance
 
-Use Agoric SDK commit: `cd agoric-sdk && git checkout 86a8bade8b3164588e4c5645a54089dd4844ed5e`
+Use Agoric SDK commit: `cd agoric-sdk && git checkout mfig-oracle-management`
 
 1. Deploy the oracle node integration on each `ag-solo`:
 

@@ -139,8 +139,7 @@ const behavior = async ({
   await Promise.all(oracleAddresses.map(async (oracleAddress) => {
     const depositFacet = E(namesByAddress).lookup(oracleAddress, 'depositFacet');
 
-    // FIXME: Save a way to remove the oracle from the feed.
-    const invitation = await E(aggregator.creatorFacet).makeOracleInvitation();
+    const invitation = await E(aggregator.creatorFacet).makeOracleInvitation(oracleAddress);
     await E(depositFacet).receive(invitation);
   }));
 };

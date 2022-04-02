@@ -42,7 +42,7 @@ export default async function priceAuthorityfromNotifier(homePromise) {
     'depositFacet',
   );
 
-  const invitation = await E(creatorFacet).makeOracleInvitation();
+  const invitation = await E(creatorFacet).makeOracleInvitation(ORACLE_ADDRESS);
   await E(depositFacet).receive(invitation);
 
   console.log('Deposited', invitation);
