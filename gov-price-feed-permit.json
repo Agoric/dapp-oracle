@@ -1,0 +1,20 @@
+{
+  "consume": {
+    "aggregators": true,
+    "board": true,
+    "chainTimerService": true,
+    "client": true,
+    "namesByAddress": true,
+    "priceAuthority": true,
+    "priceAuthorityAdmin": true,
+    "zoe": true
+  },
+  "instance": {
+    "produce": {
+      "BLD-USD priceAggregator": true
+    }
+  },
+  "produce": {
+    "aggregators": true
+  }
+}
