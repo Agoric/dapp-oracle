@@ -2,11 +2,11 @@
 import { E } from '@endo/far';
 import fs from 'fs';
 
-export const createGov = async (
-  homeP,
-  { bundleSource, pathResolve, lookup },
-) => {
+import { makeHelpers } from '@agoric/deploy-script-support';
+
+export const createGov = async (homeP, endowments) => {
   const { board, scratch, zoe } = E.get(homeP);
+  const { bundleSource, pathResolve, lookup } = endowments;
 
   const {
     FORCE_SPAWN,
@@ -21,10 +21,18 @@ export const createGov = async (
 
   const oracleAddresses = ORACLE_ADDRESSES.split(',');
 
+  const { getBundlerMaker, installInPieces } = await makeHelpers(
+    homeP,
+    endowments,
+  );
+
   let aggInstall = await E(scratch).get('priceAggregatorInstall');
   if (FORCE_SPAWN || !aggInstall) {
+    const bundler = E(getBundlerMaker({ BUNDLER_MAKER_LOOKUP })).makeBundler({
+      zoe,
+    });
     const bundle = await bundleSource(pathResolve('./src/chainlinkWrapper.js'));
-    aggInstall = await E(zoe).install(bundle);
+    aggInstall = await installInPieces(bundle, bundler);
     await E(scratch).set('priceAggregatorInstall', aggInstall);
     console.log('Stored priceAggregatorInstall in scratch');
   }
@@ -48,32 +56,34 @@ export const createGov = async (
   console.log('creating permit', EVAL_PERMIT);
   fs.writeFileSync(
     EVAL_PERMIT,
-    JSON.stringify({
-      consume: {
-        aggregators: true,
-        board: true,
-        chainTimerService: true,
-        client: true,
-        namesByAddress: true,
-        priceAuthority: true,
-        priceAuthorityAdmin: true,
-        zoe: true,
-      },
-      instance: {
-        produce: {
-          [AGORIC_INSTANCE_NAME]: true,
+    JSON.stringify(
+      {
+        consume: {
+          aggregators: true,
+          board: true,
+          chainTimerService: true,
+          client: true,
+          namesByAddress: true,
+          priceAuthority: true,
+          priceAuthorityAdmin: true,
+          zoe: true,
         },
+        instance: {
+          produce: {
+            [AGORIC_INSTANCE_NAME]: true,
+          },
+        },
+        produce: { aggregators: true },
       },
-      produce: { aggregators: true },
-    }),
+      null,
+      2,
+    ),
   );
 
   console.log('creating code', EVAL_CODE);
-  fs.writeFileSync(
-    EVAL_CODE,
-    `\
+  const evalCode = `\
 // create-gov.js initially created this file.
-/* global E */
+/* eslint-disable */
 
 const AGORIC_INSTANCE_NAME = ${JSON.stringify(AGORIC_INSTANCE_NAME)};
 
@@ -88,7 +98,7 @@ const contractTerms = {
   maxSubmissionValue: 2n ** 256n,
 };
 
-const oracleAddresses = ${JSON.stringify(oracleAddresses)};
+const oracleAddresses = ${JSON.stringify(oracleAddresses, null, 2)};
 
 const aggInstallId = ${JSON.stringify(aggInstallId)};
 const brandInId = ${JSON.stringify(brandInId)};
@@ -127,13 +137,12 @@ const behavior = async ({
 
   // Publish price feed in home.priceAuthority.
   const forceReplace = true;
-  const deleter = await E(priceAuthorityAdmin).registerPriceAuthority(
+  E(priceAuthorityAdmin).registerPriceAuthority(
     E(aggregator).getPriceAuthority(),
     brandIn,
     brandOut,
     forceReplace,
-  );
-  E(aggregators).set(terms, { aggregator, deleter });
+  ).then(deleter => E(aggregators).set(terms, { aggregator, deleter }));
 
   // Send the invitations to the oracles.
   await Promise.all(oracleAddresses.map(async (oracleAddress) => {
@@ -145,17 +154,16 @@ const behavior = async ({
 };
 
 behavior;
-`,
-  );
+`;
 
-  console.log(`========= Do something like the following: =========
+  fs.writeFileSync(EVAL_CODE, evalCode);
+
+  console.log(`\
+========= Do something like the following: =========
 agd tx gov submit-proposal swingset-core-eval ${EVAL_PERMIT} ${EVAL_CODE} \\
   --title="Enable ${AGORIC_INSTANCE_NAME}" --description="Evaluate ${EVAL_CODE}" --deposit=1000000ubld \\
   --gas=auto --gas-adjustment=1.2
 `);
-
-  const addr = await E(E.get(homeP).myAddressNameAdmin).getMyAddress();
-  console.log(`ORACLE_ADDRESS=${addr}`);
 };
 
 export default createGov;
