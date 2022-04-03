@@ -16,16 +16,21 @@ or for Chainlink:
 INSTALL_ORACLE="Chainlink oracle" agoric deploy api/spawn.js
 ```
 
-Take note of your node's `ORACLE_ADDRESS`.  You will need to send it to the
+Take note of your node's `ORACLE_ADDRESSES`.  You will need to send it to the
 governance proposer.
 
 2. Create a governance proposal data:
 
+NOTE: If running on agoricdev-8, and you already have a boardId for the bundler
+maker, just set something like `BUNDLER_MAKER_LOOKUP='["board","<boardId>"]'` to
+use it without an additional install.
+
 ```sh
 ORACLE_ADDRESSES=agoric1...,agoric1...,agoric1... \
+ORACLE_ADDRESSES=agoric14rxtq7g2jfwyyxv43tgj2e962qvh55aup8e8ke,agoric1xm6lhkzapupmyulgkzjukqyvjndkpptt2qg47d,agoric1vqkgfumpn8j5v8zv45h66sls6stawzg0rjjsvh \
 AGORIC_INSTANCE_NAME="BLD-USD priceAggregator" \
-IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
-OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
+IN_BRAND_LOOKUP='["agoricNames","brand","BLD"]' \
+OUT_BRAND_LOOKUP='["agoricNames","brand","RUN"]' \
 agoric deploy api/create-gov.js
 ```
 
@@ -41,9 +46,9 @@ agoric deploy api/create-gov.js
 
 ```sh
 NO_AGGREGATOR_INSTANCE_LOOKUP='["agoricNames","instance","BLD-USD priceAggregator"]' \
-IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
-OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
-FEE_ISSUER_LOOKUP='["wallet","issuer","RUN"]' \
+IN_BRAND_LOOKUP='["agoricNames","brand","BLD"]' \
+OUT_BRAND_LOOKUP='["agoricNames","brand","RUN"]' \
+FEE_ISSUER_LOOKUP='["agoricNames","issuer","RUN"]' \
 agoric deploy api/flux-notifier.js
 ```
 

@@ -11,6 +11,7 @@ export const createGov = async (homeP, endowments) => {
   const {
     FORCE_SPAWN,
     AGORIC_INSTANCE_NAME,
+    BUNDLER_MAKER_LOOKUP,
     IN_BRAND_LOOKUP = JSON.stringify(['wallet', 'brand', 'BLD']),
     OUT_BRAND_LOOKUP = JSON.stringify(['agoricNames', 'oracleBrand', 'USD']),
     ORACLE_ADDRESSES,
