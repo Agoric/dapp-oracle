@@ -37,7 +37,8 @@
   },
   "dependencies": {
     "@agoric/assert": "dev",
-    "@agoric/ertp": "dev",
+    "@agoric/deploy-script-support": "dev",
+    "@agoric/ertp": "0.13.3",
     "@agoric/far": "dev",
     "@agoric/notifier": "dev",
     "@agoric/store": "dev",
