@@ -1,0 +1,10 @@
+{
+  "consume": {
+    "loadVat": true
+  },
+  "produce": {
+    "priceAuthorityVat": "priceAuthority",
+    "priceAuthority": "priceAuthority",
+    "priceAuthorityAdmin": "priceAuthority"
+  }
+}
