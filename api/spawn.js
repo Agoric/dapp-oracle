@@ -19,7 +19,10 @@ import fs from 'fs';
  */
 
 // The deployer's wallet's petname for the tip issuer.
-const { FEE_ISSUER_PETNAME = 'RUN', INSTALL_ORACLE } = process.env;
+const {
+  FEE_ISSUER_LOOKUP = JSON.stringify(['agoricNames', 'issuer', 'RUN']),
+  INSTALL_ORACLE,
+} = process.env;
 
 /**
  * @typedef {{ zoe: ZoeService, board: Board, spawner, agoricNames, scratch, http }} Home
@@ -29,7 +32,7 @@ const { FEE_ISSUER_PETNAME = 'RUN', INSTALL_ORACLE } = process.env;
  */
 export default async function spawnOracle(
   homePromise,
-  { bundleSource, installUnsafePlugin, pathResolve, port = '8000' },
+  { bundleSource, installUnsafePlugin, lookup, pathResolve, port = '8000' },
 ) {
   // Let's wait for the promise to resolve.
   const home = await homePromise;
@@ -64,24 +67,14 @@ export default async function spawnOracle(
     // have a one-to-one bidirectional mapping. If a value is added a
     // second time, the original id is just returned.
     board,
-
-    wallet,
   } = home;
 
   // const API_HOST = process.env.API_HOST || host;
   const API_PORT = process.env.API_PORT || port;
 
-  const issuersArray = await E(wallet).getIssuers();
-  const issuers = new Map(issuersArray);
-  const feeIssuer = issuers.get(FEE_ISSUER_PETNAME);
-
+  const feeIssuer = await lookup(JSON.parse(FEE_ISSUER_LOOKUP));
   if (feeIssuer === undefined) {
-    console.error(
-      'Cannot find FEE_ISSUER_PETNAME',
-      FEE_ISSUER_PETNAME,
-      'in home.wallet',
-    );
-    console.error('Have issuers:', [...issuers.keys()].join(', '));
+    console.error('Cannot find FEE_ISSUER_LOOKUP', FEE_ISSUER_LOOKUP);
     process.exit(1);
   }
 
@@ -196,5 +189,5 @@ export default ${JSON.stringify(newDefaults, undefined, 2)};
   await fs.promises.writeFile(defaultsFile, defaultsContents);
 
   const addr = await E(E.get(homePromise).myAddressNameAdmin).getMyAddress();
-  console.log(`ORACLE_ADDRESS=${addr}`);
+  console.log(`-- ORACLE_ADDRESSES=${addr}`);
 }
