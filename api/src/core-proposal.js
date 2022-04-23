@@ -1,4 +1,5 @@
 import { E } from '@endo/far';
+import { makeIssuerKit } from '@agoric/ertp';
 
 const t = true;
 
@@ -8,6 +9,7 @@ export const getManifestForPriceFeed = async ({ restoreRef }, options) => ({
     createPriceFeed: {
       consume: {
         aggregators: t,
+        agoricNamesAdmin: t,
         chainTimerService: t,
         client: t,
         namesByAddress: t,
@@ -18,6 +20,11 @@ export const getManifestForPriceFeed = async ({ restoreRef }, options) => ({
       produce: { aggregators: t },
       instance: { produce: { [options.AGORIC_INSTANCE_NAME]: t } },
       installation: { consume: { priceAggregator: t } },
+    },
+    ensureOracleBrands: {
+      consume: {
+        agoricNamesAdmin: t,
+      },
     },
   },
   installations: {
@@ -30,9 +37,60 @@ export const getManifestForPriceFeed = async ({ restoreRef }, options) => ({
   },
 });
 
+const reserveThenGetNames = async (nameAdmin, names) => {
+  for (const name of names) {
+    E(nameAdmin).reserve(name);
+  }
+  const nameHub = E(nameAdmin).readonly();
+  return Promise.all(names.map(name => E(nameHub).lookup(name)));
+};
+
+export const ensureOracleBrands = async (
+  { consume: { agoricNamesAdmin } },
+  {
+    options: {
+      brandIn: rawBrandIn,
+      brandOut: rawBrandOut,
+      IN_BRAND_DECIMALS,
+      IN_BRAND_NAME,
+      OUT_BRAND_DECIMALS,
+      OUT_BRAND_NAME,
+    },
+  },
+) => {
+  const obAdmin = E(agoricNamesAdmin).lookupAdmin('oracleBrand');
+
+  const updateFreshBrand = async (brand, name, decimals) => {
+    const b = await brand;
+    if (b) {
+      // Don't update if it wasn't fresh.
+      return b;
+    }
+    const freshBrand = makeIssuerKit(
+      name,
+      undefined,
+      harden({ decimalPlaces: parseInt(decimals, 10) }),
+    ).brand;
+
+    if (!name) {
+      // Don't update unnamed brands.
+      return freshBrand;
+    }
+
+    await E(obAdmin).update(name, freshBrand);
+    return freshBrand;
+  };
+
+  return Promise.all([
+    updateFreshBrand(rawBrandIn, IN_BRAND_NAME, IN_BRAND_DECIMALS),
+    updateFreshBrand(rawBrandOut, OUT_BRAND_NAME, OUT_BRAND_DECIMALS),
+  ]);
+};
+
 export const createPriceFeed = async (
   {
     consume: {
+      agoricNamesAdmin,
       aggregators,
       chainTimerService,
       client,
@@ -42,7 +100,7 @@ export const createPriceFeed = async (
       zoe,
     },
     produce: { aggregators: produceAggregators },
-    instance: { produce: instanceProducer },
+    instance: { produce: instanceProduce },
     installation: {
       consume: { priceAggregator },
     },
@@ -50,10 +108,10 @@ export const createPriceFeed = async (
   {
     options: {
       AGORIC_INSTANCE_NAME,
-      brandIn,
-      brandOut,
       oracleAddresses,
       contractTerms,
+      IN_BRAND_NAME,
+      OUT_BRAND_NAME,
     },
   },
 ) => {
@@ -61,9 +119,12 @@ export const createPriceFeed = async (
   produceAggregators.resolve(new Map());
   E(client).assignBundle([_addr => ({ priceAuthority })]);
 
-  const { [AGORIC_INSTANCE_NAME]: instanceProduce } = instanceProducer;
-
   const timer = await chainTimerService;
+
+  const [brandIn, brandOut] = await reserveThenGetNames(
+    E(agoricNamesAdmin).lookupAdmin('oracleBrand'),
+    [IN_BRAND_NAME, OUT_BRAND_NAME],
+  );
 
   const terms = {
     ...contractTerms,
@@ -81,8 +142,15 @@ export const createPriceFeed = async (
   );
   E(aggregators).set(terms, { aggregator });
 
-  // Publish instance in agoricNames.
-  instanceProduce.resolve(aggregator.instance);
+  // TODO: Make this publish even though the instance is not reserved.
+  instanceProduce[AGORIC_INSTANCE_NAME].resolve(aggregator.instance);
+
+  // FIXME: Without instanceProduce publish support, this puts an instance in
+  // agoricNames for clients to find.
+  E(E(agoricNamesAdmin).lookupAdmin('instance')).update(
+    AGORIC_INSTANCE_NAME,
+    aggregator.instance,
+  );
 
   // Publish price feed in home.priceAuthority.
   const forceReplace = true;

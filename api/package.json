@@ -5,7 +5,8 @@
   "description": "dapp-oracle Agoric Dapp web server handler",
   "type": "module",
   "scripts": {
-    "build": "exit 0",
+    "build": "yarn build:bundles",
+    "build:bundles": "node scripts/build-bundles.js",
     "test": "yarn ava",
     "test:nyc": "nyc ava",
     "lint": "yarn lint:types && yarn lint:eslint",

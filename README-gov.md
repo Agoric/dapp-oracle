@@ -19,14 +19,16 @@ INSTALL_ORACLE="Chainlink oracle" agoric deploy api/spawn.js
 Take note of your node's `ORACLE_ADDRESS`.  You will need to send it to the
 governance proposer.
 
-2. Create a governance proposal data:
+2. Create a governance proposal data.  Expect RemoteErrors if the in or out brands cannot yet be found:
 
 ```sh
 ORACLE_ADDRESSES=agoric1...,agoric1...,agoric1... \
-AGORIC_INSTANCE_NAME="BLD-USD priceAggregator" \
-IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
+AGORIC_INSTANCE_NAME="ATOM-USD priceAggregator" \
+IN_BRAND_DECIMALS=6 \
+IN_BRAND_LOOKUP='["agoricNames","oracleBrand","ATOM"]' \
+OUT_BRAND_DECIMALS=4 \
 OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
-agoric deploy api/create-gov.js
+agoric deploy api/scripts/init-core.js
 ```
 
 3. Submit the proposal to the chain as described by the above command.
@@ -40,8 +42,8 @@ agoric deploy api/create-gov.js
    parameters as specified by the oracle coordinator.
 
 ```sh
-NO_AGGREGATOR_INSTANCE_LOOKUP='["agoricNames","instance","BLD-USD priceAggregator"]' \
-IN_BRAND_LOOKUP='["wallet","brand","BLD"]' \
+AGGREGATOR_INSTANCE_LOOKUP='["agoricNames","instance","ATOM-USD priceAggregator"]' \
+IN_BRAND_LOOKUP='["agoricNames","oracleBrand","ATOM"]' \
 OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
 FEE_ISSUER_LOOKUP='["wallet","issuer","RUN"]' \
 agoric deploy api/flux-notifier.js

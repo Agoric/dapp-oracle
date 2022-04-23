@@ -16,9 +16,9 @@ export const makeCoreProposalBuilder = ({
   brandOut,
   contractTerms = DEFAULT_CONTRACT_TERMS,
   ...optionsRest
-}) => async ({ publishRef, install }) =>
+} = {}) => async ({ publishRef, install }) =>
   harden({
-    sourceSpec: './src/coreProposal.js',
+    sourceSpec: '../src/core-proposal.js',
     getManifestCall: [
       'getManifestForPriceFeed',
       {
@@ -26,7 +26,12 @@ export const makeCoreProposalBuilder = ({
         contractTerms,
         brandInRef: publishRef(brandIn),
         brandOutRef: publishRef(brandOut),
-        priceAggregatorRef: publishRef(install('./src/chainlinkWrapper')),
+        priceAggregatorRef: publishRef(
+          install(
+            '@agoric/zoe/src/contracts/priceAggregator.js',
+            '../bundles/bundle-priceAggregator.js',
+          ),
+        ),
       },
     ],
   });
@@ -36,7 +41,9 @@ export const createGov = async (homeP, endowments) => {
 
   const {
     AGORIC_INSTANCE_NAME,
+    IN_BRAND_DECIMALS,
     IN_BRAND_LOOKUP = JSON.stringify(['wallet', 'brand', 'BLD']),
+    OUT_BRAND_DECIMALS,
     OUT_BRAND_LOOKUP = JSON.stringify(['agoricNames', 'oracleBrand', 'USD']),
     ORACLE_ADDRESSES,
   } = process.env;
@@ -48,11 +55,18 @@ export const createGov = async (homeP, endowments) => {
 
   const { writeCoreProposal } = await makeHelpers(homeP, endowments);
 
+  const inLookup = JSON.parse(IN_BRAND_LOOKUP);
+  const outLookup = JSON.parse(OUT_BRAND_LOOKUP);
+
   const proposalBuilder = makeCoreProposalBuilder({
     AGORIC_INSTANCE_NAME,
+    IN_BRAND_DECIMALS,
+    OUT_BRAND_DECIMALS,
+    IN_BRAND_NAME: inLookup[inLookup.length - 1],
+    OUT_BRAND_NAME: outLookup[outLookup.length - 1],
     oracleAddresses,
-    brandIn: lookup(JSON.parse(IN_BRAND_LOOKUP)),
-    brandOut: lookup(JSON.parse(OUT_BRAND_LOOKUP)),
+    brandIn: lookup(inLookup).catch(() => undefined),
+    brandOut: lookup(outLookup).catch(() => undefined),
   });
   await writeCoreProposal('gov-price-feed', proposalBuilder); // gov-price-feed.js gov-price-feed-permit.json
 };
