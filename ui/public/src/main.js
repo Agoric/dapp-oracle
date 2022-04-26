@@ -321,7 +321,7 @@ Fee <input id="fee-${queryId}" value="${Number(fee)}" type="number"/>
         instanceId = instanceId.slice('board:'.length);
       }
       if (!instanceId) {
-        alert(`Oracle ID is not set`);
+        alert(`Oracle ID is not set; did you forget to api/deploy.js?`);
         return;
       }
       let query;

@@ -28,16 +28,17 @@ import '@agoric/zoe/src/contracts/exported.js';
  * @param {object} root0
  * @param {Function} root0.bundleSource
  * @param {Function} root0.pathResolve
+ * @param {(...path: string[]) => Promise<any>} root0.lookup
  * A promise for the references available from REPL home
  */
 export default async function priceAuthorityfromNotifier(
   homePromise,
-  { bundleSource, pathResolve },
+  { bundleSource, pathResolve, lookup },
 ) {
   const {
     FORCE_SPAWN,
-    IN_ISSUER_JSON = JSON.stringify('BLD'),
-    OUT_ISSUER_JSON = JSON.stringify('USD'),
+    IN_BRAND_LOOKUP = JSON.stringify(['wallet', 'brand', 'RUN']),
+    OUT_BRAND_LOOKUP = JSON.stringify(['agoricNames', 'oracleBrand', 'USD']),
     PRICE_DECIMALS = '0',
     NOTIFIER_BOARD_ID,
     INSTANCE_HANDLE_BOARD_ID,
@@ -50,8 +51,8 @@ export default async function priceAuthorityfromNotifier(
   const { board, scratch, zoe, chainTimerService: timer } = home;
 
   const [brandIn, brandOut] = await Promise.all([
-    E(home.agoricNames).lookup('brand', JSON.parse(IN_ISSUER_JSON)),
-    E(home.agoricNames).lookup('brand', JSON.parse(OUT_ISSUER_JSON)),
+    lookup(JSON.parse(IN_BRAND_LOOKUP)),
+    lookup(JSON.parse(OUT_BRAND_LOOKUP)),
   ]);
 
   let aggregator = await E(scratch).get('priceAggregatorChainlink');
@@ -112,7 +113,7 @@ export default async function priceAuthorityfromNotifier(
     const oracleAdmin = await E(aggregator.creatorFacet).initOracleWithNotifier(
       oracleInstance,
       notifier,
-      Number(scaleValueOut),
+      scaleValueOut,
     );
     const oadmin = `oracleAdminFor${oracleId}`;
     await E(scratch).set(oadmin, oracleAdmin);
@@ -124,7 +125,12 @@ export default async function priceAuthorityfromNotifier(
   const priceAuthority = await E(aggregator.publicFacet).getPriceAuthority();
 
   const AGGREGATOR_INSTANCE_ID = await E(board).getId(aggregator.instance);
-  console.log(`-- AGGREGATOR_INSTANCE_ID=${AGGREGATOR_INSTANCE_ID}`);
+  console.log(
+    `-- AGGREGATOR_INSTANCE_LOOKUP='${JSON.stringify([
+      'board',
+      AGGREGATOR_INSTANCE_ID,
+    ])}'`,
+  );
   const PRICE_AUTHORITY_BOARD_ID = await E(board).getId(priceAuthority);
   console.log(`-- PRICE_AUTHORITY_BOARD_ID=${PRICE_AUTHORITY_BOARD_ID}`);
 }
