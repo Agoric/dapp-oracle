@@ -139,6 +139,9 @@ export default async function spawnOracle(
   // in the shutdown.js script).
   await E(scratch).set('oracleMaster', oracleMaster);
 
+  const replaceableNotifiers = await E(oracleMaster).makeReplaceableNotifiers();
+  await E(scratch).set('replaceableNotifiers', replaceableNotifiers);
+
   console.log('Retrieving Board IDs for issuers and brands');
   const invitationBrandP = E(invitationIssuer).getBrand();
 

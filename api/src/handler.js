@@ -6,6 +6,7 @@ import { makeExternalOracle } from './external.js';
 import { makeBuiltinOracle } from './builtin.js';
 // import { makeCronTickIterable } from './cron.js';
 import { makeFluxNotifier } from './flux.js';
+import { makeReplaceableNotifiers } from './notifier.js';
 import { makePeriodicTickIterable } from './ticks.js';
 
 /**
@@ -116,6 +117,7 @@ const startSpawn = async (
         });
       },
       makeFluxNotifier,
+      makeReplaceableNotifiers,
       /**
        *
        * @param {AsyncIterable<bigint>} tickIterable

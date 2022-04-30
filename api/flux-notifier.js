@@ -8,6 +8,7 @@ import { deeplyFulfilled } from '@endo/marshal';
 import '@agoric/zoe/exported.js';
 import '@agoric/zoe/src/contracts/exported.js';
 
+import { makeRatio } from '@agoric/zoe/src/contractSupport/index.js';
 import * as params from './flux-params.js';
 
 /**
@@ -32,7 +33,7 @@ import * as params from './flux-params.js';
  * @param {(...path: string[]) => Promise<any>} root0.lookup
  * A promise for the references available from REPL home
  */
-export default async function priceAuthorityfromNotifier(
+export default async function priceAuthorityFromNotifier(
   homePromise,
   { lookup },
 ) {
@@ -68,12 +69,13 @@ export default async function priceAuthorityfromNotifier(
       throw new Error('You need an AGGREGATOR_INSTANCE_LOOKUP to disambiguate');
     }
     if (invitations.length === 0) {
-      throw new Error(
-        'No oracle invitations found; you need an AGGREGATOR_INSTANCE_LOOKUP',
+      console.error(
+        'No oracle invitations found; you may need an AGGREGATOR_INSTANCE_LOOKUP',
       );
+    } else {
+      console.log('Found oracle invitation', invitations);
+      aggregatorInstance = invitations[0].instance;
     }
-    console.log('Found oracle invitation', invitations);
-    aggregatorInstance = invitations[0].instance;
   }
 
   let roundStartNotifier;
@@ -84,10 +86,53 @@ export default async function priceAuthorityfromNotifier(
 
   console.log('Round start notifier:', roundStartNotifier || '*none*');
 
-  const [oracleHandler, oracleMaster] = await Promise.all([
+  const [
+    oracleHandler,
+    oracleMaster,
+    replaceableNotifiers,
+    brandIn,
+    brandOut,
+  ] = await Promise.all([
     E(scratch).get('oracleHandler'),
     E(scratch).get('oracleMaster'),
+    E(scratch).get('replaceableNotifiers'),
+    lookup(JSON.parse(IN_BRAND_LOOKUP)),
+    lookup(JSON.parse(OUT_BRAND_LOOKUP)),
   ]);
+
+  /**
+   * We need the in and out brands' decimalPlaces to be able to make price
+   * ratios from their fixed-point values.  The only time we can ignore
+   * decimalPlaces when doing math on amount values is when the amount brands
+   * match.  In and out brands do not match.
+   *
+   * @param {ERef<Brand>} brand
+   */
+  const getDecimalP = async brand => {
+    const displayInfo = E(brand).getDisplayInfo();
+    return E.get(displayInfo).decimalPlaces;
+  };
+  const [decimalPlacesIn = 0, decimalPlacesOut = 0] = await Promise.all([
+    getDecimalP(brandIn),
+    getDecimalP(brandOut),
+  ]);
+
+  // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut - decimalPlacesIn.
+  const shiftValueOut =
+    decimalPlacesOut - decimalPlacesIn - params.PRICE_DECIMALS;
+
+  /** @type {Ratio} */
+  let priceScale;
+  if (shiftValueOut < 0) {
+    priceScale = makeRatio(
+      1n,
+      brandOut,
+      10n ** BigInt(-shiftValueOut),
+      brandIn,
+    );
+  } else {
+    priceScale = makeRatio(10n ** BigInt(shiftValueOut), brandOut, 1n, brandIn);
+  }
 
   const DEBUGGING_SPEED_FACTOR = process.env.DEBUG ? 60n : 1n;
 
@@ -108,6 +153,7 @@ export default async function priceAuthorityfromNotifier(
   const fluxNotifier = await E(oracleMaster).makeFluxNotifier(
     {
       query: params.PRICE_QUERY,
+      priceScale,
       fee: AmountMath.make(feeBrand, params.FEE_PAYMENT_VALUE),
       absoluteThreshold: params.ABSOLUTE_THRESHOLD,
       fractionalThreshold: params.THRESHOLD / 100.0,
@@ -120,31 +166,22 @@ export default async function priceAuthorityfromNotifier(
   const { value } = await E(fluxNotifier).getUpdateSince();
   console.log(`First price query:`, value);
 
-  const NOTIFIER_BOARD_ID = await E(board).getId(fluxNotifier);
+  const replaceableNotifier = await E(replaceableNotifiers).replace(
+    [brandIn, brandOut],
+    fluxNotifier,
+  );
+
+  const NOTIFIER_BOARD_ID = await E(board).getId(replaceableNotifier);
   console.log(`-- NOTIFIER_BOARD_ID=${NOTIFIER_BOARD_ID}`);
 
   if (!aggregatorInstance) {
     return;
   }
 
-  /** @param {ERef<Brand>} brand */
-  const getDecimalP = async brand => {
-    const displayInfo = E(brand).getDisplayInfo();
-    return E.get(displayInfo).decimalPlaces;
-  };
-  const [decimalPlacesIn = 0, decimalPlacesOut = 0] = await Promise.all([
-    getDecimalP(lookup(JSON.parse(IN_BRAND_LOOKUP))),
-    getDecimalP(lookup(JSON.parse(OUT_BRAND_LOOKUP))),
-  ]);
-
-  // Take a price with priceDecimalPlaces and scale it to have decimalPlacesOut - decimalPlacesIn.
-  const scaleValueOut =
-    10 ** (decimalPlacesOut - decimalPlacesIn - params.PRICE_DECIMALS);
-
   const offer = {
     id: Date.now(),
     proposalTemplate: {
-      arguments: { notifier: fluxNotifier, scaleValueOut },
+      arguments: { notifier: replaceableNotifier },
     },
     invitationQuery: {
       description: 'oracle invitation',
