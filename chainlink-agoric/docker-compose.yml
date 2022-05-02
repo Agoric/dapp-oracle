@@ -59,6 +59,7 @@ services:
       - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
       - 'ag1:/usr/src/app/solo'
+      - 'ag1:/data/solo'
       - '$HOME/.agoric:/root/.agoric'
       - '..:/usr/src/dapp-oracle'
   external-initiator-node1:
@@ -104,6 +105,7 @@ services:
       - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
       - 'ag2:/usr/src/app/solo'
+      - 'ag2:/data/solo'
       - '$HOME/.agoric:/root/.agoric'
       - '..:/usr/src/dapp-oracle'
   external-initiator-node2:
@@ -149,6 +151,7 @@ services:
       - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
       - 'ag3:/usr/src/app/solo'
+      - 'ag3:/data/solo'
       - '$HOME/.agoric:/root/.agoric'
       - '..:/usr/src/dapp-oracle'
   external-initiator-node3:
