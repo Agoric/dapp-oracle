@@ -1,10 +1,21 @@
+// @ts-check
+import { makeIssuerKit } from '@agoric/ertp';
 import { E } from '@agoric/far';
 import { observeIteration, makeNotifierKit } from '@agoric/notifier';
+import {
+  ratioGTE,
+  makeRatio,
+  subtractRatios,
+  multiplyRatios,
+  invertRatio,
+  parseRatio,
+} from '@agoric/zoe/src/contractSupport/ratio.js';
 
 /**
  * @param {object} param0
  * @param {Record<string, any>} param0.query
  * @param {Amount} param0.fee
+ * @param {Ratio} param0.priceScale
  * @param {number} [param0.fractionalThreshold]
  * @param {number} [param0.absoluteThreshold]
  * @param {bigint} [param0.idleTimerTicks]
@@ -12,24 +23,40 @@ import { observeIteration, makeNotifierKit } from '@agoric/notifier';
  * @param {AsyncIterable<void>} [param1.pollIterable]
  * @param {ERef<TimerService>} param1.timerService
  * @param {ERef<Notifier<bigint> | undefined>} [param1.roundStartNotifier]
- * @param {ERef<Awaited<ReturnType<typeof makeBuiltinOracle>>['oracleHandler']>} param1.oracleHandler
+ * @param {ERef<Awaited<ReturnType<typeof import('./builtin.js').makeBuiltinOracle>>['oracleHandler']>} param1.oracleHandler
  */
 export const makeFluxNotifier = async (
   {
     query,
     fee,
-    fractionalThreshold = 0,
-    absoluteThreshold = 0,
+    priceScale,
+    fractionalThreshold: rawFractionalThreshold = 0,
+    absoluteThreshold: rawAbsoluteThreshold = 0,
     idleTimerTicks,
   },
   { pollIterable, timerService, oracleHandler, roundStartNotifier },
 ) => {
   const { notifier: fluxNotifier, updater: fluxUpdater } = makeNotifierKit();
 
+  const { brand: dimensionless } = makeIssuerKit('dimensionless');
+
+  const {
+    numerator: { brand: brandOut },
+    denominator: { brand: brandIn },
+  } = priceScale;
+
+  const parsePrice = numericData => {
+    const ratio = parseRatio(numericData, dimensionless);
+    return multiplyRatios(priceScale, ratio);
+  };
+
+  const fractionalThreshold = parseRatio(rawFractionalThreshold, dimensionless);
+  const absoluteThreshold = parsePrice(rawAbsoluteThreshold);
+
   /** @type {Promise<any> | undefined} */
   let querying;
 
-  /** @type {bigint} */
+  /** @type {bigint | undefined} */
   let currentRound;
 
   // Start a fresh query if we don't already have one.
@@ -49,20 +76,20 @@ export const makeFluxNotifier = async (
     return querying;
   };
 
-  let lastSubmission = 0;
+  let lastSubmission = makeRatio(0n, brandOut, 1n, brandIn);
   const submitToCurrentRound = (data, round) => {
     if (currentRound !== round) {
       return;
     }
-    lastSubmission = parseFloat(data);
+    lastSubmission = parsePrice(data);
     if (currentRound === undefined) {
       // No round data, just send the query value directly.
-      fluxUpdater.updateState(data);
+      fluxUpdater.updateState(lastSubmission);
       return;
     }
 
     // We have a round, so attach it to the update.
-    fluxUpdater.updateState({ data, roundId: currentRound });
+    fluxUpdater.updateState({ ...lastSubmission, roundId: currentRound });
     if (!idleTimerTicks) {
       // No timeout on rounds, just let others and polling initiate.
       return;
@@ -86,17 +113,22 @@ export const makeFluxNotifier = async (
     if (currentRound !== round) {
       return;
     }
-    const current = parseFloat(data);
 
-    const diff = Math.abs(current - lastSubmission);
-    if (diff < absoluteThreshold) {
+    const current = parsePrice(data);
+    const diff = ratioGTE(current, lastSubmission)
+      ? subtractRatios(current, lastSubmission)
+      : subtractRatios(lastSubmission, current);
+    if (!ratioGTE(diff, absoluteThreshold)) {
       // We're within the absolute threshold, so don't send.
       return;
     }
 
-    if (lastSubmission && diff / lastSubmission < fractionalThreshold) {
-      // Didn't deviate by a large enough fraction yet.
-      return;
+    if (lastSubmission.numerator.value > 0n) {
+      const fraction = multiplyRatios(diff, invertRatio(lastSubmission));
+      if (!ratioGTE(fraction, fractionalThreshold)) {
+        // Didn't deviate by a large enough fraction yet.
+        return;
+      }
     }
 
     if (currentRound !== undefined) {
@@ -110,7 +142,7 @@ export const makeFluxNotifier = async (
   if (roundStarter) {
     observeIteration(roundStarter, {
       async updateState(round) {
-        if (round <= currentRound) {
+        if (currentRound === undefined || round <= currentRound) {
           // We already submitted for this round, so skip.
           return;
         }

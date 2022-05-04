@@ -19,7 +19,6 @@ export const getManifestForPriceFeed = async ({ restoreRef }, options) => ({
       },
       produce: { aggregators: t },
       instance: { produce: { [options.AGORIC_INSTANCE_NAME]: t } },
-      installation: { consume: { priceAggregator: t } },
     },
     ensureOracleBrands: {
       consume: {
@@ -101,9 +100,6 @@ export const createPriceFeed = async (
     },
     produce: { aggregators: produceAggregators },
     instance: { produce: instanceProduce },
-    installation: {
-      consume: { priceAggregator },
-    },
   },
   {
     options: {
@@ -121,10 +117,15 @@ export const createPriceFeed = async (
 
   const timer = await chainTimerService;
 
-  const [brandIn, brandOut] = await reserveThenGetNames(
-    E(agoricNamesAdmin).lookupAdmin('oracleBrand'),
-    [IN_BRAND_NAME, OUT_BRAND_NAME],
-  );
+  const [[brandIn, brandOut], [priceAggregator]] = await Promise.all([
+    reserveThenGetNames(E(agoricNamesAdmin).lookupAdmin('oracleBrand'), [
+      IN_BRAND_NAME,
+      OUT_BRAND_NAME,
+    ]),
+    reserveThenGetNames(E(agoricNamesAdmin).lookupAdmin('installation'), [
+      'priceAggregator',
+    ]),
+  ]);
 
   const terms = {
     ...contractTerms,
