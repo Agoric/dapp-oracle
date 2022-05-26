@@ -60,8 +60,8 @@ export const makeFluxNotifier = async (
   let currentRound;
 
   // Start a fresh query if we don't already have one.
-  const triggerQuery = async () => {
-    if (!querying) {
+  const triggerQuery = async (fromPollTimer) => {
+    if (!querying or fromPollTimer) {
       const thisQuery = E(oracleHandler)
         .onQuery(query, fee)
         .then(({ reply }) => reply)
@@ -104,7 +104,7 @@ export const makeFluxNotifier = async (
           // A different piece already started a new round.
           return;
         }
-        const data2 = await triggerQuery();
+        const data2 = await triggerQuery(false);
         submitToCurrentRound(data2, preRound);
       });
   };
@@ -149,7 +149,7 @@ export const makeFluxNotifier = async (
 
         // Trigger a query for this round.
         currentRound = round;
-        const data = await triggerQuery();
+        const data = await triggerQuery(false);
         submitToCurrentRound(data, round);
       },
     });
@@ -160,14 +160,14 @@ export const makeFluxNotifier = async (
     observeIteration(pollIterable, {
       async updateState(_tick) {
         const preRound = currentRound;
-        const data = await triggerQuery();
+        const data = await triggerQuery(true);
         startNewRoundIfDeviated(data, preRound);
       },
     });
   }
 
   // Trigger the first query and wait for its response.
-  const data = await triggerQuery();
+  const data = await triggerQuery(false);
   submitToCurrentRound(data, currentRound);
 
   return fluxNotifier;
