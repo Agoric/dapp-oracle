@@ -61,7 +61,7 @@ export const makeFluxNotifier = async (
 
   // Start a fresh query if we don't already have one.
   const triggerQuery = async (fromPollTimer) => {
-    if (!querying or fromPollTimer) {
+    if (!querying || fromPollTimer) {
       const thisQuery = E(oracleHandler)
         .onQuery(query, fee)
         .then(({ reply }) => reply)
