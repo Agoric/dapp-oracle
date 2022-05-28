@@ -19,8 +19,14 @@ x-postgres-def:
     - "POSTGRES_HOST_AUTH_METHOD=trust"
 x-ag-solo-node-def:
   &ag-solo-node-def
-  image: agoric/cosmic-swingset-solo:${SDK_TAG:-latest}
+  image: agoric/agoric-sdk:${SDK_TAG:-latest}
+  entrypoint: ag-solo
   restart: on-failure
+  working_dir: /data/solo
+  environment:
+    - "AG_SOLO_BASEDIR=chainlink"
+    - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
+    - "DEBUG=SwingSet:vat,SwingSet:ls"
 x-external-initiator-def:
   &external-initiator-def
   # image: smartcontract/external-initiator
@@ -53,12 +59,7 @@ services:
     ports:
       - "127.0.0.1:6891:6891"
     command: 'setup --webport=6891 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
-    environment:
-      - "AG_SOLO_BASEDIR=chainlink"
-      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
-      - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
-      - 'ag1:/usr/src/app/solo'
       - 'ag1:/data/solo'
       - '$HOME/.agoric:/root/.agoric'
       - '..:/usr/src/dapp-oracle'
@@ -70,7 +71,7 @@ services:
     environment:
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node1_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node1_1:6688/"
-    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node1_1:6891/api/oracle\"}'
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node1_1:6891/api/oracle\"} --cl_timeout 30s'
     env_file:
       - ./external_initiator1.env
   agoric-adapter1:
@@ -99,12 +100,7 @@ services:
     ports:
       - "127.0.0.1:6892:6892"
     command: 'setup --webport=6892 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
-    environment:
-      - "AG_SOLO_BASEDIR=chainlink"
-      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
-      - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
-      - 'ag2:/usr/src/app/solo'
       - 'ag2:/data/solo'
       - '$HOME/.agoric:/root/.agoric'
       - '..:/usr/src/dapp-oracle'
@@ -116,7 +112,7 @@ services:
     environment:
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node2_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node2_1:6688/"
-    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node2_1:6892/api/oracle\"}'
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node2_1:6892/api/oracle\"} --cl_timeout 30s'
     env_file:
       - ./external_initiator2.env
   agoric-adapter2:
@@ -145,12 +141,7 @@ services:
     ports:
       - "127.0.0.1:6893:6893"
     command: 'setup --webport=6893 --webhost=0.0.0.0 --netconfig=${AG_NETWORK_CONFIG}'
-    environment:
-      - "AG_SOLO_BASEDIR=chainlink"
-      - "AG_NETWORK_CONFIG=${AG_NETWORK_CONFIG}"
-      - "DEBUG=SwingSet:vat,SwingSet:ls"
     volumes:
-      - 'ag3:/usr/src/app/solo'
       - 'ag3:/data/solo'
       - '$HOME/.agoric:/root/.agoric'
       - '..:/usr/src/dapp-oracle'
@@ -162,7 +153,7 @@ services:
     environment:
       - "EI_DATABASEURL=postgresql://ei@chainlink-agoric_postgres-node3_1:5432/ei?sslmode=disable"
       - "EI_CHAINLINKURL=http://chainlink-agoric_chainlink-node3_1:6688/"
-    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node3_1:6893/api/oracle\"}'
+    command: '{\"name\":\"agoric-node\",\"type\":\"agoric\",\"url\":\"ws://chainlink-agoric_ag-solo-node3_1:6893/api/oracle\"} --cl_timeout 30s'
     env_file:
       - ./external_initiator3.env
   agoric-adapter3:
