@@ -25,13 +25,13 @@
     "prettier": "^2.0.2"
   },
   "dependencies": {
-    "@agoric/assert": "dev",
+    "@agoric/assert": "beta",
     "@agoric/babel-parser": "^7.6.4",
-    "@agoric/ertp": "dev",
+    "@agoric/ertp": "beta",
     "@agoric/far": "dev",
-    "@agoric/notifier": "dev",
-    "@agoric/store": "dev",
-    "@agoric/zoe": "dev",
+    "@agoric/notifier": "beta",
+    "@agoric/store": "beta",
+    "@agoric/zoe": "beta",
     "esm": "^3.2.5"
   },
   "ava": {
