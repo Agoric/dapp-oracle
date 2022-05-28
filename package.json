@@ -22,8 +22,8 @@
     "eslint-plugin-react": "^7.18.0",
     "eslint-plugin-react-hooks": "^2.3.0",
     "prettier": "^1.18.2",
-    "@agoric/solo": "dev",
-    "@agoric/cosmic-swingset": "dev"
+    "@agoric/solo": "beta",
+    "@agoric/cosmic-swingset": "beta"
   },
   "scripts": {
     "OFF-clean": "yarn workspaces run clean",
@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@agoric/babel-parser": "^7.6.4",
-    "agoric": "dev",
+    "agoric": "beta",
     "babel-eslint": ">=11.0.0-beta.2",
     "eslint-plugin-eslint-comments": "^3.1.2"
   },
