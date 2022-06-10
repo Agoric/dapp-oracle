@@ -1,40 +1,8 @@
 import { E } from '@endo/far';
 import { makeIssuerKit } from '@agoric/ertp';
 
+const { details: X } = assert;
 const t = true;
-
-// Return the manifest, installations, and options.
-export const getManifestForPriceFeed = async ({ restoreRef }, options) => ({
-  manifest: {
-    createPriceFeed: {
-      consume: {
-        aggregators: t,
-        agoricNamesAdmin: t,
-        chainTimerService: t,
-        client: t,
-        namesByAddress: t,
-        priceAuthority: t,
-        priceAuthorityAdmin: t,
-        zoe: t,
-      },
-      produce: { aggregators: t },
-      instance: { produce: { [options.AGORIC_INSTANCE_NAME]: t } },
-    },
-    ensureOracleBrands: {
-      consume: {
-        agoricNamesAdmin: t,
-      },
-    },
-  },
-  installations: {
-    priceAggregator: restoreRef(options.priceAggregatorRef),
-  },
-  options: {
-    ...options,
-    brandIn: restoreRef(options.brandInRef),
-    brandOut: restoreRef(options.brandOutRef),
-  },
-});
 
 const reserveThenGetNames = async (nameAdmin, names) => {
   for (const name of names) {
@@ -90,7 +58,7 @@ export const createPriceFeed = async (
   {
     consume: {
       agoricNamesAdmin,
-      aggregators,
+      aggregators: aggregatorsP,
       chainTimerService,
       client,
       namesByAddress,
@@ -99,72 +67,102 @@ export const createPriceFeed = async (
       zoe,
     },
     produce: { aggregators: produceAggregators },
-    instance: { produce: instanceProduce },
   },
   {
     options: {
       AGORIC_INSTANCE_NAME,
-      oracleAddresses,
+      deleteOracleAddresses = [],
+      oracleAddresses = [],
       contractTerms,
+      priceAggregatorRef,
       IN_BRAND_NAME,
       OUT_BRAND_NAME,
     },
   },
 ) => {
-  // Default to an empty Map and home.priceAuthority.
-  produceAggregators.resolve(new Map());
-  E(client).assignBundle([_addr => ({ priceAuthority })]);
+  const [brandIn, brandOut] = await reserveThenGetNames(
+    E(agoricNamesAdmin).lookupAdmin('oracleBrand'),
+    [IN_BRAND_NAME, OUT_BRAND_NAME],
+  );
 
-  const timer = await chainTimerService;
+  const provideAggregator = async () => {
+    if (!priceAggregatorRef) {
+      const aggregators = await aggregatorsP;
 
-  const [[brandIn, brandOut], [priceAggregator]] = await Promise.all([
-    reserveThenGetNames(E(agoricNamesAdmin).lookupAdmin('oracleBrand'), [
-      IN_BRAND_NAME,
-      OUT_BRAND_NAME,
-    ]),
-    reserveThenGetNames(E(agoricNamesAdmin).lookupAdmin('installation'), [
-      'priceAggregator',
-    ]),
-  ]);
+      // Find the latest aggregator with these brands.
+      const entry = [...aggregators.entries().reverse()].find(
+        ([{ brandIn: bin, brandOut: bout }]) =>
+          bin === brandIn && bout === brandOut,
+      );
 
-  const terms = {
-    ...contractTerms,
-    description: AGORIC_INSTANCE_NAME,
-    brandIn,
-    brandOut,
-    timer,
+      assert(entry, X`No aggregator found for brand ${brandIn}, ${brandOut}`);
+      const [{ AGORIC_INSTANCE_NAME: actualName }, { aggregator }] = entry;
+      return { actualName, aggregator };
+    }
+
+    // Default to an empty Map and home.priceAuthority.
+    produceAggregators.resolve(new Map());
+    const timer = await chainTimerService;
+
+    const [priceAggregator] = await Promise.all([
+      reserveThenGetNames(E(agoricNamesAdmin).lookupAdmin('installation'), [
+        'priceAggregator',
+      ]),
+    ]);
+
+    const terms = {
+      ...contractTerms,
+      description: AGORIC_INSTANCE_NAME,
+      brandIn,
+      brandOut,
+      timer,
+    };
+
+    // Create the price feed.
+    const aggregator = await E(zoe).startInstance(
+      priceAggregator,
+      undefined,
+      terms,
+    );
+
+    const aggregators = await aggregatorsP;
+    aggregators.set(terms, { aggregator });
+    if (aggregators.size === 1) {
+      E(client).assignBundle([_addr => ({ priceAuthority })]);
+    }
+
+    // Publish price feed in home.priceAuthority.
+    const forceReplace = true;
+    await E(priceAuthorityAdmin)
+      .registerPriceAuthority(
+        E(aggregator.publicFacet).getPriceAuthority(),
+        brandIn,
+        brandOut,
+        forceReplace,
+      )
+      .then(deleter => E(aggregatorsP).set(terms, { aggregator, deleter }));
+
+    return { actualName: AGORIC_INSTANCE_NAME, aggregator };
   };
 
-  // Create the price feed.
-  const aggregator = await E(zoe).startInstance(
-    priceAggregator,
-    undefined,
-    terms,
-  );
-  E(aggregators).set(terms, { aggregator });
+  const { actualName, aggregator } = await provideAggregator();
 
-  // TODO: Make this publish even though the instance is not reserved.
-  instanceProduce[AGORIC_INSTANCE_NAME].resolve(aggregator.instance);
-
-  // FIXME: Without instanceProduce publish support, this puts an instance in
-  // agoricNames for clients to find.
-  E(E(agoricNamesAdmin).lookupAdmin('instance')).update(
-    AGORIC_INSTANCE_NAME,
+  // Ensure we have an agoricName for this instance.
+  await E(E(agoricNamesAdmin).lookupAdmin('instance')).update(
+    actualName,
     aggregator.instance,
   );
 
-  // Publish price feed in home.priceAuthority.
-  const forceReplace = true;
-  E(priceAuthorityAdmin)
-    .registerPriceAuthority(
-      E(aggregator.publicFacet).getPriceAuthority(),
-      brandIn,
-      brandOut,
-      forceReplace,
-    )
-    .then(deleter => E(aggregators).set(terms, { aggregator, deleter }));
+  // Remove the old oracles first, so we can re-add if requested.
+  await Promise.all(
+    deleteOracleAddresses.map(async oracleAddress =>
+      E(aggregator.creatorFacet)
+        .deleteOracle(oracleAddress)
+        .catch(e => console.error('Cannot deleteOracle', oracleAddress, e)),
+    ),
+  );
 
-  // Send the invitations to the oracles.
+  // Send the invitations to new oracles, and remove old ones.
   await Promise.all(
     oracleAddresses.map(async oracleAddress => {
       const depositFacet = E(namesByAddress).lookup(
@@ -179,3 +177,37 @@ export const createPriceFeed = async (
     }),
   );
 };
+
+// Return the manifest, installations, and options.
+export const getManifestForPriceFeed = async ({ restoreRef }, options) => ({
+  manifest: {
+    [createPriceFeed.name]: {
+      consume: {
+        aggregators: t,
+        agoricNamesAdmin: t,
+        chainTimerService: t,
+        client: t,
+        namesByAddress: t,
+        priceAuthority: t,
+        priceAuthorityAdmin: t,
+        zoe: t,
+      },
+      produce: { aggregators: t },
+    },
+    [ensureOracleBrands.name]: {
+      consume: {
+        agoricNamesAdmin: t,
+      },
+    },
+  },
+  ...(options.priceAggregatorRef && {
+    installations: {
+      priceAggregator: restoreRef(options.priceAggregatorRef),
+    },
+  }),
+  options: {
+    ...options,
+    brandIn: restoreRef(options.brandInRef),
+    brandOut: restoreRef(options.brandOutRef),
+  },
+});

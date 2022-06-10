@@ -15,6 +15,7 @@ export const makeCoreProposalBuilder = ({
   brandIn,
   brandOut,
   contractTerms = DEFAULT_CONTRACT_TERMS,
+  AGGREGATOR_INSTANCE_NAME,
   ...optionsRest
 } = {}) => async ({ publishRef, install }) =>
   harden({
@@ -24,14 +25,17 @@ export const makeCoreProposalBuilder = ({
       {
         ...optionsRest,
         contractTerms,
+        AGGREGATOR_INSTANCE_NAME,
         brandInRef: publishRef(brandIn),
         brandOutRef: publishRef(brandOut),
-        priceAggregatorRef: publishRef(
-          install(
-            '@agoric/zoe/src/contracts/priceAggregator.js',
-            '../bundles/bundle-priceAggregator.js',
+        ...(AGGREGATOR_INSTANCE_NAME && {
+          priceAggregatorRef: publishRef(
+            install(
+              '@agoric/zoe/src/contracts/priceAggregator.js',
+              '../bundles/bundle-priceAggregator.js',
+            ),
           ),
-        ),
+        }),
       },
     ],
   });
@@ -46,12 +50,13 @@ export const createGov = async (homeP, endowments) => {
     OUT_BRAND_DECIMALS,
     OUT_BRAND_LOOKUP = JSON.stringify(['agoricNames', 'oracleBrand', 'USD']),
     ORACLE_ADDRESSES,
+    DELETE_ORACLE_ADDRESSES,
   } = process.env;
 
-  assert(AGORIC_INSTANCE_NAME, 'AGORIC_INSTANCE_NAME is required');
-  assert(ORACLE_ADDRESSES, 'ORACLE_ADDRESSES is required');
-
-  const oracleAddresses = ORACLE_ADDRESSES.split(',');
+  const oracleAddresses = ORACLE_ADDRESSES ? ORACLE_ADDRESSES.split(',') : [];
+  const deleteOracleAddresses = DELETE_ORACLE_ADDRESSES
+    ? DELETE_ORACLE_ADDRESSES.split(',')
+    : [];
 
   const { writeCoreProposal } = await makeHelpers(homeP, endowments);
 
@@ -65,6 +70,7 @@ export const createGov = async (homeP, endowments) => {
     IN_BRAND_NAME: inLookup[inLookup.length - 1],
     OUT_BRAND_NAME: outLookup[outLookup.length - 1],
     oracleAddresses,
+    deleteOracleAddresses,
     brandIn: lookup(inLookup).catch(() => undefined),
     brandOut: lookup(outLookup).catch(() => undefined),
   });

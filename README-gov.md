@@ -31,6 +31,16 @@ OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
 agoric deploy api/scripts/init-core.js
 ```
 
+If you need to change an existing oracle membership, use something like:
+
+```sh
+DELETE_ORACLE_ADDRESSES=agoric1...,agoric1... \
+ORACLE_ADDRESSES=agoric1...,agoric1...,agoric1... \
+IN_BRAND_LOOKUP='["agoricNames","oracleBrand","ATOM"]' \
+OUT_BRAND_LOOKUP='["agoricNames","oracleBrand","USD"]' \
+agoric deploy api/scripts/init-core.js
+```
+
 3. Submit the proposal to the chain as described by the above command.
 
 4. Wait for proposal voting to pass.
