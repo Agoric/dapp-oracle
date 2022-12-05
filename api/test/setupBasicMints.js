@@ -19,8 +19,6 @@ const setup = () => {
   }
 
   const { zoeService } = makeZoeKit(fakeVatAdmin);
-  const feePurse = E(zoeService).makeFeePurse();
-  const zoe = E(zoeService).bindDefaultFeePurse(feePurse);
 
   return harden({
     moolaIssuer: moolaBundle.issuer,
@@ -39,7 +37,7 @@ const setup = () => {
     moola: value => AmountMath.make(moolaBundle.brand, value),
     simoleans: value => AmountMath.make(simoleanBundle.brand, value),
     bucks: value => AmountMath.make(bucksBundle.brand, value),
-    zoe,
+    zoe: zoeService,
   });
 };
 harden(setup);
